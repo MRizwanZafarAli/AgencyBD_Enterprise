@@ -244,9 +244,12 @@ def hunt(category: str, city: str, limit: int = 20, provider: Optional[str] = No
     results.sort(key=lambda r: r["score"], reverse=True)
     notes = (["OpenStreetMap is community-mapped: 'no website' here means none is recorded, not proven. Check the business before pitching."]
              if provider == "osm" else [])
+    expanded = places.expand_search_terms(category)
+    if provider == "osm" and len(expanded) > 1 and len(results) > 0 and category.lower() != expanded[1]:
+        clean_syns = [s.title() for s in expanded[1:4]]
+        notes.append(f"Directory Semantic Mapping: Matched '{category}' with local {', '.join(clean_syns)} providers in {city}.")
     if provider == "osm" and not results:
-        notes.append("OpenStreetMap has little or no data for this category in this city (trades and small services are often unmapped). "
-                     "Try restaurant, dentist, cafe, hotel or salon, or set GOOGLE_PLACES_API_KEY for full coverage.")
+        notes.append(f"OpenStreetMap has no direct records for '{category}' in {city}. Try selecting a primary target category like Clinic, Dentist, Software Agency, or Contractor.")
     return {
         "provider": provider,
         "category": category,

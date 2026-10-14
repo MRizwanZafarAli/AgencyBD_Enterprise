@@ -4,7 +4,7 @@ Only fields needed for classification are requested (billing follows the most ex
 is stored, as Google's terms restrict caching of Places content. Fixed vendor host."""
 
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import requests
 
@@ -108,6 +108,54 @@ def parse_nominatim(rows: list, category: str, fallback_lat: Optional[float] = N
     return out
 
 
+SEMANTIC_CATEGORY_MAP: Dict[str, List[str]] = {
+    "healthtech": ["medical clinic", "clinic", "health center", "doctor", "hospital", "healthcare"],
+    "medtech": ["medical clinic", "clinic", "health center", "doctor", "hospital"],
+    "telehealth": ["medical clinic", "clinic", "health center", "doctor"],
+    "healthcare": ["medical clinic", "clinic", "health center", "doctor", "hospital"],
+    "dental": ["dentist", "dental clinic", "orthodontist"],
+    "dentistry": ["dentist", "dental clinic"],
+    "fintech": ["financial", "bank", "accounting", "accountant", "investment", "tax"],
+    "finance": ["financial", "bank", "accounting", "accountant", "investment"],
+    "wealth": ["financial", "bank", "investment", "accounting"],
+    "proptech": ["real estate", "estate agent", "property management"],
+    "real estate": ["real estate", "estate agent", "property management"],
+    "edtech": ["education", "school", "college", "tutoring", "academy"],
+    "education": ["school", "college", "tutoring", "training"],
+    "software agency": ["software", "it services", "computer", "web design", "marketing"],
+    "ai agency": ["software", "it services", "computer", "consulting", "technology"],
+    "dev agency": ["software", "it services", "web design", "computer"],
+    "it agency": ["software", "it services", "computer"],
+    "contractors": ["contractor", "roofing", "plumber", "electrician", "construction", "hvac"],
+    "contractor": ["contractor", "roofing", "plumber", "electrician", "construction", "hvac"],
+    "trades": ["plumber", "electrician", "roofing", "contractor", "hvac"],
+    "roofing": ["roofing", "contractor", "construction"],
+    "hvac": ["hvac", "contractor", "electrician"],
+    "ecommerce": ["boutique", "shop", "clothing", "store", "retail"],
+    "retail": ["boutique", "shop", "clothing", "store"],
+    "d2c": ["boutique", "shop", "clothing", "store"],
+    "legal": ["lawyer", "attorney", "law firm", "legal"],
+    "law firm": ["lawyer", "attorney", "law firm", "legal"],
+    "marketing": ["marketing", "advertising", "public relations"],
+}
+
+
+def expand_search_terms(query: str) -> List[str]:
+    q = (query or "").lower().strip()
+    terms = [q]
+    if q in SEMANTIC_CATEGORY_MAP:
+        for t in SEMANTIC_CATEGORY_MAP[q]:
+            if t not in terms:
+                terms.append(t)
+    else:
+        for key, syns in SEMANTIC_CATEGORY_MAP.items():
+            if key in q or q in key:
+                for t in syns:
+                    if t not in terms:
+                        terms.append(t)
+    return terms
+
+
 def search_osm(category: str, city: str, limit: int = 20) -> list:
     """Free universal provider (OpenStreetMap Nominatim, zero API key required)."""
     geo = geocode_city(city)
@@ -116,29 +164,36 @@ def search_osm(category: str, city: str, limit: int = 20) -> list:
 
     items: list = []
     seen = set()
+    terms = expand_search_terms(category)
 
-    # Strategy 1: If bounding box is available, perform bounded high-precision search
-    if geo and geo.get("bbox"):
-        bbox = geo["bbox"]  # [south, north, west, east]
-        s, n, w, e = bbox[0], bbox[1], bbox[2], bbox[3]
-        try:
-            resp = requests.get(NOMINATIM, headers={"User-Agent": OSM_UA}, timeout=15, params={
-                "q": category, "viewbox": f"{w},{n},{e},{s}", "bounded": 1, "format": "jsonv2",
-                "extratags": 1, "addressdetails": 1, "limit": max(limit * 2, 20)})
-            if resp.status_code == 200:
-                for row in resp.json():
-                    pid = f"{row.get('osm_type')}_{row.get('osm_id')}"
-                    if pid not in seen:
-                        seen.add(pid)
-                        items.append(row)
-        except Exception:
-            pass
+    for term in terms:
+        if len(items) >= limit:
+            break
 
-    # Strategy 2: Text search with city anchor
-    if len(items) < limit:
+        # Strategy 1: If bounding box is available, perform bounded high-precision search
+        if geo and geo.get("bbox"):
+            bbox = geo["bbox"]  # [south, north, west, east]
+            s, n, w, e = bbox[0], bbox[1], bbox[2], bbox[3]
+            try:
+                resp = requests.get(NOMINATIM, headers={"User-Agent": OSM_UA}, timeout=15, params={
+                    "q": term, "viewbox": f"{w},{n},{e},{s}", "bounded": 1, "format": "jsonv2",
+                    "extratags": 1, "addressdetails": 1, "limit": max(limit * 2, 20)})
+                if resp.status_code == 200:
+                    for row in resp.json():
+                        pid = f"{row.get('osm_type')}_{row.get('osm_id')}"
+                        if pid not in seen:
+                            seen.add(pid)
+                            items.append(row)
+            except Exception:
+                pass
+
+        if len(items) >= limit:
+            break
+
+        # Strategy 2: Text search with city anchor
         try:
             resp = requests.get(NOMINATIM, headers={"User-Agent": OSM_UA}, timeout=20, params={
-                "q": f"{category} in {city}", "format": "jsonv2", "extratags": 1, "addressdetails": 1,
+                "q": f"{term} in {city}", "format": "jsonv2", "extratags": 1, "addressdetails": 1,
                 "limit": min(max(limit * 2, 10), 40)})
             if resp.status_code == 200:
                 for row in resp.json():
@@ -150,3 +205,4 @@ def search_osm(category: str, city: str, limit: int = 20) -> list:
             pass
 
     return parse_nominatim(items, category, fallback_lat=fallback_lat, fallback_lon=fallback_lon)[:limit]
+

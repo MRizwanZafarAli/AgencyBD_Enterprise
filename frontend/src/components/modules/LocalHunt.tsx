@@ -101,6 +101,18 @@ const ADVISOR_PRESETS = [
   { label: '🏦 FinTech & Wealth Management ($50k–$150k)', query: 'Private wealth advisory, boutique asset management, and fintech' },
 ];
 
+const mapSectorToSearchCategory = (sectorStr: string): string => {
+  const s = (sectorStr || '').toLowerCase();
+  if (s.includes('health') || s.includes('medical') || s.includes('telehealth') || s.includes('clinic') || s.includes('doctor')) return 'medical clinic';
+  if (s.includes('dent')) return 'dentist';
+  if (s.includes('contract') || s.includes('roof') || s.includes('hvac') || s.includes('trade')) return 'contractor';
+  if (s.includes('fintech') || s.includes('wealth') || s.includes('asset') || s.includes('finance')) return 'accounting';
+  if (s.includes('ecom') || s.includes('shop') || s.includes('retail') || s.includes('brand')) return 'boutique';
+  if (s.includes('law') || s.includes('legal') || s.includes('attorney')) return 'law firm';
+  if (s.includes('soft') || s.includes('ai') || s.includes('cloud') || s.includes('agency')) return 'software agency';
+  return s.split(' ')[0] || 'software agency';
+};
+
 export const LocalHunt: FC = () => {
   const { theme } = useTheme();
   const [category, setCategory] = useState('dentist');
@@ -658,7 +670,7 @@ export const LocalHunt: FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
                   {(advisorResult.top_recommended_geos || []).map((geo: any, i: number) => {
                     const primaryCity = geo.cities[0];
-                    const detectedNiche = (advisorResult.detected_market_sector || '').split(' ')[0].toLowerCase() || 'agency';
+                    const detectedNiche = mapSectorToSearchCategory(advisorResult.detected_market_sector || '');
                     return (
                       <div key={i} className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-2 flex flex-col justify-between">
                         <div>
