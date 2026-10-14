@@ -3,7 +3,8 @@ import type { FC, FormEvent } from 'react';
 import {
   MapPin, Phone, Star, ExternalLink, Search, BookmarkPlus, Check, Sparkles,
   Globe, Compass, Copy, SlidersHorizontal, Zap, Building2,
-  ShieldCheck, X, Layers, AlertTriangle, Download, Send, CheckCircle2
+  ShieldCheck, X, Layers, AlertTriangle, Download, Send, CheckCircle2,
+  TrendingUp, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
 import { ErrorBanner } from '../shared/ErrorBanner';
@@ -92,6 +93,14 @@ const POPULAR_CATEGORIES = [
   'plumber',
 ];
 
+const ADVISOR_PRESETS = [
+  { label: '💎 High-Budget Enterprise ($25k–$75k)', query: 'Enterprise software, AWS cloud modernization, and database migration' },
+  { label: '🏥 High-Ticket Clinics & HealthTech ($15k–$40k)', query: 'Private cosmetic dentistry, medical clinics, and HIPAA patient portals' },
+  { label: '🏠 High-Margin Contractors & Trades ($5k–$15k)', query: 'Commercial roofing, HVAC, and luxury home remodeling firms' },
+  { label: '🛍️ High-Volume eCommerce Speed ($10k–$30k)', query: 'Shopify DTC fashion and beauty brands with slow checkout TTFB' },
+  { label: '🏦 FinTech & Wealth Management ($50k–$150k)', query: 'Private wealth advisory, boutique asset management, and fintech' },
+];
+
 export const LocalHunt: FC = () => {
   const { theme } = useTheme();
   const [category, setCategory] = useState('dentist');
@@ -115,6 +124,13 @@ export const LocalHunt: FC = () => {
   const [enrolling, setEnrolling] = useState<Record<string, boolean>>({});
   const [enrolled, setEnrolled] = useState<Record<string, boolean>>({});
   const [enrollMessage, setEnrollMessage] = useState('');
+
+  // Market Intelligence & High-Yield Region Advisor state
+  const [advisorOpen, setAdvisorOpen] = useState(false);
+  const [advisorQuery, setAdvisorQuery] = useState('');
+  const [advisorLoading, setAdvisorLoading] = useState(false);
+  const [advisorResult, setAdvisorResult] = useState<any>(null);
+  const [advisorError, setAdvisorError] = useState('');
 
   // Leaflet Map state
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -267,8 +283,37 @@ export const LocalHunt: FC = () => {
     }
   }, [data, filterType, minScore, searchQuery, scanRadiusKm, theme]);
 
-  const search = async (e?: FormEvent) => {
+  const askAdvisor = async (promptQuery?: string) => {
+    const queryToUse = promptQuery || advisorQuery;
+    if (!queryToUse.trim()) return;
+    setAdvisorLoading(true);
+    setAdvisorError('');
+    try {
+      const res = await apiFetch('/api/intelligence/recommend_markets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_demand: queryToUse,
+          ticket_size: '$10k-$50k'
+        })
+      });
+      const resData = await res.json();
+      if (!res.ok) throw new Error(apiErrorMessage(res.status, resData));
+      setAdvisorResult(resData);
+    } catch (err) {
+      setAdvisorError(err instanceof Error ? err.message : 'Could not query market intelligence');
+    } finally {
+      setAdvisorLoading(false);
+    }
+  };
+
+  const search = async (e?: FormEvent, overrideCategory?: string, overrideCity?: string) => {
     if (e) e.preventDefault();
+    const targetCategory = overrideCategory !== undefined ? overrideCategory : category;
+    const targetCity = overrideCity !== undefined ? overrideCity : city;
+    if (overrideCategory !== undefined) setCategory(overrideCategory);
+    if (overrideCity !== undefined) setCity(overrideCity);
+
     setError('');
     setLoading(true);
     setData(null);
@@ -278,7 +323,7 @@ export const LocalHunt: FC = () => {
       const res = await apiFetch('/api/hunt/local', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category, city, limit, provider: provider || null }),
+        body: JSON.stringify({ category: targetCategory, city: targetCity, limit, provider: provider || null }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(apiErrorMessage(res.status, body));
@@ -478,28 +523,188 @@ export const LocalHunt: FC = () => {
           </p>
         </div>
 
-        {/* View Mode Controls */}
-        <div className="flex items-center gap-1 bg-slate-900/80 p-1 border border-slate-800 rounded-xl self-start">
+        {/* View Mode Controls and Advisor Toggle */}
+        <div className="flex items-center gap-2 self-start flex-wrap">
           <button
-            onClick={() => setViewMode('split')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${viewMode === 'split' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            type="button"
+            onClick={() => setAdvisorOpen(!advisorOpen)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-indigo-500/20 to-cyan-500/20 hover:from-amber-500/30 hover:to-indigo-500/30 text-amber-300 border border-amber-500/30 text-xs font-semibold shadow-sm transition"
           >
-            <Layers className="h-3.5 w-3.5" /> Split View
+            <TrendingUp className="h-3.5 w-3.5 text-amber-400" />
+            <span>🧭 AI Market &amp; Profit Advisor</span>
+            {advisorOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           </button>
-          <button
-            onClick={() => setViewMode('map')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${viewMode === 'map' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
-          >
-            <Compass className="h-3.5 w-3.5" /> Map Only
-          </button>
-          <button
-            onClick={() => setViewMode('cards')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${viewMode === 'cards' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
-          >
-            <Building2 className="h-3.5 w-3.5" /> Cards Only
-          </button>
+
+          <div className="flex items-center gap-1 bg-slate-900/80 p-1 border border-slate-800 rounded-xl">
+            <button
+              onClick={() => setViewMode('split')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${viewMode === 'split' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            >
+              <Layers className="h-3.5 w-3.5" /> Split View
+            </button>
+            <button
+              onClick={() => setViewMode('map')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${viewMode === 'map' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            >
+              <Compass className="h-3.5 w-3.5" /> Map Only
+            </button>
+            <button
+              onClick={() => setViewMode('cards')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${viewMode === 'cards' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            >
+              <Building2 className="h-3.5 w-3.5" /> Cards Only
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Expandable Market Intelligence & Profit Advisory Panel */}
+      {advisorOpen && (
+        <div className="glass-panel rounded-2xl p-5 border border-amber-500/30 space-y-4 animate-fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
+                  MARKET INTELLIGENCE CO-PILOT
+                </span>
+                <span className="text-xs font-semibold text-white">Where are the highest-budget clients right now?</span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                Don&apos;t guess where to prospect. Pick a proven high-ticket niche or ask our model to identify high-converting global regions with capital budget:
+              </p>
+            </div>
+            <span className="text-[11px] font-mono text-slate-400 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
+              Live Capital Flow &amp; Cycle Engine
+            </span>
+          </div>
+
+          {/* Quick High-Yield Strategy Chips */}
+          <div className="space-y-1.5">
+            <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">Top High-Margin Agency Niches (Click to Auto-Analyze):</span>
+            <div className="flex flex-wrap gap-2">
+              {ADVISOR_PRESETS.map((p, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setAdvisorQuery(p.query);
+                    askAdvisor(p.query);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-200 border border-slate-750 text-xs font-medium transition flex items-center gap-1.5 shadow-sm"
+                >
+                  <span>{p.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Custom Query Input */}
+          <div className="flex gap-2">
+            <input
+              value={advisorQuery}
+              onChange={(e) => setAdvisorQuery(e.target.value)}
+              placeholder="Ask anything: e.g. 'I want to build booking websites for cosmetic dentists and clinics in wealthy US cities'"
+              className="flex-1 bg-slate-900 border border-slate-750 rounded-xl px-3.5 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-500"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  askAdvisor();
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => askAdvisor()}
+              disabled={advisorLoading || !advisorQuery.trim()}
+              className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-amber-600/20 transition"
+            >
+              {advisorLoading ? <Zap className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              <span>{advisorLoading ? 'Analyzing Capital Cycles…' : 'Analyze High-Yield Markets'}</span>
+            </button>
+          </div>
+
+          {advisorError && (
+            <div className="p-3 rounded-xl bg-amber-950/30 border border-amber-500/30 text-xs text-amber-200">{advisorError}</div>
+          )}
+
+          {/* Advisory Intelligence Output */}
+          {advisorResult && (
+            <div className="rounded-xl bg-slate-950/90 border border-indigo-500/30 p-4 space-y-3 text-xs animate-pop">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-800">
+                <div className="space-y-0.5">
+                  <div className="text-[11px] font-mono text-indigo-400 uppercase tracking-wider">Detected High-Ticket Sector</div>
+                  <div className="text-sm font-bold text-white flex items-center gap-2">
+                    <span>{advisorResult.detected_market_sector}</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-300 font-bold">
+                      {advisorResult.ticket_size} Typical Deal
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right sm:text-right">
+                  <span className="text-[11px] font-mono text-slate-400">Territory Match:</span>
+                  <div className="text-emerald-400 font-bold font-mono text-sm">
+                    {advisorResult.primary_target?.opportunity_score}% Opportunity Score
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-slate-300 leading-relaxed text-xs">
+                {advisorResult.market_research_summary}
+              </p>
+
+              {/* Recommended Top Geos with 1-Click Map Hunt Buttons */}
+              <div className="space-y-2 pt-1">
+                <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">Recommended Prime Regions (Click to Scan Immediately):</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {(advisorResult.top_recommended_geos || []).map((geo: any, i: number) => {
+                    const primaryCity = geo.cities[0];
+                    const detectedNiche = (advisorResult.detected_market_sector || '').split(' ')[0].toLowerCase() || 'agency';
+                    return (
+                      <div key={i} className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-2 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-white text-xs">{primaryCity}, {geo.state || geo.country}</span>
+                            <span className="text-[11px] font-mono text-emerald-400 font-bold">{geo.score}%</span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-1 line-clamp-2 leading-relaxed">{geo.rationale}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newCityStr = `${primaryCity}, ${geo.state ? geo.state : geo.country}`;
+                            setCity(newCityStr);
+                            setCategory(detectedNiche);
+                            setAdvisorOpen(false);
+                            search(undefined, detectedNiche, newCityStr);
+                          }}
+                          className="w-full py-1.5 px-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold flex items-center justify-center gap-1.5 shadow-md shadow-indigo-600/20 transition"
+                        >
+                          <Zap className="h-3 w-3" />
+                          <span>⚡ 1-Click: Hunt {primaryCity}</span>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Regulatory / High-Converting Attack Angles */}
+              {advisorResult.regulatory_attack_angles?.length > 0 && (
+                <div className="pt-2 border-t border-slate-800 flex items-center gap-2 text-[11px] text-slate-400 flex-wrap">
+                  <span className="text-amber-400 font-semibold flex items-center gap-1">
+                    <ShieldCheck className="h-3.5 w-3.5" /> High-Converting Pitch Hooks:
+                  </span>
+                  {advisorResult.regulatory_attack_angles.map((hook: string, idx: number) => (
+                    <span key={idx} className="bg-slate-900 px-2 py-0.5 rounded border border-slate-800 text-slate-300">
+                      • {hook}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Quick Global Markets & Preset Pills */}
       <div className="space-y-2">
@@ -759,6 +964,46 @@ export const LocalHunt: FC = () => {
                         </div>
                       )}
 
+                      {/* 1-Click Physical & Web Verification Badges */}
+                      <div className="flex items-center gap-1.5 text-[11px] pt-0.5 flex-wrap">
+                        <span className="text-slate-500 font-mono text-[10px] uppercase">Verify:</span>
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.name + ' ' + (r.address || city))}`}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          onClick={(e) => e.stopPropagation()}
+                          className="px-2 py-0.5 rounded-md bg-slate-900/90 hover:bg-slate-800 text-sky-400 hover:text-sky-300 border border-slate-800 flex items-center gap-1 transition"
+                          title="Open physical location & Street View in Google Maps"
+                        >
+                          <MapPin className="h-2.5 w-2.5" />
+                          <span>Maps</span>
+                        </a>
+                        <a
+                          href={`https://www.google.com/search?q=${encodeURIComponent(r.name + ' ' + city)}`}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          onClick={(e) => e.stopPropagation()}
+                          className="px-2 py-0.5 rounded-md bg-slate-900/90 hover:bg-slate-800 text-emerald-400 hover:text-emerald-300 border border-slate-800 flex items-center gap-1 transition"
+                          title="Verify business online reputation and reviews on Google"
+                        >
+                          <Globe className="h-2.5 w-2.5" />
+                          <span>Reviews</span>
+                        </a>
+                        {r.website && (
+                          <a
+                            href={r.website}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            onClick={(e) => e.stopPropagation()}
+                            className="px-2 py-0.5 rounded-md bg-slate-900/90 hover:bg-slate-800 text-indigo-400 hover:text-indigo-300 border border-slate-800 flex items-center gap-1 transition truncate max-w-[130px]"
+                            title="Visit website"
+                          >
+                            <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+                            <span className="truncate">{r.website.replace(/^https?:\/\/(www\.)?/, '')}</span>
+                          </a>
+                        )}
+                      </div>
+
                       {/* Card Action Buttons */}
                       <div className="flex items-center justify-between pt-1 border-t border-slate-800/60">
                         <button
@@ -924,6 +1169,72 @@ export const LocalHunt: FC = () => {
             ) : (
               <div className="text-xs text-slate-400">No pitch strategy generated for this candidate.</div>
             )}
+
+            {/* Multi-Platform & Physical Real-Time Verification Suite */}
+            <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-750 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-semibold text-white flex items-center gap-1.5">
+                  <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                  <span>Physical &amp; Multi-Platform Verification (Anti-Ghost Business Check)</span>
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                  Live Real-Time Query
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Confirm this is an active, real-world business before outreach. Verify storefront, reviews, live contact records, and registration across independent platforms:
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedResult.name + ' ' + (selectedResult.address || city))}`}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="p-2.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 flex flex-col items-center justify-center gap-1 text-center transition group"
+                >
+                  <MapPin className="h-4 w-4 text-sky-400 group-hover:scale-110 transition" />
+                  <span className="text-xs font-medium text-slate-200">Google Maps</span>
+                  <span className="text-[10px] text-slate-500">Street View &amp; Location</span>
+                </a>
+                <a
+                  href={`https://www.google.com/search?q=${encodeURIComponent(selectedResult.name + ' ' + (selectedResult.address || city) + ' reviews')}`}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="p-2.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 flex flex-col items-center justify-center gap-1 text-center transition group"
+                >
+                  <Star className="h-4 w-4 text-amber-400 group-hover:scale-110 transition" />
+                  <span className="text-xs font-medium text-slate-200">Google Reviews</span>
+                  <span className="text-[10px] text-slate-500">Reputation &amp; Activity</span>
+                </a>
+                <a
+                  href={selectedResult.lat && selectedResult.lon ? `https://www.openstreetmap.org/?mlat=${selectedResult.lat}&mlon=${selectedResult.lon}#map=18/${selectedResult.lat}/${selectedResult.lon}` : `https://www.openstreetmap.org/search?query=${encodeURIComponent(selectedResult.name + ' ' + city)}`}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="p-2.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 flex flex-col items-center justify-center gap-1 text-center transition group"
+                >
+                  <Globe className="h-4 w-4 text-emerald-400 group-hover:scale-110 transition" />
+                  <span className="text-xs font-medium text-slate-200">OpenStreetMap</span>
+                  <span className="text-[10px] text-slate-500">Spatial GIS Node</span>
+                </a>
+                {selectedResult.website ? (
+                  <a
+                    href={selectedResult.website}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="p-2.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 flex flex-col items-center justify-center gap-1 text-center transition group"
+                  >
+                    <ExternalLink className="h-4 w-4 text-indigo-400 group-hover:scale-110 transition" />
+                    <span className="text-xs font-medium text-slate-200">Live Website</span>
+                    <span className="text-[10px] text-emerald-400 font-mono">DNS Active</span>
+                  </a>
+                ) : (
+                  <div className="p-2.5 rounded-lg bg-slate-950/50 border border-slate-800/50 flex flex-col items-center justify-center gap-1 text-center opacity-60">
+                    <ExternalLink className="h-4 w-4 text-slate-500" />
+                    <span className="text-xs font-medium text-slate-400">No Website</span>
+                    <span className="text-[10px] text-amber-400 font-mono">Top Opportunity</span>
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* Modal Actions */}
             <div className="flex items-center justify-between pt-4 border-t border-slate-800">
