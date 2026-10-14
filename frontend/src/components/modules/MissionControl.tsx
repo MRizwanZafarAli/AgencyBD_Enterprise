@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
-import type { FC } from 'react';
-import { CheckCircle2, AlertTriangle, CircleDashed, ArrowRight, RefreshCw } from 'lucide-react';
+import type { FC, ReactNode } from 'react';
+import {
+  CheckCircle2, AlertTriangle, CircleDashed, ArrowRight, RefreshCw,
+  Radar, Clock, Send, ShieldCheck, Trophy, Calendar, DollarSign, Database, Sparkles
+} from 'lucide-react';
 import type { TabType } from '../../types';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
 import { DigestPanel } from '../shared/DigestPanel';
@@ -17,11 +20,32 @@ const TAB_FOR_CHECK: Record<string, TabType> = {
   portfolio: 'portfolio', services: 'portfolio', mailbox: 'governance', verifier: 'governance', upwork: 'radar', pagespeed: 'doctor'
 };
 
-const Tile: FC<{ label: string; value: string | number | null; hint?: string }> = ({ label, value, hint }) => (
-  <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-    <div className="text-xs text-slate-400">{label}</div>
-    <div className="text-2xl font-extrabold text-white font-mono mt-1">{value === null || value === undefined ? 'n/a' : value}</div>
-    {hint && <div className="text-[11px] text-slate-500 mt-1">{hint}</div>}
+const Tile: FC<{ label: string; value: string | number | null; hint?: string; icon?: ReactNode; accent?: string }> = ({
+  label, value, hint, icon, accent
+}) => (
+  <div className="glass-panel-interactive rounded-2xl p-4 sm:p-5 flex flex-col justify-between relative overflow-hidden group">
+    <div className={`absolute -right-6 -bottom-6 w-24 h-24 rounded-full opacity-10 blur-xl transition-opacity group-hover:opacity-25 ${accent || 'bg-indigo-500'}`} />
+    
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-xs font-medium text-slate-400 tracking-wide">{label}</span>
+      {icon && <span className="text-slate-500 group-hover:text-indigo-400 transition-colors">{icon}</span>}
+    </div>
+
+    <div className="mt-3">
+      <div className="text-2xl sm:text-3xl font-extrabold text-white font-mono tracking-tight tabular">
+        {value === null || value === undefined ? (
+          <span className="text-slate-600 text-lg font-normal">—</span>
+        ) : (
+          value
+        )}
+      </div>
+      {hint && (
+        <div className="text-[11px] font-mono text-slate-400 mt-1.5 flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+          <span>{hint}</span>
+        </div>
+      )}
+    </div>
   </div>
 );
 
@@ -95,37 +119,88 @@ export const MissionControl: FC<MissionControlProps> = ({ circuitBreakerTripped,
         <div key={w} className="text-xs text-amber-200 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">{w}</div>
       ))}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Tile label="Opportunities on the Radar" value={opps} hint="from your connected sources" />
-        <Tile label="Waiting for your approval" value={pending} hint="proposals and emails" />
-        <Tile label="Emails sent" value={sum?.total_outreach_sent ?? null} hint={sum?.reply_rate_percent != null ? `${sum.reply_rate_percent}% reply rate` : 'no sends yet'} />
-        <Tile label="Deliverability" value={report?.deliverability_health ?? null} hint={sum?.bounce_rate_percent != null ? `${sum.bounce_rate_percent}% bounces` : undefined} />
-        <Tile label="Proposals won" value={sum?.proposals_won ?? null} />
-        <Tile label="Meetings booked" value={sum?.meetings_booked ?? null} />
-        <Tile label="Tracked spend (USD)" value={sum ? sum.total_spend_usd : null} hint="LLM + costs you record" />
-        <Tile label="Evidence records" value={sum?.evidence_records_stored ?? null} hint="measured facts behind briefs" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <Tile
+          label="Opportunities on Radar"
+          value={opps}
+          hint="From connected sources"
+          icon={<Radar className="h-4 w-4" />}
+          accent="bg-cyan-500"
+        />
+        <Tile
+          label="Waiting for Approval"
+          value={pending}
+          hint="Proposals & emails"
+          icon={<Clock className="h-4 w-4" />}
+          accent="bg-amber-500"
+        />
+        <Tile
+          label="Emails Dispatched"
+          value={sum?.total_outreach_sent ?? null}
+          hint={sum?.reply_rate_percent != null ? `${sum.reply_rate_percent}% reply rate` : 'No sends yet'}
+          icon={<Send className="h-4 w-4" />}
+          accent="bg-indigo-500"
+        />
+        <Tile
+          label="Fleet Deliverability"
+          value={report?.deliverability_health ?? null}
+          hint={sum?.bounce_rate_percent != null ? `${sum.bounce_rate_percent}% bounces` : undefined}
+          icon={<ShieldCheck className="h-4 w-4" />}
+          accent="bg-emerald-500"
+        />
+        <Tile
+          label="Proposals Won"
+          value={sum?.proposals_won ?? null}
+          hint={sum?.proposals_won ? 'High win velocity' : undefined}
+          icon={<Trophy className="h-4 w-4" />}
+          accent="bg-purple-500"
+        />
+        <Tile
+          label="Meetings Booked"
+          value={sum?.meetings_booked ?? null}
+          hint={sum?.meetings_booked ? 'Active deal pipeline' : undefined}
+          icon={<Calendar className="h-4 w-4" />}
+          accent="bg-emerald-500"
+        />
+        <Tile
+          label="Tracked Spend (USD)"
+          value={sum ? `$${sum.total_spend_usd}` : null}
+          hint="LLM + recorded infra"
+          icon={<DollarSign className="h-4 w-4" />}
+          accent="bg-amber-500"
+        />
+        <Tile
+          label="Evidence Records"
+          value={sum?.evidence_records_stored ?? null}
+          hint="Zero-fabrication proofs"
+          icon={<Database className="h-4 w-4" />}
+          accent="bg-indigo-500"
+        />
       </div>
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-3">
+      <div className="glass-panel rounded-2xl p-5 sm:p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-white">Setup checklist</h2>
-          <span className={`text-xs font-mono ${status?.ready_to_send_email ? 'text-emerald-400' : 'text-amber-300'}`}>
-            {status ? (status.ready_to_send_email ? 'ready to send email' : 'email sending blocked until required items are done') : ''}
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-indigo-400" />
+            <h2 className="text-sm font-semibold text-white">Production Readiness Checklist</h2>
+          </div>
+          <span className={`text-xs font-mono font-medium px-2.5 py-1 rounded-full border ${status?.ready_to_send_email ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : 'text-amber-300 border-amber-500/30 bg-amber-500/10'}`}>
+            {status ? (status.ready_to_send_email ? '✓ Ready to Dispatch Outbound' : '⚠ Outbound Blocked (Setup Incomplete)') : ''}
           </span>
         </div>
         {checks.map((c) => (
-          <div key={c.key} className="flex items-start justify-between gap-3 text-xs">
-            <div className="flex items-start space-x-2">
-              {c.status === 'ok' ? <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                : c.required ? <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" /> : <CircleDashed className="h-4 w-4 text-slate-500 shrink-0" />}
+          <div key={c.key} className="flex items-start justify-between gap-3 text-xs p-2.5 rounded-xl bg-slate-900/50 border border-slate-800/60 hover:border-slate-700/80 transition">
+            <div className="flex items-start space-x-2.5">
+              {c.status === 'ok' ? <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                : c.required ? <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" /> : <CircleDashed className="h-4 w-4 text-slate-500 shrink-0 mt-0.5" />}
               <div>
-                <div className="text-slate-200">{c.label}{c.detail ? <span className="text-slate-500"> · {c.detail}</span> : null}</div>
-                {c.fix && <div className="text-slate-400">{c.fix}</div>}
+                <div className="text-slate-200 font-medium">{c.label}{c.detail ? <span className="text-slate-400 font-normal"> · {c.detail}</span> : null}</div>
+                {c.fix && <div className="text-slate-400 mt-0.5">{c.fix}</div>}
               </div>
             </div>
             {c.status !== 'ok' && TAB_FOR_CHECK[c.key] && (
-              <button onClick={() => setActiveTab(TAB_FOR_CHECK[c.key])} className="flex items-center space-x-1 text-cyan-400 hover:text-cyan-300 shrink-0">
-                <span>Open</span><ArrowRight className="h-3 w-3" />
+              <button onClick={() => setActiveTab(TAB_FOR_CHECK[c.key])} className="flex items-center space-x-1 text-cyan-400 hover:text-cyan-300 shrink-0 font-medium font-mono text-[11px] px-2 py-1 rounded-lg bg-cyan-950/30 border border-cyan-800/50">
+                <span>Configure</span><ArrowRight className="h-3 w-3" />
               </button>
             )}
           </div>
@@ -135,10 +210,20 @@ export const MissionControl: FC<MissionControlProps> = ({ circuitBreakerTripped,
       <DigestPanel />
 
       {report?.strategic_recommendations?.length > 0 && (
-        <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-2">
-          <h2 className="text-sm font-semibold text-white">What the data says</h2>
-          {report.strategic_recommendations.map((r: string, i: number) => <p key={i} className="text-xs text-slate-300">• {r}</p>)}
-          <p className="text-[11px] text-slate-500">Costs not tracked: {report.costs_not_tracked.join(', ')}.</p>
+        <div className="glass-panel rounded-2xl p-5 sm:p-6 space-y-3">
+          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-indigo-400" />
+            <span>Autonomous Strategic Insights</span>
+          </h2>
+          <div className="space-y-2">
+            {report.strategic_recommendations.map((r: string, i: number) => (
+              <div key={i} className="text-xs text-slate-300 p-3 rounded-xl bg-slate-900/40 border border-slate-800/60 flex items-start gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0 mt-1.5" />
+                <span>{r}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] font-mono text-slate-500 pt-1">Costs not tracked: {report.costs_not_tracked.join(', ')}.</p>
         </div>
       )}
     </div>

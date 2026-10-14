@@ -234,25 +234,25 @@ ${talkingPoints.length > 0 ? talkingPoints.map((tp: any) => `* **Evidence-Linked
         </button>
       </div>
 
-      {/* Sub-Tabs Navigation */}
-      <div className="flex border-b border-slate-800 space-x-2">
+      {/* Sub-Tabs Luxury Pill Navigation */}
+      <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-slate-900/70 border border-slate-800/80 shadow-sm">
         <button
           onClick={() => setActiveSubTab('audit')}
-          className={`pb-3 px-4 text-xs font-semibold flex items-center space-x-2 border-b-2 transition-all ${
+          className={`py-2 px-3.5 text-xs font-semibold rounded-xl flex items-center space-x-2 transition-all ${
             activeSubTab === 'audit'
-              ? 'border-emerald-400 text-emerald-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shadow-sm shadow-emerald-500/10'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
           }`}
         >
           <Stethoscope className="h-4 w-4" />
-          <span>Website Doctor Diagnostic ({auditResult?.findings?.length || 0} Findings)</span>
+          <span>Website Diagnostic ({auditResult?.findings?.length || 0} Findings)</span>
         </button>
         <button
           onClick={() => setActiveSubTab('brief')}
-          className={`pb-3 px-4 text-xs font-semibold flex items-center space-x-2 border-b-2 transition-all ${
+          className={`py-2 px-3.5 text-xs font-semibold rounded-xl flex items-center space-x-2 transition-all ${
             activeSubTab === 'brief'
-              ? 'border-indigo-400 text-indigo-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 shadow-sm shadow-indigo-500/10'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
           }`}
         >
           <FileText className="h-4 w-4" />
@@ -260,10 +260,10 @@ ${talkingPoints.length > 0 ? talkingPoints.map((tp: any) => `* **Evidence-Linked
         </button>
         <button
           onClick={() => setActiveSubTab('rescue')}
-          className={`pb-3 px-4 text-xs font-semibold flex items-center space-x-2 border-b-2 transition-all ${
+          className={`py-2 px-3.5 text-xs font-semibold rounded-xl flex items-center space-x-2 transition-all ${
             activeSubTab === 'rescue'
-              ? 'border-cyan-400 text-cyan-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shadow-sm shadow-cyan-500/10'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
           }`}
         >
           <Zap className="h-4 w-4" />

@@ -104,12 +104,17 @@ export const CallIntel: FC = () => {
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center gap-1 bg-slate-900/80 p-1 border border-slate-800 rounded-xl self-start">
+        <div className="flex items-center gap-1 bg-slate-900/90 p-1 border border-slate-800 rounded-xl backdrop-blur-md self-start">
           <button
             onClick={() => setActiveTab('gong')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${activeTab === 'gong' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'text-slate-400 hover:text-white'}`}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+              activeTab === 'gong'
+                ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-600/25'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+            }`}
           >
-            <BarChart3 className="h-3.5 w-3.5" /> Call Telemetry & SOW
+            <BarChart3 className="h-3.5 w-3.5" />
+            <span>Call Telemetry & SOW</span>
           </button>
           <button
             onClick={() => {
@@ -118,9 +123,14 @@ export const CallIntel: FC = () => {
                 handleSimulateObjection(PRESET_OBJECTIONS[0].prompt);
               }
             }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 ${activeTab === 'objections' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'text-slate-400 hover:text-white'}`}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+              activeTab === 'objections'
+                ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-600/25'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+            }`}
           >
-            <Zap className="h-3.5 w-3.5" /> Objection Battlecards
+            <Zap className="h-3.5 w-3.5" />
+            <span>Objection Battlecards</span>
           </button>
         </div>
       </div>

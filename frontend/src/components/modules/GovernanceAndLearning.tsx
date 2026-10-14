@@ -200,36 +200,39 @@ export const GovernanceAndLearning: FC = () => {
         </div>
 
         {/* Sub-Tabs */}
-        <div className="flex p-1 bg-slate-900 border border-slate-800 rounded-xl">
+        <div className="flex items-center gap-1 p-1 bg-slate-900/90 border border-slate-800 rounded-xl backdrop-blur-md self-start">
           <button
             onClick={() => setSubTab('policy')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
               subTab === 'policy'
-                ? 'bg-amber-600/20 text-amber-300 border border-amber-500/30'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-white shadow-md shadow-amber-600/25'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
             }`}
           >
-            Autonomy Policies
+            <Lock className="h-3.5 w-3.5" />
+            <span>Autonomy Policies</span>
           </button>
           <button
             onClick={() => setSubTab('learning')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
               subTab === 'learning'
-                ? 'bg-amber-600/20 text-amber-300 border border-amber-500/30'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-white shadow-md shadow-amber-600/25'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
             }`}
           >
-            Learning Loop & A/B
+            <Award className="h-3.5 w-3.5" />
+            <span>Learning Loop & A/B</span>
           </button>
           <button
             onClick={() => setSubTab('mailboxes')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
               subTab === 'mailboxes'
-                ? 'bg-amber-600/20 text-amber-300 border border-amber-500/30'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-white shadow-md shadow-amber-600/25'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
             }`}
           >
-            Mailbox Fleet & Gate
+            <Mail className="h-3.5 w-3.5" />
+            <span>Mailbox Fleet & Gate</span>
           </button>
         </div>
       </div>

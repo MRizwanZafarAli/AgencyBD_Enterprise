@@ -83,20 +83,23 @@ export const Sidebar: FC<SidebarProps> = ({
                 <button
                   key={item.id}
                   onClick={() => handleItemClick(item.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all group relative ${
                     isActive
-                      ? 'bg-indigo-600/20 text-white border border-indigo-500/40 shadow-sm shadow-indigo-500/20'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                      ? 'bg-indigo-600/15 text-indigo-400 font-semibold border border-indigo-500/30 shadow-sm shadow-indigo-500/10'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                   }`}
                 >
-                  <div className="flex items-center space-x-2.5">
-                    <span className={isActive ? 'text-indigo-400' : 'text-slate-500'}>
+                  {isActive && (
+                    <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-indigo-500 shadow-sm shadow-indigo-500/50" />
+                  )}
+                  <div className="flex items-center space-x-2.5 pl-1 group-hover:translate-x-0.5 transition-transform">
+                    <span className={isActive ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-400'}>
                       {item.icon}
                     </span>
-                    <span>{item.label}</span>
+                    <span className="truncate">{item.label}</span>
                   </div>
                   {item.badge && (
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-medium ${item.badgeColor || 'bg-slate-800 text-slate-300'}`}>
+                    <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono font-medium shrink-0 ${item.badgeColor || 'bg-slate-800 text-slate-300'}`}>
                       {item.badge}
                     </span>
                   )}

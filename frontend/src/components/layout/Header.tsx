@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
-import { Shield, Activity, Menu, X, Cpu, Command } from 'lucide-react';
+import { Shield, Activity, Menu, X, Cpu, Command, Sun, Moon } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import type { Me } from '../../lib/api';
+import { useTheme } from '../../lib/useTheme';
 
 interface HeaderProps {
   circuitBreakerTripped: boolean;
@@ -21,6 +22,7 @@ export const Header: FC<HeaderProps> = ({
   identity,
   onSignOut
 }) => {
+  const { theme, toggleTheme } = useTheme();
   const [api, setApi] = useState<{ ok: boolean; ms: number | null }>({ ok: false, ms: null });
   useEffect(() => {
     let active = true;
@@ -90,8 +92,28 @@ export const Header: FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Right: Tenant Switcher + Circuit Breaker */}
+      {/* Right: Theme Toggle + Tenant Switcher + Circuit Breaker */}
       <div className="flex items-center space-x-2 sm:space-x-3">
+        {/* Dual-Theme Switcher (Dark / Light) */}
+        <button
+          onClick={toggleTheme}
+          className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl border border-slate-700/80 hover:border-indigo-500/50 bg-slate-900/60 hover:bg-slate-800/80 text-xs font-mono transition-all group shadow-sm"
+          title={`Switch to ${theme === 'dark' ? 'Light (Arctic Alabaster)' : 'Dark (Obsidian Velocity)'} theme`}
+          aria-label="Toggle visual theme"
+        >
+          {theme === 'dark' ? (
+            <>
+              <Sun className="h-3.5 w-3.5 text-amber-400 group-hover:rotate-45 transition-transform duration-300" />
+              <span className="hidden sm:inline text-slate-300 text-[11px] font-semibold">Light</span>
+            </>
+          ) : (
+            <>
+              <Moon className="h-3.5 w-3.5 text-indigo-500 group-hover:-rotate-12 transition-transform duration-300" />
+              <span className="hidden sm:inline text-slate-700 text-[11px] font-semibold">Dark</span>
+            </>
+          )}
+        </button>
+
         {/* Global Kill Switch */}
         <button
           onClick={onToggleHalt}

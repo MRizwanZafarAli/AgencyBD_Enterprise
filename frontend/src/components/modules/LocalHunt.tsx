@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
 import { ErrorBanner } from '../shared/ErrorBanner';
+import { useTheme } from '../../lib/useTheme';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -92,6 +93,7 @@ const POPULAR_CATEGORIES = [
 ];
 
 export const LocalHunt: FC = () => {
+  const { theme } = useTheme();
   const [category, setCategory] = useState('dentist');
   const [city, setCity] = useState('Austin, TX');
   const [provider, setProvider] = useState<'' | 'google' | 'osm'>('');
@@ -119,6 +121,7 @@ export const LocalHunt: FC = () => {
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const radiusCircleRef = useRef<L.Circle | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -144,11 +147,16 @@ export const LocalHunt: FC = () => {
       attributionControl: false,
     });
 
-    // CartoDB Dark Matter tiles (100% free, 0 API key, sleek dark theme)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    const isInitialLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light';
+    const tileUrl = isInitialLight
+      ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+
+    const tiles = L.tileLayer(tileUrl, {
       maxZoom: 19,
       subdomains: 'abcd',
     }).addTo(map);
+    tileLayerRef.current = tiles;
 
     const markersLayer = L.layerGroup().addTo(map);
     markersLayerRef.current = markersLayer;
@@ -162,8 +170,26 @@ export const LocalHunt: FC = () => {
       map.remove();
       mapInstanceRef.current = null;
       markersLayerRef.current = null;
+      tileLayerRef.current = null;
     };
   }, []);
+
+  // Update map tiles dynamically when user switches Theme
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    if (tileLayerRef.current) {
+      tileLayerRef.current.remove();
+    }
+    const tileUrl = theme === 'light'
+      ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    const tiles = L.tileLayer(tileUrl, {
+      maxZoom: 19,
+      subdomains: 'abcd',
+    }).addTo(map);
+    tileLayerRef.current = tiles;
+  }, [theme]);
 
   // Update map pins when data changes or filter changes
   useEffect(() => {
@@ -207,6 +233,9 @@ export const LocalHunt: FC = () => {
     });
 
     const bounds: L.LatLngExpression[] = [];
+    const pinBg = theme === 'light' ? '#ffffff' : '#090d16';
+    const popupText = theme === 'light' ? '#0f172a' : '#f1f5f9';
+    const popupSubtext = theme === 'light' ? '#64748b' : '#94a3b8';
 
     filtered.forEach((r) => {
       if (r.lat == null || r.lon == null) return;
@@ -220,7 +249,7 @@ export const LocalHunt: FC = () => {
       const html = `
         <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; cursor: pointer;">
           ${isHighWin ? `<div style="position: absolute; width: 36px; height: 36px; border-radius: 50%; background-color: ${color}40; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>` : ''}
-          <div style="width: 28px; height: 28px; border-radius: 50%; background-color: #090d16; border: 2px solid ${color}; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.6); font-family: monospace; font-size: 11px; font-weight: bold; color: ${color};">
+          <div style="width: 28px; height: 28px; border-radius: 50%; background-color: ${pinBg}; border: 2px solid ${color}; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0,0,0,0.35); font-family: monospace; font-size: 11px; font-weight: bold; color: ${color};">
             ${label}
           </div>
         </div>
@@ -239,12 +268,12 @@ export const LocalHunt: FC = () => {
       });
 
       const popupContent = `
-        <div style="font-family: inherit; color: #f1f5f9; padding: 4px; min-width: 180px;">
-          <div style="font-weight: 600; font-size: 13px; margin-bottom: 2px; color: #fff;">${r.name}</div>
-          <div style="font-size: 11px; color: #94a3b8; margin-bottom: 6px;">${r.address || 'Local Business'}</div>
+        <div style="font-family: inherit; color: ${popupText}; padding: 6px; min-width: 190px;">
+          <div style="font-weight: 700; font-size: 13px; margin-bottom: 2px; color: ${popupText};">${r.name}</div>
+          <div style="font-size: 11px; color: ${popupSubtext}; margin-bottom: 6px;">${r.address || 'Local Business'}</div>
           <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px; font-size: 11px;">
             <span style="color: ${color}; font-weight: bold;">Win Score: ${label}</span>
-            <span style="background: ${color}20; border: 1px solid ${color}40; color: ${color}; padding: 1px 6px; border-radius: 4px; font-size: 10px;">${r.classification.replace(/_/g, ' ')}</span>
+            <span style="background: ${color}20; border: 1px solid ${color}40; color: ${color}; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;">${r.classification.replace(/_/g, ' ')}</span>
           </div>
         </div>
       `;
@@ -257,7 +286,7 @@ export const LocalHunt: FC = () => {
     } else if (data.city_coords) {
       map.flyTo([data.city_coords.lat, data.city_coords.lon], 12);
     }
-  }, [data, filterType, minScore, searchQuery, scanRadiusKm]);
+  }, [data, filterType, minScore, searchQuery, scanRadiusKm, theme]);
 
   const search = async (e?: FormEvent) => {
     if (e) e.preventDefault();
