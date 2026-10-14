@@ -147,14 +147,10 @@ export const LocalHunt: FC = () => {
       attributionControl: false,
     });
 
-    const isInitialLight = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light';
-    const tileUrl = isInitialLight
-      ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-
-    const tiles = L.tileLayer(tileUrl, {
+    const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      subdomains: 'abcd',
+      subdomains: ['a', 'b', 'c'],
+      attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map);
     tileLayerRef.current = tiles;
 
@@ -173,23 +169,6 @@ export const LocalHunt: FC = () => {
       tileLayerRef.current = null;
     };
   }, []);
-
-  // Update map tiles dynamically when user switches Theme
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map) return;
-    if (tileLayerRef.current) {
-      tileLayerRef.current.remove();
-    }
-    const tileUrl = theme === 'light'
-      ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-    const tiles = L.tileLayer(tileUrl, {
-      maxZoom: 19,
-      subdomains: 'abcd',
-    }).addTo(map);
-    tileLayerRef.current = tiles;
-  }, [theme]);
 
   // Update map pins when data changes or filter changes
   useEffect(() => {
@@ -603,8 +582,8 @@ export const LocalHunt: FC = () => {
         {/* Interactive Leaflet Map Container */}
         {(viewMode === 'split' || viewMode === 'map') && (
           <div className={`${viewMode === 'split' ? 'lg:col-span-7' : 'w-full'} space-y-3`}>
-            <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-950/70" style={{ height: viewMode === 'map' ? '700px' : '580px' }}>
-              <div ref={mapContainerRef} className="w-full h-full" />
+            <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-950/70 isolate z-0" style={{ height: viewMode === 'map' ? '700px' : '580px' }}>
+              <div ref={mapContainerRef} className="w-full h-full z-0" />
               {/* Map floating control badge */}
               <div className="absolute top-3 right-3 z-[1000] flex items-center gap-2 bg-slate-950/85 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-800 text-xs text-slate-300 shadow-xl">
                 <Compass className="h-3.5 w-3.5 text-indigo-400" />
@@ -852,8 +831,8 @@ export const LocalHunt: FC = () => {
 
       {/* Slide-over Pitch Strategy & Teardown Modal */}
       {selectedResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-          <div className="glass-panel w-full max-w-2xl rounded-2xl border border-slate-800 p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+          <div className="glass-panel w-full max-w-2xl rounded-2xl border border-slate-750 p-6 space-y-5 max-h-[90vh] overflow-y-auto relative z-[100000] shadow-2xl">
             {/* Modal Header */}
             <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-800">
               <div>

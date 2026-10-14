@@ -287,6 +287,17 @@ button:active, a.button:active {
 [data-theme="light"] .text-purple-400 { color: #9333ea !important; }
 
 
+/* Sleek Dark Tactical OpenStreetMap Tiles (100% Free, Zero API Key Required) */
+[data-theme="dark"] .leaflet-tile-pane,
+html.dark .leaflet-tile-pane {
+  filter: invert(100%) hue-rotate(180deg) brightness(92%) contrast(88%);
+}
+
+[data-theme="light"] .leaflet-tile-pane,
+html.light .leaflet-tile-pane {
+  filter: none;
+}
+
 /* Smooth Focus Rings */
 :focus-visible {
   outline: 2px solid #6366f1;
