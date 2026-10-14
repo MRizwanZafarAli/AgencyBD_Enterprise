@@ -286,6 +286,49 @@ button:active, a.button:active {
 [data-theme="light"] .text-purple-300 { color: #7e22ce !important; }
 [data-theme="light"] .text-purple-400 { color: #9333ea !important; }
 
+/* Light mode text clarity on surfaces & cards */
+[data-theme="light"] h1,
+[data-theme="light"] h2,
+[data-theme="light"] h3,
+[data-theme="light"] h4,
+[data-theme="light"] .glass-panel h1,
+[data-theme="light"] .glass-panel h2,
+[data-theme="light"] .glass-panel h3,
+[data-theme="light"] .glass-panel h4,
+[data-theme="light"] .glass-panel-interactive h1,
+[data-theme="light"] .glass-panel-interactive h2,
+[data-theme="light"] .glass-panel-interactive h3,
+[data-theme="light"] .glass-panel-interactive h4,
+[data-theme="light"] .glass-panel-interactive .text-white,
+[data-theme="light"] .glass-panel .text-white:not(button *),
+[data-theme="light"] header .text-white:not(button *),
+[data-theme="light"] aside .text-white:not(button *),
+[data-theme="light"] .text-slate-100 {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .text-slate-300:not(button *) {
+  color: #334155 !important;
+}
+
+[data-theme="light"] .text-slate-400:not(button *) {
+  color: #64748b !important;
+}
+
+[data-theme="light"] .bg-slate-950 {
+  background-color: var(--app-bg) !important;
+}
+
+[data-theme="light"] .bg-slate-900:not(button) {
+  background-color: #f1f5f9 !important;
+}
+
+[data-theme="light"] .border-slate-800,
+[data-theme="light"] .border-slate-750,
+[data-theme="light"] .border-slate-700 {
+  border-color: #e2e8f0 !important;
+}
+
 
 /* Sleek Dark Tactical OpenStreetMap Tiles (100% Free, Zero API Key Required) */
 [data-theme="dark"] .leaflet-tile-pane,

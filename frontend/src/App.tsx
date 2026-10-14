@@ -113,7 +113,7 @@ export function App() {
   if (!me) return <AuthGate onAuthenticated={setMe} notice={authNotice} />;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500/30 selection:text-white antialiased">
+    <div className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)] flex flex-col font-sans selection:bg-indigo-500/30 selection:text-white antialiased transition-colors duration-200">
       {/* 1. Header with Telemetry & Global Controls */}
       <Header
         circuitBreakerTripped={circuitBreakerTripped}

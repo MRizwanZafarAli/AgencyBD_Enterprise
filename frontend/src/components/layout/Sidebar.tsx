@@ -115,7 +115,7 @@ export const Sidebar: FC<SidebarProps> = ({
   return (
     <>
       {/* Desktop Persistent Left Rail */}
-      <aside className="hidden lg:block w-64 shrink-0 border-r border-slate-800/80 bg-slate-950/60 backdrop-blur-md overflow-y-auto min-h-[calc(100vh-4rem)]">
+      <aside className="hidden lg:block w-64 shrink-0 border-r border-[var(--app-border)] bg-[var(--app-sidebar-bg)] backdrop-blur-md overflow-y-auto min-h-[calc(100vh-4rem)]">
         {navContent}
       </aside>
 

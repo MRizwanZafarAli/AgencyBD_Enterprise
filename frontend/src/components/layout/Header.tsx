@@ -41,7 +41,7 @@ export const Header: FC<HeaderProps> = ({
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 h-16 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-xl px-4 sm:px-6 flex items-center justify-between transition-all">
+    <header className="sticky top-0 z-40 h-16 border-b border-[var(--app-border)] bg-[var(--app-header-bg)] backdrop-blur-xl px-4 sm:px-6 flex items-center justify-between transition-all">
       {/* Left: Mobile hamburger + Brand */}
       <div className="flex items-center space-x-3 sm:space-x-4">
         <button

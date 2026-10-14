@@ -113,6 +113,22 @@ const mapSectorToSearchCategory = (sectorStr: string): string => {
   return s.split(' ')[0] || 'software agency';
 };
 
+const getGoogleMapsPinUrl = (name: string, lat?: number | null, lon?: number | null, address?: string | null, cityStr?: string): string => {
+  if (lat != null && lon != null && !isNaN(lat) && !isNaN(lon)) {
+    return `https://www.google.com/maps?q=${lat},${lon}+(${encodeURIComponent(name)})`;
+  }
+  const clean = address ? `${name}, ${address}` : `${name}, ${cityStr || ''}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(clean)}`;
+};
+
+const getGoogleStreetViewUrl = (lat?: number | null, lon?: number | null, address?: string | null, cityStr?: string): string => {
+  if (lat != null && lon != null && !isNaN(lat) && !isNaN(lon)) {
+    return `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lon}`;
+  }
+  const clean = address ? `${address}, ${cityStr || ''}` : `${cityStr || ''}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(clean)}`;
+};
+
 export const LocalHunt: FC = () => {
   const { theme } = useTheme();
   const [category, setCategory] = useState('dentist');
@@ -186,7 +202,22 @@ export const LocalHunt: FC = () => {
     markersLayerRef.current = markersLayer;
     mapInstanceRef.current = map;
 
+    // Automatic layout recalculation on mount and container resize
+    const t1 = setTimeout(() => map.invalidateSize(), 150);
+    const t2 = setTimeout(() => map.invalidateSize(), 400);
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (mapContainerRef.current && typeof window !== 'undefined' && 'ResizeObserver' in window) {
+      resizeObserver = new ResizeObserver(() => {
+        map.invalidateSize();
+      });
+      resizeObserver.observe(mapContainerRef.current);
+    }
+
     return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      if (resizeObserver) resizeObserver.disconnect();
       if (radiusCircleRef.current) {
         radiusCircleRef.current.remove();
         radiusCircleRef.current = null;
@@ -197,6 +228,14 @@ export const LocalHunt: FC = () => {
       tileLayerRef.current = null;
     };
   }, []);
+
+  // Recalculate map dimensions whenever view mode changes (split/map/cards)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      mapInstanceRef.current?.invalidateSize();
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [viewMode]);
 
   // Update map pins when data changes or filter changes
   useEffect(() => {
@@ -980,15 +1019,26 @@ export const LocalHunt: FC = () => {
                       <div className="flex items-center gap-1.5 text-[11px] pt-0.5 flex-wrap">
                         <span className="text-slate-500 font-mono text-[10px] uppercase">Verify:</span>
                         <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.name + ' ' + (r.address || city))}`}
+                          href={getGoogleMapsPinUrl(r.name, r.lat, r.lon, r.address, city)}
                           target="_blank"
                           rel="noreferrer noopener"
                           onClick={(e) => e.stopPropagation()}
                           className="px-2 py-0.5 rounded-md bg-slate-900/90 hover:bg-slate-800 text-sky-400 hover:text-sky-300 border border-slate-800 flex items-center gap-1 transition"
-                          title="Open physical location & Street View in Google Maps"
+                          title="Open pinpoint GPS location in Google Maps"
                         >
                           <MapPin className="h-2.5 w-2.5" />
                           <span>Maps</span>
+                        </a>
+                        <a
+                          href={getGoogleStreetViewUrl(r.lat, r.lon, r.address, city)}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          onClick={(e) => e.stopPropagation()}
+                          className="px-2 py-0.5 rounded-md bg-slate-900/90 hover:bg-slate-800 text-amber-400 hover:text-amber-300 border border-slate-800 flex items-center gap-1 transition"
+                          title="Open 360° Google Street View of storefront"
+                        >
+                          <Compass className="h-2.5 w-2.5" />
+                          <span>Street View</span>
                         </a>
                         <a
                           href={`https://www.google.com/search?q=${encodeURIComponent(r.name + ' ' + city)}`}
@@ -1196,16 +1246,26 @@ export const LocalHunt: FC = () => {
               <p className="text-[11px] text-slate-400 leading-relaxed">
                 Confirm this is an active, real-world business before outreach. Verify storefront, reviews, live contact records, and registration across independent platforms:
               </p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1">
                 <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedResult.name + ' ' + (selectedResult.address || city))}`}
+                  href={getGoogleMapsPinUrl(selectedResult.name, selectedResult.lat, selectedResult.lon, selectedResult.address, city)}
                   target="_blank"
                   rel="noreferrer noopener"
                   className="p-2.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 flex flex-col items-center justify-center gap-1 text-center transition group"
                 >
                   <MapPin className="h-4 w-4 text-sky-400 group-hover:scale-110 transition" />
                   <span className="text-xs font-medium text-slate-200">Google Maps</span>
-                  <span className="text-[10px] text-slate-500">Street View &amp; Location</span>
+                  <span className="text-[10px] text-slate-500 font-mono">Pinpoint GPS</span>
+                </a>
+                <a
+                  href={getGoogleStreetViewUrl(selectedResult.lat, selectedResult.lon, selectedResult.address, city)}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="p-2.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 flex flex-col items-center justify-center gap-1 text-center transition group"
+                >
+                  <Compass className="h-4 w-4 text-amber-400 group-hover:scale-110 transition" />
+                  <span className="text-xs font-medium text-slate-200">Street View</span>
+                  <span className="text-[10px] text-slate-500 font-mono">360° Cam</span>
                 </a>
                 <a
                   href={`https://www.google.com/search?q=${encodeURIComponent(selectedResult.name + ' ' + (selectedResult.address || city) + ' reviews')}`}
@@ -1215,7 +1275,7 @@ export const LocalHunt: FC = () => {
                 >
                   <Star className="h-4 w-4 text-amber-400 group-hover:scale-110 transition" />
                   <span className="text-xs font-medium text-slate-200">Google Reviews</span>
-                  <span className="text-[10px] text-slate-500">Reputation &amp; Activity</span>
+                  <span className="text-[10px] text-slate-500 font-mono">Reputation</span>
                 </a>
                 <a
                   href={selectedResult.lat && selectedResult.lon ? `https://www.openstreetmap.org/?mlat=${selectedResult.lat}&mlon=${selectedResult.lon}#map=18/${selectedResult.lat}/${selectedResult.lon}` : `https://www.openstreetmap.org/search?query=${encodeURIComponent(selectedResult.name + ' ' + city)}`}
@@ -1225,7 +1285,7 @@ export const LocalHunt: FC = () => {
                 >
                   <Globe className="h-4 w-4 text-emerald-400 group-hover:scale-110 transition" />
                   <span className="text-xs font-medium text-slate-200">OpenStreetMap</span>
-                  <span className="text-[10px] text-slate-500">Spatial GIS Node</span>
+                  <span className="text-[10px] text-slate-500 font-mono">Spatial GIS</span>
                 </a>
                 {selectedResult.website ? (
                   <a
@@ -1242,7 +1302,7 @@ export const LocalHunt: FC = () => {
                   <div className="p-2.5 rounded-lg bg-slate-950/50 border border-slate-800/50 flex flex-col items-center justify-center gap-1 text-center opacity-60">
                     <ExternalLink className="h-4 w-4 text-slate-500" />
                     <span className="text-xs font-medium text-slate-400">No Website</span>
-                    <span className="text-[10px] text-amber-400 font-mono">Top Opportunity</span>
+                    <span className="text-[10px] text-amber-400 font-mono">Prime Prospect</span>
                   </div>
                 )}
               </div>
