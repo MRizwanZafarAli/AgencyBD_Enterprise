@@ -95,6 +95,115 @@ def score_candidate(c: Dict[str, Any]) -> Dict[str, Any]:
     return c
 
 
+def generate_pitch_strategy(r: Dict[str, Any], category: str, city: str) -> Dict[str, Any]:
+    """Generates an autonomous, data-grounded BD pitch strategy and teardown for a candidate."""
+    cls = r.get("classification", "has_site")
+    name = r.get("name") or "Team"
+    domain = r.get("domain") or r.get("website") or "your business"
+    reviews = r.get("reviews") or 0
+    rating = r.get("rating")
+
+    rev_str = f" with {reviews} positive reviews" if reviews > 10 else ""
+    if rating and rating >= 4.0:
+        rev_str += f" ({rating}★)"
+
+    if cls in ("no_website_listed", "no_website_in_osm"):
+        angle = "Digital Flagship & Local Conversion Asset"
+        value_est = "$3,500 – $7,500"
+        deliverables = [
+            "Ultra-fast Next.js 15 SSR web portal with mobile-first UI",
+            "Direct instant customer booking & inquiry dispatch funnel",
+            "Google Local SEO Schema, OpenGraph, & geo-targeted metadata",
+            "Domain setup, enterprise DNS, & automated SSL encryption",
+        ]
+        cold_hook = (
+            f"Hi {name} team — noticed your strong local reputation in {city}{rev_str}, but no official website "
+            f"linked to capture search demand. We build high-converting digital flagships for local {category} businesses "
+            f"that turn local Google searches into direct clients. Open to a 2-minute video preview?"
+        )
+        teardown = [
+            "Missing digital flagship: High local search volume leaks to competitors with dedicated websites.",
+            "Absence of direct booking: Customers forced to call during business hours instead of booking online 24/7.",
+            "Opportunity: Launching a sub-second web portal instantly captures untapped search traffic.",
+        ]
+
+    elif cls == "social_only":
+        social_type = "social media"
+        if r.get("facebook"):
+            social_type = "Facebook"
+        elif r.get("instagram"):
+            social_type = "Instagram"
+        angle = "Owned Web Funnel & Lead Capture Engine"
+        value_est = "$3,000 – $6,000"
+        deliverables = [
+            "Custom branded domain & independent conversion hub",
+            "Automated calendar booking & SMS confirmation relay",
+            "Zero algorithmic platform dependency or feed distraction",
+            "Dedicated service pricing breakdown & local authority proof",
+        ]
+        cold_hook = (
+            f"Hi {name} team — saw your active {social_type} presence in {city}. While social builds great trust, "
+            f"relying solely on social feeds loses 30-45% of serious prospects who prefer an official booking website. "
+            f"We design dedicated booking hubs for {category} firms. Would you be open to seeing a quick teardown?"
+        )
+        teardown = [
+            f"Relying on {social_type} creates friction: visitors must log in to view services or reach out.",
+            "Algorithm vulnerability: Platform feed changes directly hurt inbound customer volume.",
+            "Opportunity: Channeling social followers into an owned high-converting web funnel.",
+        ]
+
+    elif cls in ("domain_unreachable", "tls_broken", "domain_parked"):
+        issue_name = "dead DNS resolution" if cls == "domain_unreachable" else "security certificate (SSL) error" if cls == "tls_broken" else "parked/empty domain"
+        angle = "Critical Security & Domain Recovery Teardown"
+        value_est = "$2,500 – $5,500"
+        deliverables = [
+            "Emergency DNS record reconfiguration & valid TLS certificate",
+            "Modern, secure single-page web rebuild with zero downtime",
+            "Search engine re-indexing & malware/phishing warning clearance",
+            "Cloudflare CDN edge caching & automated health monitoring",
+        ]
+        cold_hook = (
+            f"Hi {name} team — quick heads-up: your website domain ({domain}) is currently showing a {issue_name}, "
+            f"which blocks visitors with browser security warnings. We specialize in fast domain recovery for {category} "
+            f"businesses in {city}. Mind if I send over the technical fix we identified?"
+        )
+        teardown = [
+            "Browser warning alert: Visitors see 'Dangerous Site' or connection timed out.",
+            "Google penalty: Search algorithms actively down-rank sites with broken SSL or unresolvable DNS.",
+            "Opportunity: Fast-track recovery recovers lost customer traffic and establishes modern security.",
+        ]
+
+    else:
+        issues = r.get("issues") or []
+        issue_summary = ", ".join(issues[:2]) if issues else "mobile UX and conversion speed"
+        angle = "Performance, UX & AI Intake Automation"
+        value_est = "$4,000 – $9,500"
+        deliverables = [
+            "Core Web Vitals acceleration to 95+ PageSpeed & sub-800ms LCP",
+            "24/7 AI conversational intake assistant for customer inquiries",
+            "Mobile viewport & conversion UX restructuring",
+            "Automated CRM sync & appointment reminder relay",
+        ]
+        cold_hook = (
+            f"Hi {name} team — reviewed your website at {domain}. You have great local authority in {city}, "
+            f"but we spotted a few bottlenecks in {issue_summary} that hold back conversion rates. We put together "
+            f"a 90-second technical teardown of the fix. Worth a quick look?"
+        )
+        teardown = [
+            f"Identified bottlenecks: {issue_summary}.",
+            "Mobile user drop-off: Modern consumers bounce when page loads exceed 2 seconds or lack responsive layout.",
+            "Opportunity: Implementing modern performance and automated AI scheduling lifts booking rates by 25-40%.",
+        ]
+
+    return {
+        "angle": angle,
+        "value_estimate": value_est,
+        "deliverables": deliverables,
+        "cold_pitch_hook": cold_hook,
+        "actionable_teardown": teardown,
+    }
+
+
 def hunt(category: str, city: str, limit: int = 20, provider: Optional[str] = None) -> Dict[str, Any]:
     category, city = (category or "").strip(), (city or "").strip()
     if len(category) < 2 or len(city) < 2:
@@ -103,6 +212,8 @@ def hunt(category: str, city: str, limit: int = 20, provider: Optional[str] = No
     provider = provider or ("google" if places.places_configured() else "osm")
     if provider == "google" and not places.places_configured():
         raise NotConfiguredError("google_places", "Set GOOGLE_PLACES_API_KEY to search Google, or use provider=osm (free).")
+
+    city_coords = places.geocode_city(city)
     raw = places.search_google(category, city, limit) if provider == "google" else places.search_osm(category, city, limit)
     raw = [r for r in raw if r.get("name") and r.get("business_status") in (None, "OPERATIONAL")]
 
@@ -118,6 +229,14 @@ def hunt(category: str, city: str, limit: int = 20, provider: Optional[str] = No
             r["classification"] = "no_website_listed" if r["provider"] == "google" else "no_website_in_osm"
             r["domain"], r["issues"] = None, []
         r["verified_absence"] = r["classification"] == "no_website_listed"
+
+        # Coordinates fallback
+        if r.get("lat") is None and city_coords:
+            r["lat"] = city_coords["lat"]
+            r["lon"] = city_coords["lon"]
+
+        # Autonomous BD Pitch Strategy & Teardown
+        r["pitch_strategy"] = generate_pitch_strategy(r, category, city)
         return score_candidate(r)
 
     with ThreadPoolExecutor(max_workers=6) as pool:
@@ -128,4 +247,12 @@ def hunt(category: str, city: str, limit: int = 20, provider: Optional[str] = No
     if provider == "osm" and not results:
         notes.append("OpenStreetMap has little or no data for this category in this city (trades and small services are often unmapped). "
                      "Try restaurant, dentist, cafe, hotel or salon, or set GOOGLE_PLACES_API_KEY for full coverage.")
-    return {"provider": provider, "category": category, "city": city, "count": len(results), "results": results, "notes": notes}
+    return {
+        "provider": provider,
+        "category": category,
+        "city": city,
+        "city_coords": city_coords,
+        "count": len(results),
+        "results": results,
+        "notes": notes,
+    }

@@ -647,6 +647,9 @@ class LocalHuntSaveRequest(BaseModel):
     classification: str
     place_id: Optional[str] = None
     category: Optional[str] = None
+    provider: Optional[str] = None
+    pitch_strategy: Optional[Dict[str, Any]] = None
+    notes: Optional[str] = None
 
 @app.get("/api/hunt/local/providers")
 def local_hunt_providers(principal: Principal = Depends(require_permission("leads:read"))):
@@ -659,13 +662,45 @@ def local_hunt_search(req: LocalHuntRequest, principal: Principal = Depends(requ
 
 @app.post("/api/hunt/local/save")
 def local_hunt_save(req: LocalHuntSaveRequest, principal: Principal = Depends(require_permission("leads:create"))):
-    """Saves one result as a lead (a business without a site gets a placeholder key so it can still be tracked)."""
+    """Saves one result as a lead with full pitch strategy attached."""
     key = req.domain or f"nosite-{(req.place_id or req.name).lower().replace(' ', '-')[:60]}.invalid"
+    note_parts = [f"WEB PRESENCE: {req.classification}"]
+    if req.pitch_strategy:
+        if req.pitch_strategy.get("angle"):
+            note_parts.append(f"PITCH ANGLE: {req.pitch_strategy.get('angle')}")
+        if req.pitch_strategy.get("value_estimate"):
+            note_parts.append(f"EST VALUE: {req.pitch_strategy.get('value_estimate')}")
+        if req.pitch_strategy.get("cold_pitch_hook"):
+            note_parts.append(f"COLD HOOK: {req.pitch_strategy.get('cold_pitch_hook')}")
+    if req.notes:
+        note_parts.append(req.notes)
+
+    channel = "google_maps" if req.provider == "google" else "map_osm"
     lead = LeadRepository.create_or_get_lead(
         company_name=req.name, domain=key, phone=req.phone, address=req.address, rating=req.rating or 0.0,
-        reviews_count=req.reviews, source_channel="google_maps", source_query=f"{req.category or ''} in {req.city}".strip(),
-        notes=f"WEB PRESENCE: {req.classification}", org_id=principal.org_id)
+        reviews_count=req.reviews, source_channel=channel, source_query=f"{req.category or ''} in {req.city}".strip(),
+        notes=" | ".join(note_parts), org_id=principal.org_id)
     return lead
+
+@app.post("/api/hunt/local/batch_save")
+def local_hunt_batch_save(items: List[LocalHuntSaveRequest], principal: Principal = Depends(require_permission("leads:create"))):
+    """Saves multiple hunt results as leads in a single 1-click batch action."""
+    saved_leads = []
+    for req in items:
+        key = req.domain or f"nosite-{(req.place_id or req.name).lower().replace(' ', '-')[:60]}.invalid"
+        note_parts = [f"WEB PRESENCE: {req.classification}"]
+        if req.pitch_strategy:
+            if req.pitch_strategy.get("angle"):
+                note_parts.append(f"PITCH ANGLE: {req.pitch_strategy.get('angle')}")
+            if req.pitch_strategy.get("value_estimate"):
+                note_parts.append(f"EST VALUE: {req.pitch_strategy.get('value_estimate')}")
+        channel = "google_maps" if req.provider == "google" else "map_osm"
+        lead = LeadRepository.create_or_get_lead(
+            company_name=req.name, domain=key, phone=req.phone, address=req.address, rating=req.rating or 0.0,
+            reviews_count=req.reviews, source_channel=channel, source_query=f"{req.category or ''} in {req.city}".strip(),
+            notes=" | ".join(note_parts), org_id=principal.org_id)
+        saved_leads.append(lead)
+    return {"saved_count": len(saved_leads), "leads": saved_leads}
 
 from llm import reasoning as llm_reasoning
 

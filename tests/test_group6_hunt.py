@@ -198,3 +198,24 @@ def test_site_checks_never_call_a_blocked_or_broken_site_down(monkeypatch):
     inconclusive = run(lambda u: requests.exceptions.ReadTimeout("slow"))
     assert inconclusive["classification"] == "has_site" and "inconclusive" in inconclusive["check_note"]
     assert run(lambda u: ok(404))["issues"] == ["homepage returns HTTP 404"]
+
+
+def test_hunt_generates_pitch_strategy_and_coordinates(fake_places, client, growth_headers):
+    res = client.post("/api/hunt/local", headers=growth_headers, json={"category": "dentist", "city": "Austin", "provider": "google"})
+    assert res.status_code == 200
+    data = res.json()
+    assert "results" in data and len(data["results"]) > 0
+    top = data["results"][0]
+    assert "pitch_strategy" in top
+    ps = top["pitch_strategy"]
+    assert "angle" in ps and "value_estimate" in ps and "deliverables" in ps and "cold_pitch_hook" in ps
+    assert "Digital Flagship" in ps["angle"]
+    assert len(ps["deliverables"]) >= 3
+
+    # Batch save
+    batch_res = client.post("/api/hunt/local/batch_save", headers=growth_headers, json=[
+        {"name": top["name"], "city": "Austin", "classification": top["classification"], "place_id": top["place_id"], "pitch_strategy": ps}
+    ])
+    assert batch_res.status_code == 200
+    assert batch_res.json()["saved_count"] == 1
+
