@@ -3,7 +3,7 @@ import type { FC, FormEvent } from 'react';
 import {
   MapPin, Phone, Star, ExternalLink, Search, BookmarkPlus, Check, Sparkles,
   Globe, Compass, Copy, SlidersHorizontal, Zap, Building2,
-  ShieldCheck, X, Layers, AlertTriangle
+  ShieldCheck, X, Layers, AlertTriangle, Download, Send, CheckCircle2
 } from 'lucide-react';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
 import { ErrorBanner } from '../shared/ErrorBanner';
@@ -109,11 +109,16 @@ export const LocalHunt: FC = () => {
   const [filterType, setFilterType] = useState<string>('all');
   const [minScore, setMinScore] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [scanRadiusKm, setScanRadiusKm] = useState<number>(15);
+  const [enrolling, setEnrolling] = useState<Record<string, boolean>>({});
+  const [enrolled, setEnrolled] = useState<Record<string, boolean>>({});
+  const [enrollMessage, setEnrollMessage] = useState('');
 
   // Leaflet Map state
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  const radiusCircleRef = useRef<L.Circle | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -150,6 +155,10 @@ export const LocalHunt: FC = () => {
     mapInstanceRef.current = map;
 
     return () => {
+      if (radiusCircleRef.current) {
+        radiusCircleRef.current.remove();
+        radiusCircleRef.current = null;
+      }
       map.remove();
       mapInstanceRef.current = null;
       markersLayerRef.current = null;
@@ -163,8 +172,29 @@ export const LocalHunt: FC = () => {
     if (!map || !layer) return;
 
     layer.clearLayers();
+    if (radiusCircleRef.current) {
+      radiusCircleRef.current.remove();
+      radiusCircleRef.current = null;
+    }
 
-    if (!data || !data.results || data.results.length === 0) return;
+    if (data?.city_coords && data.city_coords.lat != null && data.city_coords.lon != null) {
+      const circle = L.circle([data.city_coords.lat, data.city_coords.lon], {
+        radius: scanRadiusKm * 1000,
+        color: '#6366f1',
+        fillColor: '#6366f1',
+        fillOpacity: 0.08,
+        weight: 1.5,
+        dashArray: '6, 8',
+      }).addTo(map);
+      radiusCircleRef.current = circle;
+    }
+
+    if (!data || !data.results || data.results.length === 0) {
+      if (data?.city_coords && data.city_coords.lat != null && data.city_coords.lon != null) {
+        map.flyTo([data.city_coords.lat, data.city_coords.lon], 12);
+      }
+      return;
+    }
 
     const filtered = data.results.filter((r) => {
       if (filterType === 'nowebsite' && !r.classification.startsWith('no_website')) return false;
@@ -227,7 +257,7 @@ export const LocalHunt: FC = () => {
     } else if (data.city_coords) {
       map.flyTo([data.city_coords.lat, data.city_coords.lon], 12);
     }
-  }, [data, filterType, minScore, searchQuery]);
+  }, [data, filterType, minScore, searchQuery, scanRadiusKm]);
 
   const search = async (e?: FormEvent) => {
     if (e) e.preventDefault();
@@ -331,6 +361,93 @@ export const LocalHunt: FC = () => {
     if (searchQuery && !r.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
+
+  const enrollInCadence = async (r: Result) => {
+    setError('');
+    setEnrolling((prev) => ({ ...prev, [r.place_id]: true }));
+    try {
+      const saveRes = await apiFetch('/api/hunt/local/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: r.name,
+          city,
+          domain: r.domain,
+          phone: r.phone,
+          address: r.address,
+          rating: r.rating ?? 0,
+          reviews: r.reviews,
+          classification: r.classification,
+          place_id: r.place_id,
+          category,
+          provider: r.provider,
+          pitch_strategy: r.pitch_strategy,
+        }),
+      });
+      if (!saveRes.ok) {
+        throw new Error(apiErrorMessage(saveRes.status, await saveRes.json().catch(() => ({}))));
+      }
+      const savedLead = await saveRes.json();
+      setSaved((s) => ({ ...s, [r.place_id]: true }));
+
+      let dealVal: number | undefined = undefined;
+      if (r.pitch_strategy?.value_estimate) {
+        const match = r.pitch_strategy.value_estimate.match(/\$?([0-9,]+)/);
+        if (match) {
+          dealVal = parseFloat(match[1].replace(/,/g, ''));
+        }
+      }
+
+      const enrollRes = await apiFetch('/api/sequences/enroll_lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lead_id: savedLead.id,
+          country_code: 'US',
+          deal_value: dealVal || 4500,
+        }),
+      });
+      if (!enrollRes.ok) {
+        throw new Error(apiErrorMessage(enrollRes.status, await enrollRes.json().catch(() => ({}))));
+      }
+      const enrollData = await enrollRes.json();
+      setEnrolled((e) => ({ ...e, [r.place_id]: true }));
+      setEnrollMessage(`Enrolled "${r.name}" into outreach cadence (Enrollment #${enrollData.id})!`);
+      setTimeout(() => setEnrollMessage(''), 5000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Cadence enrollment failed');
+    } finally {
+      setEnrolling((prev) => ({ ...prev, [r.place_id]: false }));
+    }
+  };
+
+  const exportCSV = () => {
+    if (!filteredResults.length) return;
+    const headers = ['Business Name', 'Category', 'City', 'Win Score', 'Classification', 'Phone', 'Website', 'Address', 'Pitch Angle', 'Estimated Value', 'Cold Outreach Hook'];
+    const rows = filteredResults.map((r) => [
+      `"${(r.name || '').replace(/"/g, '""')}"`,
+      `"${(category || '').replace(/"/g, '""')}"`,
+      `"${(city || '').replace(/"/g, '""')}"`,
+      r.score != null ? Math.round(r.score) : '',
+      `"${(r.classification || '').replace(/"/g, '""')}"`,
+      `"${(r.phone || '').replace(/"/g, '""')}"`,
+      `"${(r.website || '').replace(/"/g, '""')}"`,
+      `"${(r.address || '').replace(/"/g, '""')}"`,
+      `"${(r.pitch_strategy?.angle || '').replace(/"/g, '""')}"`,
+      `"${(r.pitch_strategy?.value_estimate || '').replace(/"/g, '""')}"`,
+      `"${(r.pitch_strategy?.cold_pitch_hook || '').replace(/"/g, '""')}"`,
+    ]);
+    const csvContent = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `leads_${category.replace(/\s+/g, '_')}_${city.replace(/[^a-zA-Z0-9]/g, '_')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   const field = 'w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500';
 
@@ -445,6 +562,12 @@ export const LocalHunt: FC = () => {
           <span>{batchMessage}</span>
         </div>
       )}
+      {enrollMessage && (
+        <div className="flex items-center gap-2 p-3 bg-purple-500/10 border border-purple-500/30 rounded-xl text-xs text-purple-300">
+          <CheckCircle2 className="h-4 w-4 text-purple-400 shrink-0" />
+          <span>{enrollMessage}</span>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <div className={`grid gap-5 ${viewMode === 'split' ? 'lg:grid-cols-12' : 'grid-cols-1'}`}>
@@ -454,11 +577,24 @@ export const LocalHunt: FC = () => {
             <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-950/70" style={{ height: viewMode === 'map' ? '700px' : '580px' }}>
               <div ref={mapContainerRef} className="w-full h-full" />
               {/* Map floating control badge */}
-              <div className="absolute top-3 right-3 z-[1000] flex items-center gap-2 bg-slate-950/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-800 text-xs text-slate-300 shadow-xl">
+              <div className="absolute top-3 right-3 z-[1000] flex items-center gap-2 bg-slate-950/85 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-800 text-xs text-slate-300 shadow-xl">
                 <Compass className="h-3.5 w-3.5 text-indigo-400" />
                 <span>{city}</span>
                 <span className="text-slate-500">•</span>
                 <span className="font-mono text-emerald-400">{filteredResults.length} pins</span>
+                <span className="text-slate-500">•</span>
+                <select
+                  value={scanRadiusKm}
+                  onChange={(e) => setScanRadiusKm(Number(e.target.value))}
+                  className="bg-slate-900 border border-slate-700/60 rounded px-1.5 py-0.5 text-[11px] text-indigo-300 focus:outline-none"
+                  title="Adjust visual scan radius"
+                >
+                  <option value={5}>5 km radius</option>
+                  <option value={10}>10 km radius</option>
+                  <option value={15}>15 km radius</option>
+                  <option value={25}>25 km radius</option>
+                  <option value={50}>50 km radius</option>
+                </select>
               </div>
             </div>
             <div className="flex items-center justify-between text-xs text-slate-400 px-1">
@@ -482,14 +618,25 @@ export const LocalHunt: FC = () => {
                   <div className="text-xs font-medium text-white flex items-center gap-1.5">
                     <SlidersHorizontal className="h-3.5 w-3.5 text-indigo-400" /> Filter Leads
                   </div>
-                  <button
-                    onClick={batchSaveAll}
-                    disabled={batchSaving}
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-medium shadow-md shadow-emerald-600/20 transition"
-                  >
-                    <Zap className="h-3 w-3" />
-                    {batchSaving ? 'Saving…' : '⚡ 1-Click Save All'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={exportCSV}
+                      disabled={!filteredResults.length}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 text-xs font-medium border border-slate-700 transition"
+                      title="Export all discovered leads and pitch hooks to CSV"
+                    >
+                      <Download className="h-3 w-3 text-slate-400" />
+                      <span>Export CSV</span>
+                    </button>
+                    <button
+                      onClick={batchSaveAll}
+                      disabled={batchSaving}
+                      className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-medium shadow-md shadow-emerald-600/20 transition"
+                    >
+                      <Zap className="h-3 w-3" />
+                      {batchSaving ? 'Saving…' : '⚡ 1-Click Save All'}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Filter Pills */}
@@ -617,6 +764,27 @@ export const LocalHunt: FC = () => {
                         </button>
 
                         <div className="flex items-center gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              enrollInCadence(r);
+                            }}
+                            disabled={enrolling[r.place_id] || enrolled[r.place_id]}
+                            className={`flex items-center justify-center gap-1 rounded-lg border text-xs px-2.5 py-1 transition ${
+                              enrolled[r.place_id]
+                                ? 'border-purple-500/40 bg-purple-500/15 text-purple-300'
+                                : 'border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300'
+                            }`}
+                            title="1-Click enroll lead into 3-stage executive outreach sequence"
+                          >
+                            {enrolled[r.place_id] ? (
+                              <><CheckCircle2 className="h-3 w-3 text-purple-400" /> Enrolled</>
+                            ) : enrolling[r.place_id] ? (
+                              <><Zap className="h-3 w-3 animate-spin text-indigo-400" /> Enrolling…</>
+                            ) : (
+                              <><Send className="h-3 w-3" /> Enroll</>
+                            )}
+                          </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -757,11 +925,24 @@ export const LocalHunt: FC = () => {
 
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => enrollInCadence(selectedResult)}
+                  disabled={enrolling[selectedResult.place_id] || enrolled[selectedResult.place_id]}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-60 text-white text-xs font-semibold shadow-lg shadow-purple-600/30 transition"
+                >
+                  {enrolled[selectedResult.place_id] ? (
+                    <><CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Cadence Active</>
+                  ) : enrolling[selectedResult.place_id] ? (
+                    <><Zap className="h-3.5 w-3.5 animate-spin" /> Enrolling…</>
+                  ) : (
+                    <><Send className="h-3.5 w-3.5" /> 🚀 1-Click Enroll Cadence</>
+                  )}
+                </button>
+                <button
                   onClick={() => save(selectedResult)}
                   disabled={saved[selectedResult.place_id]}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold shadow-lg shadow-indigo-600/30 transition"
                 >
-                  {saved[selectedResult.place_id] ? <><Check className="h-4 w-4 text-emerald-400" /> Lead Saved</> : <><BookmarkPlus className="h-4 w-4" /> Save Lead & Push to Outreach</>}
+                  {saved[selectedResult.place_id] ? <><Check className="h-4 w-4 text-emerald-400" /> Lead Saved</> : <><BookmarkPlus className="h-4 w-4" /> Save Lead</>}
                 </button>
               </div>
             </div>

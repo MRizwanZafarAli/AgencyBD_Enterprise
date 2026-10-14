@@ -583,6 +583,17 @@ def native_route_smartlead_endpoint(req: SmartleadRouteRequest, principal: Princ
 def native_parse_spintax_endpoint(req: SpintaxRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
     return {"generated_variant": NativeSmartleadRouter.parse_spintax(req.template_text)}
 
+class ObjectionSimulateRequest(BaseModel):
+    objection_text: str
+
+@app.post("/api/native/simulate_objection")
+def native_simulate_objection_endpoint(req: ObjectionSimulateRequest, principal: Principal = Depends(require_permission("leads:read"))):
+    return NativeSalesIntelligence().simulate_objection(req.objection_text)
+
+@app.get("/api/native/objection_battlecards")
+def native_objection_battlecards_endpoint(principal: Principal = Depends(require_permission("leads:read"))):
+    return NativeSalesIntelligence().list_battlecards()
+
 # ==================== Phase 1: Website Doctor, Briefing & Presence Rescue ====================
 from intel.resolver import CompanyResolver
 from intel.company_brief import CompanyBriefEngine

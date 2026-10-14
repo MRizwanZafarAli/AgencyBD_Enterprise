@@ -73,6 +73,18 @@ Alex: Absolutely, will send the SOW tomorrow."""
     assert res["estimated_deal_win_probability_pct"] >= 65
     assert len(res["extracted_action_items"]) > 0
 
+    # Objection Simulator
+    obj_res = intel.simulate_objection("Your rates are way too expensive for our budget")
+    assert obj_res["matched"] is True
+    assert obj_res["category"] == "pricing"
+    assert "fixed-sprint" in obj_res["verbal_counter_script"]
+    assert len(obj_res["bridge_question"]) > 10
+
+    cards = intel.list_battlecards()
+    assert len(cards) >= 5
+    assert any(c["id"] == "in_house_team" for c in cards)
+
+
 def test_native_multimodal_generator():
     # Video pitch storyboard
     storyboard = NativeMultimodalGenerator.generate_video_pitch_storyboard(
