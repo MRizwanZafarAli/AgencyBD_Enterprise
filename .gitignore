@@ -1,0 +1,38 @@
+# Environments & secrets
+.env
+.env.local
+*.key
+
+# Python artifacts
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+env/
+venv/
+
+# OS artifacts
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# Logs & temp files
+logs/
+*.log
+tmp/
+
+# Database files
+data/*.db
+data/*.db-*
+data/*.sqlite*
+
+# Node & Frontend build
+node_modules/
+**/node_modules/
+frontend/dist/
+frontend/.vite/

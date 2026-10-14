@@ -1,0 +1,117 @@
+# Secrets are never stored in this file. Provide them through .env (see .env.example,
+# fill with `python scripts/generate_secrets.py`) or your orchestrator's secret store.
+# `${VAR:?}` makes `docker compose up` fail fast if one is missing.
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: agencybd_proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+      - dashboard
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agencybd_api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8001:8001"   # reach it through nginx; direct access only from this host
+    environment:
+      AGENCYBD_ENV: production
+      AGENCYBD_JWT_SECRET: ${AGENCYBD_JWT_SECRET:?set AGENCYBD_JWT_SECRET in .env}
+      AGENCYBD_WEBHOOK_SECRET: ${AGENCYBD_WEBHOOK_SECRET:?set AGENCYBD_WEBHOOK_SECRET in .env}
+      AGENCYBD_HMAC_VAULT_KEY: ${AGENCYBD_HMAC_VAULT_KEY:?set AGENCYBD_HMAC_VAULT_KEY in .env}
+      AGENCYBD_CORS_ORIGINS: ${AGENCYBD_CORS_ORIGINS:-http://localhost}
+      AGENCYBD_WEBHOOK_ORG_ID: ${AGENCYBD_WEBHOOK_ORG_ID:-org_default}
+      AGENCYBD_PUBLIC_BASE_URL: ${AGENCYBD_PUBLIC_BASE_URL:?set AGENCYBD_PUBLIC_BASE_URL in .env}
+      AGENCYBD_SENDER_COMPANY: ${AGENCYBD_SENDER_COMPANY:-}
+      AGENCYBD_SENDER_ADDRESS: ${AGENCYBD_SENDER_ADDRESS:?set AGENCYBD_SENDER_ADDRESS in .env}
+      AGENCYBD_ENABLE_DOCS: ${AGENCYBD_ENABLE_DOCS:-false}
+      DB_PATH: /app/data/agency_bd.db
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/healthz/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      - redis
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agencybd_dashboard
+    restart: unless-stopped
+    command: ["streamlit", "run", "app.py", "--server.port=8502", "--server.address=0.0.0.0", "--server.headless=true"]
+    ports:
+      - "127.0.0.1:8502:8502"
+    environment:
+      AGENCYBD_ENV: production
+      AGENCYBD_JWT_SECRET: ${AGENCYBD_JWT_SECRET:?set AGENCYBD_JWT_SECRET in .env}
+      AGENCYBD_WEBHOOK_SECRET: ${AGENCYBD_WEBHOOK_SECRET:?set AGENCYBD_WEBHOOK_SECRET in .env}
+      AGENCYBD_HMAC_VAULT_KEY: ${AGENCYBD_HMAC_VAULT_KEY:?set AGENCYBD_HMAC_VAULT_KEY in .env}
+      AGENCYBD_DASHBOARD_PASSWORD: ${AGENCYBD_DASHBOARD_PASSWORD:?set AGENCYBD_DASHBOARD_PASSWORD in .env}
+      DB_PATH: /app/data/agency_bd.db
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      api:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agencybd_worker
+    restart: unless-stopped
+    command: ["python", "scripts/run_scheduler.py"]
+    environment:
+      AGENCYBD_ENV: production
+      AGENCYBD_JWT_SECRET: ${AGENCYBD_JWT_SECRET:?set AGENCYBD_JWT_SECRET in .env}
+      AGENCYBD_WEBHOOK_SECRET: ${AGENCYBD_WEBHOOK_SECRET:?set AGENCYBD_WEBHOOK_SECRET in .env}
+      AGENCYBD_HMAC_VAULT_KEY: ${AGENCYBD_HMAC_VAULT_KEY:?set AGENCYBD_HMAC_VAULT_KEY in .env}
+      AGENCYBD_PUBLIC_BASE_URL: ${AGENCYBD_PUBLIC_BASE_URL:?set AGENCYBD_PUBLIC_BASE_URL in .env}
+      AGENCYBD_SENDER_ADDRESS: ${AGENCYBD_SENDER_ADDRESS:?set AGENCYBD_SENDER_ADDRESS in .env}
+      DB_PATH: /app/data/agency_bd.db
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      api:
+        condition: service_healthy
+
+  backup:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agencybd_backup
+    restart: unless-stopped
+    entrypoint: ["sh", "-c", "while true; do python scripts/backup_db.py --keep 14; sleep 86400; done"]
+    environment:
+      DB_PATH: /app/data/agency_bd.db
+    volumes:
+      - ./data:/app/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: agencybd_redis
+    restart: unless-stopped
+    # No published port: only reachable by the other containers on the compose network.
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+volumes:
+  redis_data:

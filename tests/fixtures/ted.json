@@ -1,0 +1,423 @@
+{
+ "notices": [
+  {
+   "deadline-receipt-tender-date-lot": [
+    "2026-11-04+01:00"
+   ],
+   "description-lot": {
+    "ces": [
+     "Dod\u00e1n\u00ed, instalace a implementace programov\u00fdch prost\u0159edk\u016f (d\u00e1le t\u00e9\u017e \u201eSW\u201c) k programov\u00e9mu \u0159e\u0161en\u00ed SIEM. Zadavatel po\u017eaduje dod\u00e1vku syst\u00e9mu, kter\u00fd bude schopen pokr\u00fdt oblasti pro sb\u011br a n\u00e1sledn\u00e9 vyhodnocov\u00e1n\u00ed provozn\u00edch a bezpe\u010dnostn\u00edch ud\u00e1lost\u00ed s ohledem na kybernetickou bezpe\u010dnosti s d\u016frazem na konsolidaci a anal\u00fdzu provozn\u00edch ud\u00e1lost\u00ed v re\u00e1ln\u00e9m \u010dase. Zadavatel ve\u0159ejn\u00e9 zak\u00e1zky je ve vy\u0161\u0161\u00edm re\u017eimu povinnost\u00ed s ohledem na ZoKB, tj. z\u00e1kon \u010d. 264/2025 Sb. a mus\u00ed syst\u00e9mem naplnit po\u017eadavky, kter\u00e9 plynou z vyhl\u00e1\u0161ka \u010d. 409/2025 Sb.. Syst\u00e9m z\u00e1rove\u0148 mus\u00ed umo\u017enovat roz\u0161\u00ed\u0159en\u00ed o dal\u0161\u00ed funkcionality, zam\u011b\u0159en\u00e9 automatizaci vznikl\u00fdch bezpe\u010dnostn\u00ed ud\u00e1lost\u00ed a dal\u0161\u00ed. Sou\u010d\u00e1st\u00ed p\u0159edm\u011btu pln\u011bn\u00ed je zejm\u00e9na: \u2022 Dod\u00e1vka software a maintenance k programov\u00e9mu \u0159e\u0161en\u00ed SIEM a dod\u00e1vka souvisej\u00edc\u00edch licenc\u00ed formou ro\u010dn\u00edho p\u0159edplatn\u00e9ho v\u010detn\u011b podpory (nikoli trval\u00e9 licence). \u2022 Poskytov\u00e1n\u00ed implementa\u010dn\u00edch a konzulta\u010dn\u00edch slu\u017eeb spo\u010d\u00edvaj\u00edc\u00edch v rozvojov\u00fdch slu\u017eb\u00e1ch bezpe\u010dnostn\u00edho syst\u00e9mu SIEM, upgradu softwarov\u00fdch produkt\u016f SIEM, podpo\u0159e a rozvoji st\u00e1vaj\u00edc\u00edch a nov\u00fdch integrac\u00ed. \u2022 Servis, \u00fadr\u017eba, podpora v\u010d. aktualizace syst\u00e9mu SIEM \u2022 \u0160kolen\u00ed u\u017eivatel\u016f v\u010d. u\u017eivatelsk\u00e9ho manu\u00e1lu SIEM \u0159e\u0161en\u00ed mus\u00ed spl\u0148ovat po\u017eadavky objednatele uveden\u00e9 v p\u0159\u00edloze \u010d. 1 \u2013 Po\u017eadavky objednatele a technick\u00e1 specifikace SIEM a v p\u0159\u00edloze \u010d. 2 \u2013 N\u00e1vrh smlouvy zad\u00e1vac\u00ed dokumentace."
+    ]
+   },
+   "classification-cpv": [
+    "48730000",
+    "72268000",
+    "72261000",
+    "72253200",
+    "72800000",
+    "48730000",
+    "72268000",
+    "72268000",
+    "72253200",
+    "72800000"
+   ],
+   "estimated-value-lot": [
+    "5300000"
+   ],
+   "publication-number": "674231-2026",
+   "publication-date": "2026-10-01+02:00",
+   "buyer-name": {
+    "ces": [
+     "St\u0159edisko spole\u010dn\u00fdch \u010dinnost\u00ed AV \u010cR, v. v. i."
+    ]
+   },
+   "links": {
+    "xml": {
+     "MUL": "https://ted.europa.eu/en/notice/674231-2026/xml"
+    },
+    "pdf": {
+     "BUL": "https://ted.europa.eu/bg/notice/674231-2026/pdf",
+     "SPA": "https://ted.europa.eu/es/notice/674231-2026/pdf",
+     "CES": "https://ted.europa.eu/cs/notice/674231-2026/pdf",
+     "DAN": "https://ted.europa.eu/da/notice/674231-2026/pdf",
+     "DEU": "https://ted.europa.eu/de/notice/674231-2026/pdf",
+     "EST": "https://ted.europa.eu/et/notice/674231-2026/pdf",
+     "ELL": "https://ted.europa.eu/el/notice/674231-2026/pdf",
+     "ENG": "https://ted.europa.eu/en/notice/674231-2026/pdf",
+     "FRA": "https://ted.europa.eu/fr/notice/674231-2026/pdf",
+     "GLE": "https://ted.europa.eu/ga/notice/674231-2026/pdf",
+     "HRV": "https://ted.europa.eu/hr/notice/674231-2026/pdf",
+     "ITA": "https://ted.europa.eu/it/notice/674231-2026/pdf",
+     "LAV": "https://ted.europa.eu/lv/notice/674231-2026/pdf",
+     "LIT": "https://ted.europa.eu/lt/notice/674231-2026/pdf",
+     "HUN": "https://ted.europa.eu/hu/notice/674231-2026/pdf",
+     "MLT": "https://ted.europa.eu/mt/notice/674231-2026/pdf",
+     "NLD": "https://ted.europa.eu/nl/notice/674231-2026/pdf",
+     "POL": "https://ted.europa.eu/pl/notice/674231-2026/pdf",
+     "POR": "https://ted.europa.eu/pt/notice/674231-2026/pdf",
+     "RON": "https://ted.europa.eu/ro/notice/674231-2026/pdf",
+     "SLK": "https://ted.europa.eu/sk/notice/674231-2026/pdf",
+     "SLV": "https://ted.europa.eu/sl/notice/674231-2026/pdf",
+     "FIN": "https://ted.europa.eu/fi/notice/674231-2026/pdf",
+     "SWE": "https://ted.europa.eu/sv/notice/674231-2026/pdf"
+    },
+    "pdfs": {
+     "CES": "https://ted.europa.eu/cs/notice/674231-2026/pdfs"
+    },
+    "html": {
+     "BUL": "https://ted.europa.eu/bg/notice/-/detail/674231-2026",
+     "SPA": "https://ted.europa.eu/es/notice/-/detail/674231-2026",
+     "CES": "https://ted.europa.eu/cs/notice/-/detail/674231-2026",
+     "DAN": "https://ted.europa.eu/da/notice/-/detail/674231-2026",
+     "DEU": "https://ted.europa.eu/de/notice/-/detail/674231-2026",
+     "EST": "https://ted.europa.eu/et/notice/-/detail/674231-2026",
+     "ELL": "https://ted.europa.eu/el/notice/-/detail/674231-2026",
+     "ENG": "https://ted.europa.eu/en/notice/-/detail/674231-2026",
+     "FRA": "https://ted.europa.eu/fr/notice/-/detail/674231-2026",
+     "GLE": "https://ted.europa.eu/ga/notice/-/detail/674231-2026",
+     "HRV": "https://ted.europa.eu/hr/notice/-/detail/674231-2026",
+     "ITA": "https://ted.europa.eu/it/notice/-/detail/674231-2026",
+     "LAV": "https://ted.europa.eu/lv/notice/-/detail/674231-2026",
+     "LIT": "https://ted.europa.eu/lt/notice/-/detail/674231-2026",
+     "HUN": "https://ted.europa.eu/hu/notice/-/detail/674231-2026",
+     "MLT": "https://ted.europa.eu/mt/notice/-/detail/674231-2026",
+     "NLD": "https://ted.europa.eu/nl/notice/-/detail/674231-2026",
+     "POL": "https://ted.europa.eu/pl/notice/-/detail/674231-2026",
+     "POR": "https://ted.europa.eu/pt/notice/-/detail/674231-2026",
+     "RON": "https://ted.europa.eu/ro/notice/-/detail/674231-2026",
+     "SLK": "https://ted.europa.eu/sk/notice/-/detail/674231-2026",
+     "SLV": "https://ted.europa.eu/sl/notice/-/detail/674231-2026",
+     "FIN": "https://ted.europa.eu/fi/notice/-/detail/674231-2026",
+     "SWE": "https://ted.europa.eu/sv/notice/-/detail/674231-2026"
+    },
+    "htmlDirect": {
+     "BUL": "https://ted.europa.eu/bg/notice/674231-2026/html",
+     "SPA": "https://ted.europa.eu/es/notice/674231-2026/html",
+     "CES": "https://ted.europa.eu/cs/notice/674231-2026/html",
+     "DAN": "https://ted.europa.eu/da/notice/674231-2026/html",
+     "DEU": "https://ted.europa.eu/de/notice/674231-2026/html",
+     "EST": "https://ted.europa.eu/et/notice/674231-2026/html",
+     "ELL": "https://ted.europa.eu/el/notice/674231-2026/html",
+     "ENG": "https://ted.europa.eu/en/notice/674231-2026/html",
+     "FRA": "https://ted.europa.eu/fr/notice/674231-2026/html",
+     "GLE": "https://ted.europa.eu/ga/notice/674231-2026/html",
+     "HRV": "https://ted.europa.eu/hr/notice/674231-2026/html",
+     "ITA": "https://ted.europa.eu/it/notice/674231-2026/html",
+     "LAV": "https://ted.europa.eu/lv/notice/674231-2026/html",
+     "LIT": "https://ted.europa.eu/lt/notice/674231-2026/html",
+     "HUN": "https://ted.europa.eu/hu/notice/674231-2026/html",
+     "MLT": "https://ted.europa.eu/mt/notice/674231-2026/html",
+     "NLD": "https://ted.europa.eu/nl/notice/674231-2026/html",
+     "POL": "https://ted.europa.eu/pl/notice/674231-2026/html",
+     "POR": "https://ted.europa.eu/pt/notice/674231-2026/html",
+     "RON": "https://ted.europa.eu/ro/notice/674231-2026/html",
+     "SLK": "https://ted.europa.eu/sk/notice/674231-2026/html",
+     "SLV": "https://ted.europa.eu/sl/notice/674231-2026/html",
+     "FIN": "https://ted.europa.eu/fi/notice/674231-2026/html",
+     "SWE": "https://ted.europa.eu/sv/notice/674231-2026/html"
+    }
+   },
+   "notice-title": {
+    "hun": "Csehorsz\u00e1g \u2013 V\u00e9delmi szoftvercsomag \u2013 SW pro SIEM",
+    "lav": "\u010cehija \u2013 Dro\u0161\u012bbas programmat\u016bras pakotne \u2013 SW pro SIEM",
+    "swe": "Tjeckien \u2013 S\u00e4kerhetsprogramvara \u2013 SW pro SIEM",
+    "gle": "An tSeicia \u2013 Security software package \u2013 SW pro SIEM",
+    "ell": "\u03a4\u03c3\u03b5\u03c7\u03af\u03b1 \u2013 \u03a0\u03b1\u03ba\u03ad\u03c4\u03b1 \u03bb\u03bf\u03b3\u03b9\u03c3\u03bc\u03b9\u03ba\u03bf\u03cd \u03b1\u03c3\u03c6\u03b1\u03bb\u03b5\u03af\u03b1\u03c2 \u2013 SW pro SIEM",
+    "spa": "Chequia \u2013 Paquetes de software de seguridad \u2013 SW pro SIEM",
+    "est": "T\u0161ehhi \u2013 Turvatarkvarapakett \u2013 SW pro SIEM",
+    "nld": "Tsjechi\u00eb \u2013 Beveiligingssoftware \u2013 SW pro SIEM",
+    "fin": "T\u0161ekki \u2013 Tietoturvaohjelmatuotteet \u2013 SW pro SIEM",
+    "pol": "Czechy \u2013 Pakiety oprogramowania zabezpieczaj\u0105cego \u2013 SW pro SIEM",
+    "hrv": "\u010ce\u0161ka \u2013 Sigurnosni programski paket \u2013 SW pro SIEM",
+    "ces": "\u010cesko \u2013 Bal\u00edk program\u016f pro zabezpe\u010den\u00ed \u2013 SW pro SIEM",
+    "dan": "Tjekkiet \u2013 Sikkerhedsprogrampakke \u2013 SW pro SIEM",
+    "ron": "Cehia \u2013 Pachete software de securitate \u2013 SW pro SIEM",
+    "por": "Ch\u00e9quia \u2013 Pacote de software de seguran\u00e7a \u2013 SW pro SIEM",
+    "slk": "\u010cesko \u2013 Softv\u00e9rov\u00fd bal\u00edk na zaistenie bezpe\u010dnosti \u2013 SW pro SIEM",
+    "fra": "Tch\u00e9quie \u2013 Logiciels de s\u00e9curit\u00e9 \u2013 SW pro SIEM",
+    "mlt": "I\u010b-\u010aekja \u2013 Pakkett ta' softwer g\u0127as-sigurt\u00e0 \u2013 SW pro SIEM",
+    "deu": "Tschechien \u2013 Sicherheitssoftwarepaket \u2013 SW pro SIEM",
+    "lit": "\u010cekija \u2013 Apsaugos programin\u0117s \u012frangos paketai \u2013 SW pro SIEM",
+    "ita": "Cechia \u2013 Pacchetti software di sicurezza \u2013 SW pro SIEM",
+    "bul": "\u0427\u0435\u0445\u0438\u044f \u2013 \u0421\u043e\u0444\u0442\u0443\u0435\u0440\u043d\u0438 \u043f\u0430\u043a\u0435\u0442\u0438 \u0437\u0430 \u0437\u0430\u0449\u0438\u0442\u0430 \u2013 SW pro SIEM",
+    "slv": "\u010ce\u0161ka \u2013 Varnostni programski paket \u2013 SW pro SIEM",
+    "eng": "Czechia \u2013 Security software package \u2013 SW pro SIEM"
+   }
+  },
+  {
+   "description-lot": {
+    "slv": [
+     "Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's"
+    ]
+   },
+   "classification-cpv": [
+    "72320000",
+    "72320000"
+   ],
+   "publication-number": "674237-2026",
+   "publication-date": "2026-10-01+02:00",
+   "buyer-name": {
+    "slv": [
+     "MINISTRSTVO ZA OBRAMBO"
+    ]
+   },
+   "links": {
+    "xml": {
+     "MUL": "https://ted.europa.eu/en/notice/674237-2026/xml"
+    },
+    "pdf": {
+     "BUL": "https://ted.europa.eu/bg/notice/674237-2026/pdf",
+     "SPA": "https://ted.europa.eu/es/notice/674237-2026/pdf",
+     "CES": "https://ted.europa.eu/cs/notice/674237-2026/pdf",
+     "DAN": "https://ted.europa.eu/da/notice/674237-2026/pdf",
+     "DEU": "https://ted.europa.eu/de/notice/674237-2026/pdf",
+     "EST": "https://ted.europa.eu/et/notice/674237-2026/pdf",
+     "ELL": "https://ted.europa.eu/el/notice/674237-2026/pdf",
+     "ENG": "https://ted.europa.eu/en/notice/674237-2026/pdf",
+     "FRA": "https://ted.europa.eu/fr/notice/674237-2026/pdf",
+     "GLE": "https://ted.europa.eu/ga/notice/674237-2026/pdf",
+     "HRV": "https://ted.europa.eu/hr/notice/674237-2026/pdf",
+     "ITA": "https://ted.europa.eu/it/notice/674237-2026/pdf",
+     "LAV": "https://ted.europa.eu/lv/notice/674237-2026/pdf",
+     "LIT": "https://ted.europa.eu/lt/notice/674237-2026/pdf",
+     "HUN": "https://ted.europa.eu/hu/notice/674237-2026/pdf",
+     "MLT": "https://ted.europa.eu/mt/notice/674237-2026/pdf",
+     "NLD": "https://ted.europa.eu/nl/notice/674237-2026/pdf",
+     "POL": "https://ted.europa.eu/pl/notice/674237-2026/pdf",
+     "POR": "https://ted.europa.eu/pt/notice/674237-2026/pdf",
+     "RON": "https://ted.europa.eu/ro/notice/674237-2026/pdf",
+     "SLK": "https://ted.europa.eu/sk/notice/674237-2026/pdf",
+     "SLV": "https://ted.europa.eu/sl/notice/674237-2026/pdf",
+     "FIN": "https://ted.europa.eu/fi/notice/674237-2026/pdf",
+     "SWE": "https://ted.europa.eu/sv/notice/674237-2026/pdf"
+    },
+    "pdfs": {
+     "SLV": "https://ted.europa.eu/sl/notice/674237-2026/pdfs"
+    },
+    "html": {
+     "BUL": "https://ted.europa.eu/bg/notice/-/detail/674237-2026",
+     "SPA": "https://ted.europa.eu/es/notice/-/detail/674237-2026",
+     "CES": "https://ted.europa.eu/cs/notice/-/detail/674237-2026",
+     "DAN": "https://ted.europa.eu/da/notice/-/detail/674237-2026",
+     "DEU": "https://ted.europa.eu/de/notice/-/detail/674237-2026",
+     "EST": "https://ted.europa.eu/et/notice/-/detail/674237-2026",
+     "ELL": "https://ted.europa.eu/el/notice/-/detail/674237-2026",
+     "ENG": "https://ted.europa.eu/en/notice/-/detail/674237-2026",
+     "FRA": "https://ted.europa.eu/fr/notice/-/detail/674237-2026",
+     "GLE": "https://ted.europa.eu/ga/notice/-/detail/674237-2026",
+     "HRV": "https://ted.europa.eu/hr/notice/-/detail/674237-2026",
+     "ITA": "https://ted.europa.eu/it/notice/-/detail/674237-2026",
+     "LAV": "https://ted.europa.eu/lv/notice/-/detail/674237-2026",
+     "LIT": "https://ted.europa.eu/lt/notice/-/detail/674237-2026",
+     "HUN": "https://ted.europa.eu/hu/notice/-/detail/674237-2026",
+     "MLT": "https://ted.europa.eu/mt/notice/-/detail/674237-2026",
+     "NLD": "https://ted.europa.eu/nl/notice/-/detail/674237-2026",
+     "POL": "https://ted.europa.eu/pl/notice/-/detail/674237-2026",
+     "POR": "https://ted.europa.eu/pt/notice/-/detail/674237-2026",
+     "RON": "https://ted.europa.eu/ro/notice/-/detail/674237-2026",
+     "SLK": "https://ted.europa.eu/sk/notice/-/detail/674237-2026",
+     "SLV": "https://ted.europa.eu/sl/notice/-/detail/674237-2026",
+     "FIN": "https://ted.europa.eu/fi/notice/-/detail/674237-2026",
+     "SWE": "https://ted.europa.eu/sv/notice/-/detail/674237-2026"
+    },
+    "htmlDirect": {
+     "BUL": "https://ted.europa.eu/bg/notice/674237-2026/html",
+     "SPA": "https://ted.europa.eu/es/notice/674237-2026/html",
+     "CES": "https://ted.europa.eu/cs/notice/674237-2026/html",
+     "DAN": "https://ted.europa.eu/da/notice/674237-2026/html",
+     "DEU": "https://ted.europa.eu/de/notice/674237-2026/html",
+     "EST": "https://ted.europa.eu/et/notice/674237-2026/html",
+     "ELL": "https://ted.europa.eu/el/notice/674237-2026/html",
+     "ENG": "https://ted.europa.eu/en/notice/674237-2026/html",
+     "FRA": "https://ted.europa.eu/fr/notice/674237-2026/html",
+     "GLE": "https://ted.europa.eu/ga/notice/674237-2026/html",
+     "HRV": "https://ted.europa.eu/hr/notice/674237-2026/html",
+     "ITA": "https://ted.europa.eu/it/notice/674237-2026/html",
+     "LAV": "https://ted.europa.eu/lv/notice/674237-2026/html",
+     "LIT": "https://ted.europa.eu/lt/notice/674237-2026/html",
+     "HUN": "https://ted.europa.eu/hu/notice/674237-2026/html",
+     "MLT": "https://ted.europa.eu/mt/notice/674237-2026/html",
+     "NLD": "https://ted.europa.eu/nl/notice/674237-2026/html",
+     "POL": "https://ted.europa.eu/pl/notice/674237-2026/html",
+     "POR": "https://ted.europa.eu/pt/notice/674237-2026/html",
+     "RON": "https://ted.europa.eu/ro/notice/674237-2026/html",
+     "SLK": "https://ted.europa.eu/sk/notice/674237-2026/html",
+     "SLV": "https://ted.europa.eu/sl/notice/674237-2026/html",
+     "FIN": "https://ted.europa.eu/fi/notice/674237-2026/html",
+     "SWE": "https://ted.europa.eu/sv/notice/674237-2026/html"
+    }
+   },
+   "notice-title": {
+    "hun": "Szlov\u00e9nia \u2013 Adatb\u00e1zis-szolg\u00e1ltat\u00e1sok \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "lav": "Slov\u0101nija \u2013 Datu b\u0101zu pakalpojumi \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "swe": "Slovenien \u2013 Databastj\u00e4nster \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "gle": "An tSl\u00f3iv\u00e9in \u2013 Database services \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "ell": "\u03a3\u03bb\u03bf\u03b2\u03b5\u03bd\u03af\u03b1 \u2013 \u03a5\u03c0\u03b7\u03c1\u03b5\u03c3\u03af\u03b5\u03c2 \u03b2\u03ac\u03c3\u03b5\u03c9\u03bd \u03b4\u03b5\u03b4\u03bf\u03bc\u03ad\u03bd\u03c9\u03bd \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "spa": "Eslovenia \u2013 Servicios relacionados con bases de datos \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "est": "Sloveenia \u2013 Andmebaasiteenused \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "nld": "Sloveni\u00eb \u2013 Databasediensten \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "fin": "Slovenia \u2013 Tietokantapalvelut \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "pol": "S\u0142owenia \u2013 Us\u0142ugi bazy danych \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "hrv": "Slovenija \u2013 Usluge podatkovne baze \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "ces": "Slovinsko \u2013 Datab\u00e1zov\u00e9 slu\u017eby \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "dan": "Slovenien \u2013 Databasevirksomhed \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "ron": "Slovenia \u2013 Servicii de baze de date \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "por": "Eslov\u00e9nia \u2013 Servi\u00e7os relacionados com bases de dados \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "slk": "Slovinsko \u2013 Datab\u00e1zov\u00e9 slu\u017eby \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "fra": "Slov\u00e9nie \u2013 Services de bases de donn\u00e9es \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "mlt": "Is-Slovenja \u2013 Servizzi ta' database \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "deu": "Slowenien \u2013 Datenbankdienste \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "lit": "Slov\u0117nija \u2013 Duomen\u0173 baz\u0117s paslaugos \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "ita": "Slovenia \u2013 Servizi di banche dati \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "bul": "C\u043bo\u0432e\u043d\u0438\u044f \u2013 \u0423\u0441\u043b\u0443\u0433\u0438, \u0441\u0432\u044a\u0440\u0437\u0430\u043d\u0438 \u0441 \u0431\u0430\u0437\u0438 \u0434\u0430\u043d\u043d\u0438 \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "slv": "Slovenija \u2013 Storitve podatkovnih baz \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's",
+    "eng": "Slovenia \u2013 Database services \u2013 Nakup letne naro\u010dnina za dostop do podatkovne zbirke Jane's"
+   }
+  },
+  {
+   "description-lot": {
+    "nld": [
+     "Dit perceel omvat de analyse, het ontwerp, de ontwikkeling, de implementatie, de integratie, het onderhoud, het lifecyclemanagement en de doorontwikkeling van maatwerktoepassingen, softwarecomponenten en business-API\u2019s. Het betreft zowel low-codeoplossingen op Ometa of Microsoft Power Platform/Power Apps als pro-codeoplossingen, afgestemd op de functionele behoeften en het applicatie- en integratielandschap van Digipolis en de gebruikende partijen. De dienstverlening kan onder meer betrekking hebben op requirementscaptatie, functionele en technische analyse, architectuur, software- en API-ontwikkeling, integraties, testing, DevOps, deployment, productieondersteuning, documentatie en kennisoverdracht. De opdrachtnemer moet opdrachten zelfstandig en resultaatgericht kunnen uitvoeren en, wanneer gevraagd, verantwoordelijkheid opnemen voor de volledige realisatiecyclus en de overeengekomen servicelevels. Lifecyclemanagement omvat onder meer het proactief detecteren, analyseren, classificeren en remedi\u00ebren van verouderde, kwetsbare of niet langer ondersteunde softwarecomponenten en afhankelijkheden, onder meer met behulp van geautomatiseerde ontwikkel- en repositorytools. Dit omvat ook versiebeheer, upgrades, patches, technische aanpassingen, documentatie en kennisoverdracht. De opdrachtnemer moet deze werkzaamheden ook kunnen uitvoeren voor bestaande oplossingen die hij niet zelf heeft ontwikkeld. De oplossingen moeten veilig, schaalbaar, onderhoudbaar, gedocumenteerd en overdraagbaar zijn en worden gerealiseerd volgens de actuele richtlijnen voor maatwerktoepassingen van Digipolis. Daarbij gelden in het bijzonder de Technische Biotoop tenzij gemotiveerd, scheiding van verantwoordelijkheden, secure by design, everything as code, geautomatiseerde quality gates, hybrid by design en operations by design. Digipolis of de gebruikende partij behoudt de regie over architectuur, governance, prioriteiten, kwaliteit en acceptatie.",
+     "Dit perceel omvat de end-to-end realisatie en dienstverlening voor contentgedreven digitale kanalen, websites, webapplicaties, mobiele applicaties, front-ends en contentmanagementoplossingen. De opdrachtnemer neemt binnen elke opvolgende opdracht de operationele verantwoordelijkheid op voor het volledige overeengekomen traject: van strategie, analyse en ontwerp tot realisatie, implementatie, ingebruikname, beheer, onderhoud, lifecyclemanagement en doorontwikkeling. De dienstverlening is gericht op de oplevering en duurzame werking van toegankelijke, gebruiksvriendelijke, veilige en schaalbare digitale oplossingen voor burgers, medewerkers, ondernemers en andere doelgroepen. De dienstverlening kan onder meer betrekking hebben op een overkoepelende contentstrategie, consolidatie en optimalisatie van het CMS-landschap, ontwikkeling van contentgedreven of burgergerichte WCAG-conforme front ends, bouw en onderhoud van coupled-websites, multisite- en headless-CMS-oplossingen, integratie met maatwerktoepassingen en andere digitale platformen, UX/UI, business- en functionele analyse, testing, kwaliteitsborging, versiebeheer, lifecyclemanagement en ondersteuning volgens afgesproken servicelevels. UX en businessanalyse zijn inbegrepen wanneer zij integraal deel uitmaken van de implementatie. De gebruikte front-end technologie\u00ebn dienen te beantwoorden aan de Technische biotoop, waarbij met name het React/React Native framework als geprefereerde technologie naar voren wordt geschoven. Zuivere webhosting zonder bijkomende dienstverlening valt niet onder dit perceel. Hosting die integraal deel uitmaakt van een opgeleverde oplossing kan wel worden opgenomen wanneer dit noodzakelijk is voor de end-to-end verantwoordelijkheid. Wanneer meerdere opdrachtnemers aan \u00e9\u00e9n oplossing bijdragen, moet de opdrachtnemer actief meewerken aan de overkoepelende co\u00f6rdinatie, kwaliteitsborging, integratie en kennisoverdracht.",
+     "Dit perceel omvat gespecialiseerde dienstverlening voor het assessment, ontwerp, de implementatie, migratie, optimalisatie, beveiliging, automatisering en ondersteuning van cloud-, on-premises- en netwerkgerelateerde infrastructuur. De dienstverlening is beperkt tot duidelijk afgebakende opdrachten binnen de in dit perceel benoemde expertisedomeinen en vormt geen algemene uitbesteding van infrastructuur- of operationeel beheer. Het perceel omvat vier expertisedomeinen: (1) databaseplatformen, waaronder MS SQL Server, Azure SQL Managed Instance, PostgreSQL en MongoDB; (2) cloud- en platformautomatisering met HPE VM Essentials, HPE Morpheus, Terraform en API-integraties; (3) back-up en herstel met Commvault en Commvault Cloud; en (4) Azure Cloud Networking, waaronder virtuele netwerken, routing, DNS, hybride connectiviteit, netwerkbeveiliging en Infrastructure as Code. Opvolgende opdrachten kunnen betrekking hebben op tijdelijke inzet van gespecialiseerde profielen of op afgebakende resultaatsgerichte trajecten. Iedere opdracht wordt expliciet gekoppeld aan \u00e9\u00e9n of meer expertisedomeinen en bevat concrete vereisten inzake technologie, resultaten, documentatie en kennisoverdracht. Applicatieontwikkeling, generiek applicatiebeheer, licentieverkoop als afzonderlijk doel en de structurele overname van het volledige dagelijkse infrastructuurbeheer vallen niet onder dit perceel.",
+     "Dit perceel omvat flexibele en schaalbare inzet van gespecialiseerde IT-securityprofielen ter ondersteuning van de volledige productlijn Security van Digipolis en de gebruikende partijen. Het beoogde resultaat is tijdige toegang tot voldoende gekwalificeerde capaciteit voor operationele, projectmatige en compliancegerichte beveiligingsbehoeften, met kortere doorlooptijden voor staffing, continu\u00efteit bij pieken of uitval, aantoonbare kwaliteit, uniforme werkwijzen en bruikbare technische, operationele, project- en governancedeliverables. De dienstverlening wordt georganiseerd volgens een hybride capaciteitsmodel met individuele medior-, senior- en expertprofielen en, waar passend, tijdelijk samengestelde multidisciplinaire securityteams. De opdrachtnemer staat in voor sourcing, screening, kwaliteitsopvolging, vervanging, back-up en opschaling. De inzet kan onder meer betrekking hebben op securityarchitectuur en projectleiding, netwerksecurity, SOC-, SIEM- en SOAR-engineering, security engineering, IAM, IGA en PAM, cloud security, application security en DevSecOps, vulnerability management, incident response, cryptografie, PKI, data security, DLP, GRC, ISMS, NIS2/CyFun en securityrisicobeheer. De dienstverlening omvat analyse, rapportering, ontwerp, engineering, implementatie, configuratie, integratie, testing, monitoring, documentatie, kennisoverdracht, tijdelijke operationele versterking en beheerondersteuning binnen duidelijk afgebakende opvolgende opdrachten. Digipolis of de gebruikende partij behoudt steeds de regie over prioriteiten, scope, securitybeleid, architectuurprincipes, risicoacceptatie, projectgovernance en aanvaarding van resultaten. Buiten scope vallen onder meer structurele lijnverantwoordelijkheid, personeelsbeheer, overdracht van wettelijke verantwoordingsplicht of risicoacceptatie, een volledig beheerde 24/7-SOC-dienst zonder afzonderlijke SLA\u2019s en de levering van softwarelicenties, hardware of cloudverbruik buiten de betrokken opdracht.",
+     "Dit perceel omvat de tijdelijke, deeltijdse en flexibel schaalbare inzet van gespecialiseerde financi\u00eble expertise ter ondersteuning van de financi\u00eble processen, continu\u00efteit, transformatie en kennisopbouw van Digipolis en de gebruikende partijen. Het beoogde resultaat is de tijdelijke invulling van openstaande of moeilijk invulbare rollen, het waarborgen van kritieke financi\u00eble processen, het versnellen van verbeter- en transformatietrajecten en het structureel overdragen van kennis naar de interne organisatie. De dienstverlening kan worden uitgevoerd door individuele ervaren financeprofielen of door een klein samengesteld team en is steeds opdracht- en resultaatgericht. Zij omvat vier samenhangende expertisedomeinen: (1) Accounting & Compliance, waaronder publieke-sectoraccounting, financi\u00eble afsluitingen, interne controle, auditondersteuning en ondersteuning bij controles door Inspectie Financi\u00ebn; (2) Controlling & Reporting, waaronder begroting, controlling, financi\u00eble analyse, managementrapportering en financi\u00eble rapportering; (3) Tax & Fiscaliteit, waaronder fiscale expertise in de publieke sector en financi\u00eble en fiscale vraagstukken inzake kostendelende verenigingen; en (4) Finance Transformation, waaronder procesoptimalisatie, change- en projectondersteuning en financi\u00eble systeem- en transformatietrajecten, met inbegrip van SAP S/4HANA Finance en Power BI Finance Reporting. Per opvolgende opdracht worden minstens de scope, beschikbaarheid, deliverables, rapportering, kwaliteitscriteria, verantwoordelijkheden, kennisoverdracht en vervangbaarheid bepaald. De opdrachtnemer moet voldoende medior- en seniorcapaciteit, back-up en vervangbaarheid kunnen waarborgen. Juniorprofielen kunnen aanvullend worden ingezet, maar niet zelfstandig voor sleutelrollen. De dienstverlening moet de continu\u00efteit van de financi\u00eble werking verzekeren en leiden tot bruikbare documentatie en overdraagbare kennis. Bij de start, vervanging en be\u00ebindiging van iedere opdracht past de opdrachtnemer een passend transitie- en kennisoverdrachtsplan toe. Dit plan omvat minstens de overdracht van lopende werkzaamheden, verantwoordelijkheden, relevante financi\u00eble gegevens en rapporteringen, proces- en systeemkennis, openstaande risico\u2019s en acties, werkdocumentatie en afspraken over begeleiding en beschikbaarheid tijdens de overgangsperiode.",
+     "Dit perceel omvat tijdelijke capaciteitsversterking en end-to-end ondersteuning bij strategische aankopen en overheidsopdrachten, in het bijzonder voor ICT, digitale transformatie, software, SaaS, telecom, cloud, infrastructuur, cybersecurity en consultancy. De opdrachtnemer treedt op als strategische aankooppartner en kan ondersteuning bieden tijdens de volledige levenscyclus van een overheidsopdracht, vanaf de behoeftebepaling en aankoopstrategie tot en met de plaatsing, gunning, contractfinalisatie, kennisoverdracht en overdracht naar contractbeheer. De dienstverlening kan enerzijds bestaan uit de tijdelijke inzet van ervaren aankoopconsultants, aankoopexperten en juridische experten ter versterking van bestaande teams. Mogelijke opdrachten zijn onder meer marktverkenningen, marktconsultaties, RFI- en RFP-trajecten, opmaak van selectieleidraden en bestekken, dossierbeheer, onderhandelingsrondes, evaluatieondersteuning, opmaak van selectie- en gunningsverslagen, juridische ondersteuning, contractvoorbereiding en rapportering. Anderzijds kan de opdrachtnemer de operationele uitvoering van een volledig aanbestedingstraject opnemen. Dit omvat onder meer behoefteanalyse, marktonderzoek, aankoopstrategie, risicoanalyse, opdrachtraming, keuze van de plaatsingsprocedure, opmaak en publicatie van opdrachtdocumenten, beheer van vragen en antwoorden, analyse van aanvragen tot deelname en offertes, begeleiding van onderhandelingen, contractfinalisatie en overdracht naar contractbeheer. De opdrachtnemer werkt daarbij nauw samen met interne stakeholders, businessverantwoordelijken, architecten, juristen, contractbeheerders en strategische aankopers. De opdrachtnemer moet onafhankelijk, objectief en integer handelen en iedere feitelijke, potenti\u00eble of schijnbare belangenvermenging onmiddellijk melden. Hij moet passende organisatorische maatregelen toepassen, zoals functiescheiding, afzonderlijke teams, toegangsbeperkingen en complianceprocedures.",
+     "Dit perceel omvat gespecialiseerde dienstverlening voor de architectuur, het ontwerp, de inrichting, het dagelijks technisch beheer, de monitoring, het onderhoud en de verdere optimalisatie van het IT-servicemanagementplatform en de bijbehorende configuratiemanagementdatabase van Digipolis. Het beoogde resultaat is een beschikbaar, veilig, schaalbaar, gestandaardiseerd en beheerbaar platform dat betrouwbare informatie biedt over de IT-diensten, toepassingen, infrastructuurcomponenten, configuratie-items en hun onderlinge relaties. De dienstverlening moet aansluiten op de roadmap en de governance-, architectuur-, security , privacy- en kwaliteitskaders van Digipolis. uitwerken van De dienstverlening omvat vier samenhangende domeinen: (1) platformarchitectuur en solution design, waaronder het architectuurblauwdrukken, roadmaps, gegevensmodellen, ontwerpprincipes, standaardconfiguraties, integratiepatronen en oplossingsscenario\u2019s, alsook het beoordelen van risicovolle configuraties, ontwikkelingen en integraties; (2) technisch platformbeheer, waaronder systeembeheer, monitoring, updates, upgrades, beveiligingspatches, beschikbaarheidsbeheer, capaciteitsbeheer, performantiebeheer, gebruiksrapportering, incidentondersteuning en technisch lifecyclemanagement; (3) configuratiemanagement en CMDB-beheer, waaronder gegevensmodellering, datakwaliteit, deduplicatie, identificatie en reconciliatie, klassenhi\u00ebrarchie, levenscyclusbeheer van configuratie-items, gegevensinvoer uit meerdere bronnen, geautomatiseerde inventarisatie en het vastleggen en onderhouden van relaties tussen configuratie-items en IT diensten; en (4) configuratiemanagementdienstverlening voor aangesloten organisaties, waaronder het ontwerpen, inrichten, onderhouden en ondersteunen van afzonderlijke of logisch afgebakende CMDB-omgevingen en gegevensmodellen op basis van de behoeften en verantwoordelijkheden van Digipolis, de entiteiten van Groep Antwerpen en andere gebruikende partijen. Opvolgende opdrachten kunnen worden uitgevoerd als managed service, als afgebakende resultaatsgerichte opdracht of door de tijdelijke inzet van gespecialiseerde profielen. Per opvolgende opdracht worden minstens de scope, de betrokken platformcomponenten, de verwachte resultaten, de verantwoordelijkheden, de servicelevels, de rapportering, de documentatie, de kennisoverdracht en de acceptatievoorwaarden bepaald. De opdrachtnemer past zoveel mogelijk de standaardfunctionaliteiten, gegevensmodellen, configuratiemogelijkheden en goede praktijken van het gebruikte platform toe. Afwijkingen, uitbreidingen of maatwerk moeten vooraf worden gemotiveerd vanuit functionele noodzaak, beheerbaarheid, veiligheid, schaalbaarheid, interoperabiliteit en lifecyclemanagement. Het bij Digipolis bestaande IT-servicemanagementplatform is momenteel gebaseerd op ServiceNow. Opdrachten binnen dit perceel moeten technisch en functioneel aansluiten op deze bestaande omgeving. Deze vermelding beschrijft de bestaande technische context en houdt geen afzonderlijke aankoop van softwarelicenties in. Buiten scope vallen de afzonderlijke aankoop of verkoop van softwarelicenties; generieke softwareontwikkeling zonder functionele of technische samenhang met het IT-servicemanagementplatform of de CMDB; beheer van infrastructuur, toepassingen of platformen dat onder een ander perceel valt; andere ITIL- of bedrijfsprocessen die geen directe samenhang vertonen met het technische platformbeheer of configuratiemanagement; en de overdracht van productownership, doelarchitectuur, roadmap, governance of finale acceptatie aan de opdrachtnemer. Digipolis of de gebruikende partij behoudt de regie over productownership, doelarchitectuur, roadmap, prioriteiten, gegevensmodellen, securitykaders, governance en finale acceptatie."
+    ]
+   },
+   "classification-cpv": [
+    "72000000",
+    "72000000",
+    "72000000",
+    "72000000",
+    "72000000",
+    "72000000",
+    "72000000",
+    "72000000"
+   ],
+   "publication-number": "674264-2026",
+   "publication-date": "2026-10-01+02:00",
+   "buyer-name": {
+    "nld": [
+     "AG Digipolis Antwerpen"
+    ]
+   },
+   "links": {
+    "xml": {
+     "MUL": "https://ted.europa.eu/en/notice/674264-2026/xml"
+    },
+    "pdf": {
+     "BUL": "https://ted.europa.eu/bg/notice/674264-2026/pdf",
+     "SPA": "https://ted.europa.eu/es/notice/674264-2026/pdf",
+     "CES": "https://ted.europa.eu/cs/notice/674264-2026/pdf",
+     "DAN": "https://ted.europa.eu/da/notice/674264-2026/pdf",
+     "DEU": "https://ted.europa.eu/de/notice/674264-2026/pdf",
+     "EST": "https://ted.europa.eu/et/notice/674264-2026/pdf",
+     "ELL": "https://ted.europa.eu/el/notice/674264-2026/pdf",
+     "ENG": "https://ted.europa.eu/en/notice/674264-2026/pdf",
+     "FRA": "https://ted.europa.eu/fr/notice/674264-2026/pdf",
+     "GLE": "https://ted.europa.eu/ga/notice/674264-2026/pdf",
+     "HRV": "https://ted.europa.eu/hr/notice/674264-2026/pdf",
+     "ITA": "https://ted.europa.eu/it/notice/674264-2026/pdf",
+     "LAV": "https://ted.europa.eu/lv/notice/674264-2026/pdf",
+     "LIT": "https://ted.europa.eu/lt/notice/674264-2026/pdf",
+     "HUN": "https://ted.europa.eu/hu/notice/674264-2026/pdf",
+     "MLT": "https://ted.europa.eu/mt/notice/674264-2026/pdf",
+     "NLD": "https://ted.europa.eu/nl/notice/674264-2026/pdf",
+     "POL": "https://ted.europa.eu/pl/notice/674264-2026/pdf",
+     "POR": "https://ted.europa.eu/pt/notice/674264-2026/pdf",
+     "RON": "https://ted.europa.eu/ro/notice/674264-2026/pdf",
+     "SLK": "https://ted.europa.eu/sk/notice/674264-2026/pdf",
+     "SLV": "https://ted.europa.eu/sl/notice/674264-2026/pdf",
+     "FIN": "https://ted.europa.eu/fi/notice/674264-2026/pdf",
+     "SWE": "https://ted.europa.eu/sv/notice/674264-2026/pdf"
+    },
+    "pdfs": {
+     "NLD": "https://ted.europa.eu/nl/notice/674264-2026/pdfs"
+    },
+    "html": {
+     "BUL": "https://ted.europa.eu/bg/notice/-/detail/674264-2026",
+     "SPA": "https://ted.europa.eu/es/notice/-/detail/674264-2026",
+     "CES": "https://ted.europa.eu/cs/notice/-/detail/674264-2026",
+     "DAN": "https://ted.europa.eu/da/notice/-/detail/674264-2026",
+     "DEU": "https://ted.europa.eu/de/notice/-/detail/674264-2026",
+     "EST": "https://ted.europa.eu/et/notice/-/detail/674264-2026",
+     "ELL": "https://ted.europa.eu/el/notice/-/detail/674264-2026",
+     "ENG": "https://ted.europa.eu/en/notice/-/detail/674264-2026",
+     "FRA": "https://ted.europa.eu/fr/notice/-/detail/674264-2026",
+     "GLE": "https://ted.europa.eu/ga/notice/-/detail/674264-2026",
+     "HRV": "https://ted.europa.eu/hr/notice/-/detail/674264-2026",
+     "ITA": "https://ted.europa.eu/it/notice/-/detail/674264-2026",
+     "LAV": "https://ted.europa.eu/lv/notice/-/detail/674264-2026",
+     "LIT": "https://ted.europa.eu/lt/notice/-/detail/674264-2026",
+     "HUN": "https://ted.europa.eu/hu/notice/-/detail/674264-2026",
+     "MLT": "https://ted.europa.eu/mt/notice/-/detail/674264-2026",
+     "NLD": "https://ted.europa.eu/nl/notice/-/detail/674264-2026",
+     "POL": "https://ted.europa.eu/pl/notice/-/detail/674264-2026",
+     "POR": "https://ted.europa.eu/pt/notice/-/detail/674264-2026",
+     "RON": "https://ted.europa.eu/ro/notice/-/detail/674264-2026",
+     "SLK": "https://ted.europa.eu/sk/notice/-/detail/674264-2026",
+     "SLV": "https://ted.europa.eu/sl/notice/-/detail/674264-2026",
+     "FIN": "https://ted.europa.eu/fi/notice/-/detail/674264-2026",
+     "SWE": "https://ted.europa.eu/sv/notice/-/detail/674264-2026"
+    },
+    "htmlDirect": {
+     "BUL": "https://ted.europa.eu/bg/notice/674264-2026/html",
+     "SPA": "https://ted.europa.eu/es/notice/674264-2026/html",
+     "CES": "https://ted.europa.eu/cs/notice/674264-2026/html",
+     "DAN": "https://ted.europa.eu/da/notice/674264-2026/html",
+     "DEU": "https://ted.europa.eu/de/notice/674264-2026/html",
+     "EST": "https://ted.europa.eu/et/notice/674264-2026/html",
+     "ELL": "https://ted.europa.eu/el/notice/674264-2026/html",
+     "ENG": "https://ted.europa.eu/en/notice/674264-2026/html",
+     "FRA": "https://ted.europa.eu/fr/notice/674264-2026/html",
+     "GLE": "https://ted.europa.eu/ga/notice/674264-2026/html",
+     "HRV": "https://ted.europa.eu/hr/notice/674264-2026/html",
+     "ITA": "https://ted.europa.eu/it/notice/674264-2026/html",
+     "LAV": "https://ted.europa.eu/lv/notice/674264-2026/html",
+     "LIT": "https://ted.europa.eu/lt/notice/674264-2026/html",
+     "HUN": "https://ted.europa.eu/hu/notice/674264-2026/html",
+     "MLT": "https://ted.europa.eu/mt/notice/674264-2026/html",
+     "NLD": "https://ted.europa.eu/nl/notice/674264-2026/html",
+     "POL": "https://ted.europa.eu/pl/notice/674264-2026/html",
+     "POR": "https://ted.europa.eu/pt/notice/674264-2026/html",
+     "RON": "https://ted.europa.eu/ro/notice/674264-2026/html",
+     "SLK": "https://ted.europa.eu/sk/notice/674264-2026/html",
+     "SLV": "https://ted.europa.eu/sl/notice/674264-2026/html",
+     "FIN": "https://ted.europa.eu/fi/notice/674264-2026/html",
+     "SWE": "https://ted.europa.eu/sv/notice/674264-2026/html"
+    }
+   },
+   "notice-title": {
+    "hun": "Belgium \u2013 IT-szolg\u00e1ltat\u00e1sok: tan\u00e1csad\u00e1s, szoftverfejleszt\u00e9s, internet \u00e9s t\u00e1mogat\u00e1s \u2013 RO DA Flexibel Schaalbaar",
+    "lav": "Be\u013c\u0123ija \u2013 IT pakalpojumi konsult\u0113\u0161ana, programmat\u016bras izstr\u0101de, internets un atbalsts \u2013 RO DA Flexibel Schaalbaar",
+    "swe": "Belgien \u2013 IT-tj\u00e4nster: konsultverksamhet, programvaruutveckling, Internet och st\u00f6d \u2013 RO DA Flexibel Schaalbaar",
+    "gle": "An Bheilg \u2013 IT services: consulting, software development, Internet and support \u2013 RO DA Flexibel Schaalbaar",
+    "ell": "\u0392\u03ad\u03bb\u03b3\u03b9\u03bf \u2013 \u03a5\u03c0\u03b7\u03c1\u03b5\u03c3\u03af\u03b5\u03c2 \u03c4\u03b5\u03c7\u03bd\u03bf\u03bb\u03bf\u03b3\u03af\u03b1\u03c2 \u03c4\u03c9\u03bd \u03c0\u03bb\u03b7\u03c1\u03bf\u03c6\u03bf\u03c1\u03b9\u03ce\u03bd: \u03c0\u03b1\u03c1\u03bf\u03c7\u03ae \u03c3\u03c5\u03bc\u03b2\u03bf\u03c5\u03bb\u03ce\u03bd, \u03b1\u03bd\u03ac\u03c0\u03c4\u03c5\u03be\u03b7 \u03bb\u03bf\u03b3\u03b9\u03c3\u03bc\u03b9\u03ba\u03bf\u03cd, \u0394\u03b9\u03b1\u03b4\u03af\u03ba\u03c4\u03c5\u03bf \u03ba\u03b1\u03b9 \u03c5\u03c0\u03bf\u03c3\u03c4\u03ae\u03c1\u03b9\u03be\u03b7 \u2013 RO DA Flexibel Schaalbaar",
+    "spa": "B\u00e9lgica \u2013 Servicios TI: consultor\u00eda, desarrollo de software, Internet y apoyo \u2013 RO DA Flexibel Schaalbaar",
+    "est": "Belgia \u2013 IT-teenused: n\u00f5uande-, tarkvaraarendus-, Interneti- ja tugiteenused \u2013 RO DA Flexibel Schaalbaar",
+    "nld": "Belgi\u00eb \u2013 IT-diensten: adviezen, softwareontwikkeling, internet en ondersteuning \u2013 RO DA Flexibel Schaalbaar",
+    "fin": "Belgia \u2013 Tietotekniset palvelut: neuvonta, ohjelmistojen kehitt\u00e4minen, Internet ja tuki \u2013 RO DA Flexibel Schaalbaar",
+    "pol": "Belgia \u2013 Us\u0142ugi informatyczne: konsultacyjne, opracowywania oprogramowania, internetowe i wsparcia \u2013 RO DA Flexibel Schaalbaar",
+    "hrv": "Belgija \u2013 Usluge informacijske tehnologije: savjetovanje, razvoj programske podr\u0161ke, internet i podr\u0161ka \u2013 RO DA Flexibel Schaalbaar",
+    "ces": "Belgie \u2013 Informa\u010dn\u00ed technologie: poradenstv\u00ed, v\u00fdvoj programov\u00e9ho vybaven\u00ed, internet a podpora \u2013 RO DA Flexibel Schaalbaar",
+    "dan": "Belgien \u2013 It-tjenester: r\u00e5dgivning, programmeludvikling, internet og support \u2013 RO DA Flexibel Schaalbaar",
+    "ron": "Belgia \u2013 Servicii IT: consultan\u0163\u0103, dezvoltare de software, internet \u015fi asisten\u0163\u0103 \u2013 RO DA Flexibel Schaalbaar",
+    "por": "B\u00e9lgica \u2013 Servi\u00e7os de TI: consultoria, desenvolvimento de software, Internet e apoio \u2013 RO DA Flexibel Schaalbaar",
+    "slk": "Belgicko \u2013 Slu\u017eby informa\u010dn\u00fdch technol\u00f3gi\u00ed: konzult\u00e1cie, v\u00fdvoj softv\u00e9ru, internet a podpora \u2013 RO DA Flexibel Schaalbaar",
+    "fra": "Belgique \u2013 Services de technologies de l'information, conseil, d\u00e9veloppement de logiciels, internet et appui \u2013 RO DA Flexibel Schaalbaar",
+    "mlt": "Il-Bel\u0121ju \u2013 Servizzi ta' IT: konsulenza, \u017cvilupp ta' softwer, Internet u appo\u0121\u0121 \u2013 RO DA Flexibel Schaalbaar",
+    "deu": "Belgien \u2013 IT-Dienste: Beratung, Software-Entwicklung, Internet und Hilfestellung \u2013 RO DA Flexibel Schaalbaar",
+    "lit": "Belgija \u2013 IT paslaugos: konsultavimas, programin\u0117s \u012frangos k\u016brimas, internetas ir aptarnavimo paslaugos \u2013 RO DA Flexibel Schaalbaar",
+    "ita": "Belgio \u2013 Servizi informatici: consulenza, sviluppo di software, Internet e supporto \u2013 RO DA Flexibel Schaalbaar",
+    "bul": "\u0411e\u043b\u0433\u0438\u044f \u2013 \u0418\u0422 \u0443\u0441\u043b\u0443\u0433\u0438: \u043a\u043e\u043d\u0441\u0443\u043b\u0442\u0430\u0446\u0438\u0438, \u0440\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u0432\u0430\u043d\u0435 \u043d\u0430 \u0441\u043e\u0444\u0442\u0443\u0435\u0440, \u0418\u043d\u0442\u0435\u0440\u043d\u0435\u0442 \u0438 \u043f\u043e\u0434\u0434\u0440\u044a\u0436\u043a\u0430 \u2013 RO DA Flexibel Schaalbaar",
+    "slv": "Belgija \u2013 Storitve informacijske tehnologije: svetovanje, razvoj programske opreme, internet in podpora \u2013 RO DA Flexibel Schaalbaar",
+    "eng": "Belgium \u2013 IT services: consulting, software development, Internet and support \u2013 RO DA Flexibel Schaalbaar"
+   }
+  }
+ ],
+ "totalNoticeCount": 2002,
+ "iterationNextToken": null,
+ "timedOut": false
+}

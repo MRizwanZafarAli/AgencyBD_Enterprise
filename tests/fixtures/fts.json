@@ -1,0 +1,570 @@
+{
+ "releases": [
+  {
+   "ocid": "ocds-h6vhtk-06dcb3",
+   "id": "096480-2026",
+   "date": "2026-10-13T11:51:31+01:00",
+   "tag": [
+    "tender"
+   ],
+   "description": "This is a Provider Selection Regime (PSR) Contract Notice. The awarding of this contract is subject to the Health Care Services (Provider Selection Regime) Regulations 2023. For the avoidance of doubt, the provisions of the Public Contracts Regulations 2015 or Procurement Act 2023 do not apply to this award.",
+   "initiationType": "tender",
+   "tender": {
+    "id": "C473446",
+    "legalBasis": {
+     "id": "32014L0024",
+     "scheme": "CELEX"
+    },
+    "title": "Targeted Prostate Cancer Screening Programme \u2013 PSA Laboratory Processing Service",
+    "status": "active",
+    "classification": {
+     "scheme": "CPV",
+     "id": "85111810",
+     "description": "Blood analysis services"
+    },
+    "mainProcurementCategory": "services",
+    "description": "The Contracting Authority is procuring a targeted prostate cancer screening pathway with a focus on men at increased risk due to an inherited BRCA2 variant utilising the competitive provider selection process under the Health Care Services (Provider Selection Regime) Regulations 2023.<br/><br/>NHS England is seeking a provider to deliver a national Prostate Specific Antigen (PSA) Laboratory Processing and Virtual Screening Pathway Coordination service to support the Targeted Prostate Cancer Screening Programme for England.<br/><br/>The service will include PSA Sample logistics from the agreed collection handoff point, Sample receipt and accessioning, PSA processing and result authorisation, secure result transmission, consumables provision, Sample and pathway tracking, Failsafe management, Programme data and reporting, and Virtual Screening Pathway Coordination. The VSPC function will include coordination of MRI appointments following an above-threshold PSA result and coordination of biopsy/urology appointments following an actionable MRI result, within the Authority-approved pathway and responsibility arrangements.<br/><br/>The procurement does not include delivery of diagnostic MRI scanning or MRI reporting, biopsy procedures, urology treatment, BRCA digital decision-resource development, BRCA genetic testing or development of the national Programme IT system. Clinical delivery and acceptance of onward referrals remain with the relevant commissioned clinical providers.",
+    "value": {
+     "amount": 238607.9,
+     "currency": "GBP"
+    },
+    "lots": [
+     {
+      "id": "1",
+      "description": "As part of this process, the Contracting Authority would like to invite interested parties to read and complete our Invitation to Tender within our e-Tendering System Atamis, https://atamis-1928.my.site.com/s/Welcome. This service will be competed under The Health Care Services (Provider Selection Regime) Regulations 2023 and will not be competed via Public Contract Regulations 2015 or via the Procurement Act 2023.<br/><br/>The Contracting Authority will be using Atamis, the Contracting Authority\u2019s e-Tendering system for this procurement exercise. For further information, the ITT documentation can be found via the 'Live Opportunities' list on the e-tendering system.<br/><br/>Only Tenders which pass the applicable compliance checks and all applicable Pass/Fail requirements in Questionnaire 1 \u2013 the Basic Selection Criteria Questionnaire in accordance with Document 1 \u2013 ITT Instructions, will proceed to Stage 2 evaluation.<br/><br/>Stage 1 (Compliance and Basic Selection Criteria Questionnaire)<br/>Compliance checks will be completed to ensure tenders are completed as per the ITT instructions. The Basic Selection Criteria Questionnaire will evaluate the Basic Selection Criteria. The questions will be evaluated on a Pass/Fail or for information only basis and can be found in Document 3.<br/><br/>Stage 2 (Quality, Social Value and Commercial Envelope)<br/>This will be the evaluation of the Quality and Commercial envelope which contains the Key Criteria questions and can be found in Document 4 (Quality and Social Value Envelope) and Document 5 (Commercial Envelope). Scores from Stage 2 evaluation will form 100% of the final score.<br/><br/>The Key Criteria (as outlined in PSR Regulation 5) for Stage 2 will be evaluated as outlined below:<br/><br/>Stage 2 - Quality & Social Value Envelope - 80%<br/><br/>1. Service model, accountability and pathway operation - 10%<br/><br/>National delivery model, governance, roles/responsibilities, handoffs, escalation and VSPC accountability.<br/><br/>2. Collection packs, sample-taking site interface and logistics - 12%\t<br/><br/>Consumables, site onboarding, Sample handoff, transport, chain of custody, logistics resilience and exceptions.<br/><br/>3. Laboratory capability, assay control, accreditation and analytical quality - 16%<br/><br/>Laboratory capability, UKAS/ISO 15189, approved PSA assay, IQC/EQA, calibration, validation and analytical consistency.<br/><br/>4. Result reporting, National IT interface, data and management information- 10%<br/><br/>Result transmission, interfaces, acknowledgements, data quality, reconciliation, downtime, MI and reporting.<br/><br/>5. Failsafe, invalid Samples, repeat collection and onward MRI/biopsy coordination - 14%<br/><br/>Failsafe, failed/invalid Samples, repeats, MRI coordination, biopsy/urology handoff, acknowledgement and escalation.<br/><br/>6. Mobilisation, capacity, resilience and business continuity - 8%<br/><br/>Mobilisation, readiness, capacity, testing, resilience, BCP, recovery, transition and exit.<br/><br/>7. Social Value \u2013 fair work, sustainable delivery and additional equitable-access benefits \u2013 10%<br/><br/>PSR Key Criteria<br/><br/>In accordance with Regulation 5 of the Health Care Services (Provider Selection Regime) Regulations 2023, the award criteria collectively assess all five PSR Key Criteria as follows:<br/><br/>Quality and Innovation \u2013 assessed through Questions 1\u20136 of the Quality Envelope, including service quality, logistics, laboratory capability, analytical quality, digital/result reporting, Failsafe arrangements, mobilisation, capacity and resilience.<br/><br/>Value \u2013 assessed through the Commercial Envelope, weighted at 20%.<br/><br/>Integration, Collaboration and Service Sustainability \u2013 assessed principally through Questions 1, 4, 5 and 6, including governance, pathway interfaces, National IT integration, handoffs, onward coordination, capacity, resilience and business continuity.<br/><br/>Improving Access, Reducing Health Inequalities and Facilitating Choice \u2013 assessed principally through Questions 2, 5 and 7, including equitable national logistics and access, remote-area arrangements, Failsafe/pathway coordination and additional equitable-access commitments.<br/><br/>Social Value \u2013 assessed through Question 7, weighted at 10%.<br/><br/>Stage 2 - Commercial Envelope - 20%<br/><br/>This is a Provider Selection Regime (PSR) Contract Notice. The awarding of this contract is subject to the Health Care Services (Provider Selection Regime) Regulations 2023. For the avoidance of doubt, the provisions of the Public Contracts Regulations 2015 or Procurement Act 2023 do not apply to this award.",
+      "value": {
+       "amount": 238607.9,
+       "currency": "GBP"
+      },
+      "contractPeriod": {
+       "durationInDays": 780
+      },
+      "hasRenewal": false,
+      "submissionTerms": {
+       "variantPolicy": "notAllowed"
+      },
+      "hasOptions": false,
+      "status": "active"
+     }
+    ],
+    "items": [
+     {
+      "id": "1",
+      "additionalClassifications": [
+       {
+        "scheme": "CPV",
+        "id": "85145000",
+        "description": "Services provided by medical laboratories"
+       }
+      ],
+      "deliveryAddresses": [
+       {
+        "region": "UK"
+       }
+      ],
+      "relatedLot": "1"
+     }
+    ],
+    "submissionMethod": [
+     "electronicSubmission",
+     "written"
+    ],
+    "submissionMethodDetails": "https://atamis-1928.my.site.com/s/Welcome",
+    "communication": {
+     "atypicalToolUrl": "https://atamis-1928.my.site.com/s/Welcome"
+    },
+    "selectionCriteria": {
+     "criteria": [
+      {
+       "type": "suitability",
+       "description": "Applicants will be assessed in accordance with the Health Care Services (Provider Selection Regime) Regulations 2023 on the basis of the information provided in response to the Basic Selection Criteria Questionnaire (assessment Stage 1).",
+       "appliesTo": [
+        "supplier"
+       ]
+      },
+      {
+       "type": "economic",
+       "description": "Selection criteria as stated in the procurement documents.",
+       "appliesTo": [
+        "supplier"
+       ]
+      },
+      {
+       "type": "technical",
+       "description": "Selection criteria as stated in the procurement documents.",
+       "appliesTo": [
+        "supplier"
+       ]
+      }
+     ]
+    },
+    "procurementMethod": "open",
+    "procurementMethodDetails": "Open procedure",
+    "coveredBy": [
+     "GPA"
+    ],
+    "tenderPeriod": {
+     "endDate": "2026-11-10T12:00:00Z"
+    },
+    "submissionTerms": {
+     "languages": [
+      "en"
+     ],
+     "bidValidityPeriod": {
+      "endDate": "2027-03-01T23:59:59Z"
+     }
+    },
+    "awardPeriod": {
+     "startDate": "2026-10-13T12:00:00+01:00"
+    },
+    "bidOpening": {
+     "date": "2026-10-13T12:00:00+01:00"
+    },
+    "hasRecurrence": false
+   },
+   "parties": [
+    {
+     "name": "NHS England",
+     "id": "GB-FTS-130973",
+     "identifier": {
+      "legalName": "NHS England"
+     },
+     "address": {
+      "streetAddress": "Wellington House, 133-135 Waterloo Rd",
+      "locality": "London",
+      "region": "UKI",
+      "postalCode": "SE1 8UG",
+      "countryName": "United Kingdom"
+     },
+     "contactPoint": {
+      "name": "NHS England",
+      "email": "england.commercialqueries@nhs.net",
+      "url": "https://atamis-1928.my.site.com/s/Welcome"
+     },
+     "roles": [
+      "buyer"
+     ],
+     "details": {
+      "url": "https://www.england.nhs.uk/",
+      "buyerProfile": "https://www.england.nhs.uk/",
+      "classifications": [
+       {
+        "scheme": "TED_CA_TYPE",
+        "id": "BODY_PUBLIC",
+        "description": "Body governed by public law"
+       },
+       {
+        "scheme": "COFOG",
+        "id": "07",
+        "description": "Health"
+       }
+      ]
+     }
+    },
+    {
+     "name": "Independent patient choice and procurement panel",
+     "id": "GB-FTS-133554",
+     "identifier": {
+      "legalName": "Independent patient choice and procurement panel"
+     },
+     "address": {
+      "streetAddress": "Wellington House",
+      "locality": "London",
+      "postalCode": "SE1 8UG",
+      "countryName": "United Kingdom"
+     },
+     "roles": [
+      "reviewBody"
+     ]
+    }
+   ],
+   "buyer": {
+    "id": "GB-FTS-130973",
+    "name": "NHS England"
+   },
+   "language": "en"
+  },
+  {
+   "ocid": "ocds-h6vhtk-06dcb3",
+   "id": "096478-2026",
+   "date": "2026-10-13T11:51:03+01:00",
+   "tag": [
+    "tender"
+   ],
+   "description": "This is a Provider Selection Regime (PSR) Contract Notice. The awarding of this contract is subject to the Health Care Services (Provider Selection Regime) Regulations 2023. For the avoidance of doubt, the provisions of the Public Contracts Regulations 2015 or Procurement Act 2023 do not apply to this award.",
+   "initiationType": "tender",
+   "tender": {
+    "id": "C473436",
+    "legalBasis": {
+     "id": "32014L0024",
+     "scheme": "CELEX"
+    },
+    "title": "Targeted Prostate Cancer Screening Programme - MRI Reporting Service",
+    "status": "active",
+    "classification": {
+     "scheme": "CPV",
+     "id": "85150000",
+     "description": "Medical imaging services"
+    },
+    "mainProcurementCategory": "services",
+    "description": "The Contracting Authority is procuring a targeted prostate cancer screening pathway with a focus on men at increased risk due to an inherited BRCA2 variant utilising the competitive provider selection process under the Health Care Services (Provider Selection Regime) Regulations 2023.<br/><br/>NHS England is seeking a provider to deliver a national centralised Prostate MRI Reporting Service to support the Targeted Prostate Cancer Screening Programme for England.<br/><br/>The service will provide specialist reporting of prostate MRI examinations for Programme Participants requiring MRI following an above-threshold PSA result. The scope will include image receipt or access, case acceptance, specialist human double reporting, lesion delineation where required, expert arbitration, structured report production and authorisation, secure report return, acknowledgement and Failsafe arrangements, quality assurance, escalation, Programme data reporting, audit and governance participation.<br/><br/>Diagnostic MRI scanning is outside the scope of this procurement. The procurement also excludes PSA testing, biopsy delivery, urology treatment, BRCA digital decision-resource development, BRCA genetic testing and development of the national Programme IT system.",
+    "value": {
+     "amount": 143654.56,
+     "currency": "GBP"
+    },
+    "lots": [
+     {
+      "id": "1",
+      "description": "As part of this process, the Contracting Authority would like to invite interested parties to read and complete our Invitation to Tender within our e-Tendering System Atamis, https://atamis-1928.my.site.com/s/Welcome. This service will be competed under The Health Care Services (Provider Selection Regime) Regulations 2023 and will not be competed via Public Contract Regulations 2015 or via the Procurement Act 2023.<br/><br/>The Contracting Authority will be using Atamis, the Contracting Authority\u2019s e-Tendering system for this procurement exercise. For further information, the ITT documentation can be found via the 'Live Opportunities' list on the e-tendering system.<br/><br/>Only Tenders which pass the applicable compliance checks and all applicable Pass/Fail requirements in Questionnaire 1 \u2013 the Basic Selection Criteria Questionnaire in accordance with Document 1 \u2013 ITT Instructions, will proceed to Stage 2 evaluation.<br/><br/>Stage 1 (Compliance and Basic Selection Criteria Questionnaire)<br/>Compliance checks will be completed to ensure tenders are completed as per the ITT instructions. The Basic Selection Criteria Questionnaire will evaluate the Basic Selection Criteria. The questions will be evaluated on a Pass/Fail or for information only basis and can be found in Document 3.<br/><br/>Stage 2 (Quality, Social Value and Commercial Envelope)<br/>This will be the evaluation of the Quality and Commercial envelope which contains the Key Criteria questions and can be found in Document 4 (Quality and Social Value Envelope) and Document 5 (Commercial Envelope). Scores from Stage 2 evaluation will form 20% of the final score at Stage 3 evaluation.<br/><br/>The Key Criteria (as outlined in PSR Regulation 5) for Stage 2 will be evaluated as outlined below:<br/><br/>1. National MRI reporting service model and governance - 8%<br/><br/>National service model, governance, accountability, subcontracting/reporting networks and pathway interfaces.<br/><br/>2. Reader workforce, competence, capacity and onboarding - 16%<br/><br/>Reader credentials and experience, training, QA, workforce capacity, resilience and performance management.<br/><br/>3. Image receipt, Scanning Organisation interface and digital interoperability - 12%<br/><br/>Image transfer/access, interfaces, matching, case acceptance, image quality, reconciliation, downtime and IG.<br/><br/>4. Reporting protocol, double reading, arbitration and structured report - 16%<br/><br/>Human double reading, arbitration, lesion delineation, Structured Report, incidental findings, QA and reporting compliance.<br/><br/>5. Report return, urgent findings, Failsafe and onward pathway liaison - 10%<br/><br/>Report return/acknowledgement, urgent findings, failed handoffs, Failsafe, escalation and downstream liaison.<br/><br/>6. Mobilisation, performance monitoring, resilience and business continuity - 8%<br/><br/>Mobilisation, onboarding, testing, KPIs, audit, capacity, BCP, recovery and reconciliation.<br/><br/>7. Social Value \u2013 equitable access, workforce sustainability and low-carbon delivery \u2013 10%<br/><br/>Key areas assessed: equitable access to specialist MRI reporting, sustainable specialist workforce, fair work, training/wellbeing, ethical subcontracting, remote/digital delivery and low-carbon operational practices.<br/><br/>PSR Key Criteria<br/><br/>In accordance with Regulation 5 of the Health Care Services (Provider Selection Regime) Regulations 2023, the award criteria collectively assess all five PSR Key Criteria as follows:<br/><br/>Quality and Innovation \u2013 assessed through Questions 1\u20136 of the Quality Envelope, including service quality, specialist reader capability, digital interoperability, reporting methodology, clinical Failsafe arrangements, mobilisation and resilience.<br/><br/>Value \u2013 assessed through the Commercial Envelope, weighted at 20%.<br/><br/>Integration, Collaboration and Service Sustainability \u2013 assessed principally through Questions 1, 2, 3, 5 and 6, including governance, specialist workforce sustainability, Scanning Organisation interfaces, digital interoperability, pathway handoffs, capacity and business continuity.<br/><br/>Improving Access, Reducing Health Inequalities and Facilitating Choice \u2013 assessed principally through Questions 1, 3, 5 and 7, including national access to specialist reporting, Scanning Organisation connectivity, Failsafe/pathway liaison and additional equitable-access commitments.<br/><br/>Social Value \u2013 assessed through Question 7, weighted at 10%.<br/><br/>Stage 2 - Commercial Envelope - 20%<br/><br/>This is a Provider Selection Regime (PSR) Contract Notice. The awarding of this contract is subject to the Health Care Services (Provider Selection Regime) Regulations 2023. For the avoidance of doubt, the provisions of the Public Contracts Regulations 2015 or Procurement Act 2023 do not apply to this award.",
+      "value": {
+       "amount": 143654.56,
+       "currency": "GBP"
+      },
+      "contractPeriod": {
+       "durationInDays": 780
+      },
+      "hasRenewal": false,
+      "submissionTerms": {
+       "variantPolicy": "notAllowed"
+      },
+      "hasOptions": false,
+      "status": "active"
+     }
+    ],
+    "items": [
+     {
+      "id": "1",
+      "deliveryAddresses": [
+       {
+        "region": "UK"
+       }
+      ],
+      "relatedLot": "1"
+     }
+    ],
+    "submissionMethod": [
+     "electronicSubmission",
+     "written"
+    ],
+    "submissionMethodDetails": "https://atamis-1928.my.site.com/s/Welcome",
+    "communication": {
+     "atypicalToolUrl": "https://atamis-1928.my.site.com/s/Welcome"
+    },
+    "selectionCriteria": {
+     "criteria": [
+      {
+       "type": "suitability",
+       "description": "Applicants will be assessed in accordance with the Health Care Services (Provider Selection Regime) Regulations 2023 on the basis of the information provided in response to the Basic Selection Criteria Questionnaire (assessment Stage 1).",
+       "appliesTo": [
+        "supplier"
+       ]
+      },
+      {
+       "type": "economic",
+       "description": "Selection criteria as stated in the procurement documents.",
+       "minimum": "Selection criteria as stated in the procurement documents.",
+       "appliesTo": [
+        "supplier"
+       ]
+      }
+     ]
+    },
+    "procurementMethod": "open",
+    "procurementMethodDetails": "Open procedure",
+    "coveredBy": [
+     "GPA"
+    ],
+    "tenderPeriod": {
+     "endDate": "2026-11-10T12:00:00Z"
+    },
+    "submissionTerms": {
+     "languages": [
+      "en"
+     ],
+     "bidValidityPeriod": {
+      "endDate": "2027-03-01T23:59:59Z"
+     }
+    },
+    "awardPeriod": {
+     "startDate": "2026-10-13T12:00:00+01:00"
+    },
+    "bidOpening": {
+     "date": "2026-10-13T12:00:00+01:00"
+    },
+    "hasRecurrence": false
+   },
+   "parties": [
+    {
+     "name": "NHS England",
+     "id": "GB-FTS-130973",
+     "identifier": {
+      "legalName": "NHS England"
+     },
+     "address": {
+      "streetAddress": "Wellington House, 133-135 Waterloo Rd",
+      "locality": "London",
+      "region": "UKI",
+      "postalCode": "SE1 8UG",
+      "countryName": "United Kingdom"
+     },
+     "contactPoint": {
+      "name": "NHS England",
+      "email": "england.commercialqueries@nhs.net",
+      "url": "https://atamis-1928.my.site.com/s/Welcome"
+     },
+     "roles": [
+      "buyer"
+     ],
+     "details": {
+      "url": "https://www.england.nhs.uk/",
+      "buyerProfile": "https://www.england.nhs.uk/",
+      "classifications": [
+       {
+        "scheme": "TED_CA_TYPE",
+        "id": "BODY_PUBLIC",
+        "description": "Body governed by public law"
+       },
+       {
+        "scheme": "COFOG",
+        "id": "07",
+        "description": "Health"
+       }
+      ]
+     }
+    },
+    {
+     "name": "Independent patient choice and procurement panel",
+     "id": "GB-FTS-133554",
+     "identifier": {
+      "legalName": "Independent patient choice and procurement panel"
+     },
+     "address": {
+      "streetAddress": "Wellington House",
+      "locality": "London",
+      "postalCode": "SE1 8UG",
+      "countryName": "United Kingdom"
+     },
+     "roles": [
+      "reviewBody"
+     ]
+    }
+   ],
+   "buyer": {
+    "id": "GB-FTS-130973",
+    "name": "NHS England"
+   },
+   "language": "en"
+  },
+  {
+   "ocid": "ocds-h6vhtk-078663",
+   "id": "096471-2026",
+   "date": "2026-10-13T11:42:17+01:00",
+   "tag": [
+    "tender"
+   ],
+   "description": "Scotland Excel is acting on behalf of SLIC in the execution of this tender but will not be party to the contract or the management of the contract throughout its lifetime.\nNOTE: To register your interest in this notice and obtain any additional information please visit the Public Contracts Scotland Web Site at https://www.publiccontractsscotland.gov.uk/Search/Search_Switch.aspx?ID=845512.\nThe buyer has indicated that it will accept electronic responses to this notice via the Postbox facility. A user guide is available at https://www.publiccontractsscotland.gov.uk/sitehelp/help_guides.aspx.\nSuppliers are advised to allow adequate time for uploading documents and to dispatch the electronic response well in advance of the closing time to avoid any last minute problems.\nCommunity benefits are included in this requirement. For more information see: https://www.gov.scot/policies/public-sector-procurement/community-benefits-in-procurement/\nA summary of the expected community benefits has been provided as follows:\nSLIC is committed to securing wider social value through its procurement activities. As this Contract will provide a nationally available digital library service across Scotland, SLIC wishes to secure Community Benefits that support reading, literacy, digital inclusion and the development of public library services.\nWhere reasonably practicable, proposed Community Benefits should benefit multiple participating Affiliates.\n(SC Ref:845512)\nDownload the ESPD document here: https://www.publiccontractsscotland.gov.uk/ESPD/ESPD_Download.aspx?id=845512",
+   "initiationType": "tender",
+   "tender": {
+    "id": "ocds-h6vhtk-078663",
+    "legalBasis": {
+     "id": "32014L0024",
+     "scheme": "CELEX"
+    },
+    "title": "Libraries Scotland eNewspaper and eMagazine",
+    "status": "active",
+    "classification": {
+     "scheme": "CPV",
+     "id": "92511000",
+     "description": "Library services"
+    },
+    "mainProcurementCategory": "services",
+    "description": "The aim of this tender is to provide a single national eMagazines and eNewpapers service to all thirty-two public library services for access by their members. Scottish Library and Information Council (SLIC) is seeking a vendor that can supply eMagazines and eNewspapers to all thirty-two public library services.",
+    "value": {
+     "amount": 1600000,
+     "currency": "GBP"
+    },
+    "lots": [
+     {
+      "id": "1",
+      "description": "SLIC has been tasked by the Scottish Government to develop a single digital interface for Scottish Public Libraries along with a national eResources collection to ensure equitable access to information and reading material across the whole of Scotland. The Scottish Government has provided SLIC with an ongoing annual grant to deliver the website, to be known as \u2018Libraries Scotland\u2019, and to develop the national eResources collection. This will bring Scottish Public Libraries in line with counterparts in Northern Ireland, Ireland and Wales. SLIC has developed the project with guidance from the Association of Public Libraries in Scotland (APLS) and a steering group made up of representatives from across local authorities and the wider library sector in Scotland. The project is also a strategic aim in Forward: Scotland\u2019s Public Library Strategy 2021-2025 and carried over to Fast Forward: Public Library Strategy Refresh 2026. Additional information: Scotland Excel is acting on behalf of SLIC in the execution of this tender but will not be party to the contract or the management of the contract throughout its lifetime.",
+      "awardCriteria": {
+       "criteria": [
+        {
+         "name": "Technical",
+         "type": "quality",
+         "description": "70"
+        },
+        {
+         "type": "price",
+         "description": "30%"
+        }
+       ]
+      },
+      "value": {
+       "amount": 1600000,
+       "currency": "GBP"
+      },
+      "contractPeriod": {
+       "durationInDays": 780
+      },
+      "hasRenewal": true,
+      "renewal": {
+       "description": "The Contract will be from 1 Feb 2027 until 31 March 2029, and SLIC will have an option to extend it for up to a further two 12-month periods until 31 March 2031."
+      },
+      "submissionTerms": {
+       "variantPolicy": "notAllowed",
+       "electronicCataloguePolicy": "required"
+      },
+      "hasOptions": false,
+      "status": "active"
+     }
+    ],
+    "items": [
+     {
+      "id": "1",
+      "additionalClassifications": [
+       {
+        "scheme": "CPV",
+        "id": "48160000",
+        "description": "Library software package"
+       }
+      ],
+      "deliveryAddresses": [
+       {
+        "region": "UKM"
+       }
+      ],
+      "deliveryLocation": {
+       "description": "Participation by all thirty-two (32) Scottish local authority library services throughout the Contract period may be optioned."
+      },
+      "relatedLot": "1"
+     }
+    ],
+    "submissionMethod": [
+     "electronicSubmission"
+    ],
+    "submissionMethodDetails": "http://www.publiccontractsscotland.gov.uk",
+    "selectionCriteria": {
+     "criteria": [
+      {
+       "type": "suitability",
+       "description": "Bidders must meet the Web Content Accessibility Guidelines (WCAG) international standard or equivalent, with a minimum of level WCAG 2.1 AA. An Accessibility Statement must also be available on the supplier website.\nIn addition, they must hold Cyber Essentials or equivalent accreditation.",
+       "appliesTo": [
+        "supplier"
+       ]
+      }
+     ]
+    },
+    "documents": [
+     {
+      "documentType": "economicSelectionCriteria",
+      "id": "economic"
+     },
+     {
+      "documentType": "technicalSelectionCriteria",
+      "id": "technical"
+     }
+    ],
+    "contractTerms": {
+     "performanceTerms": "As stated in the tender document, SLIC Contract Agreement Final",
+     "hasElectronicOrdering": true,
+     "electronicInvoicingPolicy": "allowed",
+     "hasElectronicPayment": true
+    },
+    "procurementMethod": "open",
+    "procurementMethodDetails": "Open procedure",
+    "coveredBy": [
+     "GPA"
+    ],
+    "tenderPeriod": {
+     "endDate": "2026-11-13T12:00:00Z"
+    },
+    "submissionTerms": {
+     "languages": [
+      "en"
+     ],
+     "bidValidityPeriod": {
+      "endDate": "2027-04-22T23:59:59+01:00"
+     }
+    },
+    "awardPeriod": {
+     "startDate": "2026-11-13T12:00:00Z"
+    },
+    "bidOpening": {
+     "date": "2026-11-13T12:00:00Z"
+    },
+    "hasRecurrence": false
+   },
+   "parties": [
+    {
+     "name": "Scottish Library and  Information Council",
+     "id": "GB-FTS-187522",
+     "identifier": {
+      "legalName": "Scottish Library and  Information Council"
+     },
+     "address": {
+      "streetAddress": "Suite 0.5, Turnberry House, 175 West George Street",
+      "locality": "Glasgow",
+      "region": "UKM",
+      "postalCode": "G2 2LB",
+      "countryName": "United Kingdom"
+     },
+     "contactPoint": {
+      "name": "Shelly Kilgour",
+      "telephone": "+44 1416113160",
+      "email": "flexibleprocurement@scotland-excel.org.uk",
+      "url": "http://www.publiccontractsscotland.gov.uk"
+     },
+     "roles": [
+      "buyer",
+      "centralPurchasingBody"
+     ],
+     "details": {
+      "url": "http://www.scottishlibraries.org",
+      "buyerProfile": "https://www.publiccontractsscotland.gov.uk/search/Search_AuthProfile.aspx?ID=AA14522",
+      "classifications": [
+       {
+        "scheme": "TED_CA_TYPE",
+        "id": "BODY_PUBLIC",
+        "description": "Body governed by public law"
+       },
+       {
+        "scheme": "COFOG",
+        "id": "01",
+        "description": "General public services"
+       }
+      ]
+     }
+    },
+    {
+     "name": "Glasgow Sheriff Court and Justice of the Peace Court",
+     "id": "GB-FTS-3525",
+     "identifier": {
+      "legalName": "Glasgow Sheriff Court and Justice of the Peace Court"
+     },
+     "address": {
+      "streetAddress": "1 Carlton Place",
+      "locality": "Glasgow",
+      "postalCode": "G5 9DA",
+      "countryName": "United Kingdom"
+     },
+     "roles": [
+      "reviewBody"
+     ]
+    }
+   ],
+   "buyer": {
+    "id": "GB-FTS-187522",
+    "name": "Scottish Library and  Information Council"
+   },
+   "links": [
+    {
+     "rel": "canonical",
+     "href": "https://api.publiccontractsscotland.gov.uk/v1/Notice?id=ocds-r6ebe6-0000845512"
+    }
+   ],
+   "language": "en"
+  }
+ ],
+ "links": {}
+}
