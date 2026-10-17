@@ -87,6 +87,140 @@ class LeadRepository:
             log_audit_trail(lead_id, "SwarmEngine", "STATUS_UPDATED", {"new_status": status}, conn=conn)
             conn.commit()
 
+    @staticmethod
+    def get_pipeline(org_id: str = "org_default") -> Dict[str, Any]:
+        """Returns structured CRM pipeline deals grouped by stage with live revenue totals."""
+        import re
+        stages: Dict[str, List[Dict[str, Any]]] = {
+            "sourced": [],
+            "audited": [],
+            "sequence_active": [],
+            "meeting_booked": [],
+            "proposal_sent": [],
+            "won": [],
+            "lost": []
+        }
+        stage_weights = {
+            "sourced": 0.10,
+            "audited": 0.25,
+            "sequence_active": 0.40,
+            "meeting_booked": 0.65,
+            "proposal_sent": 0.80,
+            "won": 1.00,
+            "lost": 0.00
+        }
+
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM leads WHERE org_id = ? ORDER BY id DESC", (org_id,))
+            rows = [dict(r) for r in cursor.fetchall()]
+
+        total_pipeline_value = 0.0
+        weighted_projected_revenue = 0.0
+        active_deals = 0
+        won_deals = 0
+
+        for r in rows:
+            st = (r.get("status") or "sourced").lower().replace(" ", "_")
+            if st not in stages:
+                st = "sourced"
+
+            deal_val = 4500.0
+            notes = r.get("notes") or ""
+            val_match = re.search(r"EST VALUE:\s*\$([0-9,]+)", notes)
+            if val_match:
+                try:
+                    deal_val = float(val_match.group(1).replace(",", ""))
+                except Exception:
+                    pass
+
+            pitch_angle = "Web Presence & Performance Rescue"
+            angle_match = re.search(r"PITCH ANGLE:\s*([^|]+)", notes)
+            if angle_match:
+                pitch_angle = angle_match.group(1).strip()
+
+            deal_item = {
+                "id": r["id"],
+                "company_name": r["company_name"],
+                "domain": r["domain"],
+                "phone": r.get("phone"),
+                "address": r.get("address"),
+                "rating": r.get("rating"),
+                "reviews_count": r.get("reviews_count"),
+                "source_channel": r.get("source_channel"),
+                "status": st,
+                "deal_stage": st,
+                "deal_value": deal_val,
+                "pitch_angle": pitch_angle,
+                "created_at": r.get("created_at"),
+                "updated_at": r.get("updated_at")
+            }
+            stages[st].append(deal_item)
+
+            if st != "lost":
+                total_pipeline_value += deal_val
+                weighted_projected_revenue += deal_val * stage_weights.get(st, 0.1)
+                active_deals += 1
+            if st == "won":
+                won_deals += 1
+
+        win_rate = (won_deals / max(active_deals, 1)) * 100
+
+        formatted_stages = {}
+        for s_key, s_leads in stages.items():
+            s_val = round(sum(d["deal_value"] for d in s_leads), 2)
+            s_info = {
+                "count": len(s_leads),
+                "value": s_val,
+                "win_rate": stage_weights.get(s_key, 0.1),
+                "leads": s_leads
+            }
+            formatted_stages[s_key] = s_info
+            if s_key == "won":
+                formatted_stages["closed_won"] = s_info
+            elif s_key == "sequence_active":
+                formatted_stages["outreach_active"] = s_info
+
+        return {
+            "total_pipeline_value": round(total_pipeline_value, 2),
+            "total_value": round(total_pipeline_value, 2),
+            "weighted_projected_revenue": round(weighted_projected_revenue, 2),
+            "weighted_value": round(weighted_projected_revenue, 2),
+            "active_deals_count": active_deals,
+            "total_deals": active_deals,
+            "won_deals_count": won_deals,
+            "win_rate_percent": round(win_rate, 1),
+            "stages": formatted_stages
+        }
+
+    @staticmethod
+    def update_deal_stage(lead_id: int, new_stage: str, org_id: str = "org_default") -> Optional[Dict[str, Any]]:
+        """Updates lead stage with audit trail logging."""
+        stage_aliases = {
+            "closed_won": "won",
+            "outreach_active": "sequence_active",
+        }
+        clean_stage = new_stage.lower().strip().replace(" ", "_")
+        clean_stage = stage_aliases.get(clean_stage, clean_stage)
+
+        valid_stages = ("sourced", "audited", "sequence_active", "meeting_booked", "proposal_sent", "won", "lost")
+        if clean_stage not in valid_stages:
+            raise ValueError(f"Invalid stage '{new_stage}'. Must be one of: {valid_stages}")
+
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM leads WHERE id = ? AND org_id = ?", (lead_id, org_id))
+            if not cursor.fetchone():
+                return None
+            cursor.execute("UPDATE leads SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (clean_stage, lead_id))
+            log_audit_trail(lead_id, "CRM_Pipeline", "STAGE_UPDATED", {"new_stage": clean_stage, "org_id": org_id}, conn=conn)
+            conn.commit()
+            cursor.execute("SELECT * FROM leads WHERE id = ?", (lead_id,))
+            row = dict(cursor.fetchone())
+            row["deal_stage"] = row["status"]
+            return row
+
+
 class AuditRepository:
     @staticmethod
     def save_audit(

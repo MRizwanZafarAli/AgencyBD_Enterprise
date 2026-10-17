@@ -713,6 +713,71 @@ def local_hunt_batch_save(items: List[LocalHuntSaveRequest], principal: Principa
         saved_leads.append(lead)
     return {"saved_count": len(saved_leads), "leads": saved_leads}
 
+
+class LocalHuntProbeRequest(BaseModel):
+    name: str
+    city: str
+    website: Optional[str] = None
+
+
+class DealStageUpdateRequest(BaseModel):
+    lead_id: int
+    new_stage: str
+
+
+class DealCreateRequest(BaseModel):
+    company_name: str
+    domain: str
+    stage: str = "sourced"
+    deal_value: float = 4500.0
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@app.post("/api/hunt/local/probe_presence")
+def local_hunt_probe_presence(req: LocalHuntProbeRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
+    """Probes web presence and DNS/SSL reachability for a specific business."""
+    return local_hunt.probe_presence_live(req.name, req.city, req.website)
+
+
+@app.get("/api/pipeline/deals")
+def get_pipeline_deals(principal: Principal = Depends(require_permission("leads:read"))):
+    """Returns structured CRM pipeline deals grouped by stage with live revenue forecasting."""
+    return LeadRepository.get_pipeline(org_id=principal.org_id)
+
+
+@app.post("/api/pipeline/deals/stage")
+def update_pipeline_deal_stage(req: DealStageUpdateRequest, principal: Principal = Depends(require_permission("leads:create"))):
+    """Updates deal stage in the CRM pipeline with audit logging."""
+    res = LeadRepository.update_deal_stage(req.lead_id, req.new_stage, org_id=principal.org_id)
+    if not res:
+        raise HTTPException(status_code=404, detail="Lead not found in this organization")
+    return res
+
+
+@app.post("/api/pipeline/deals/create")
+def create_pipeline_deal(req: DealCreateRequest, principal: Principal = Depends(require_permission("leads:create"))):
+    """Creates a deal in the CRM pipeline."""
+    note_parts = [f"EST VALUE: ${req.deal_value:,.0f}"]
+    if req.notes:
+        note_parts.append(req.notes)
+    lead = LeadRepository.create_or_get_lead(
+        company_name=req.company_name,
+        domain=req.domain,
+        phone=req.phone,
+        address=req.address,
+        source_channel="crm_pipeline",
+        notes=" | ".join(note_parts),
+        org_id=principal.org_id
+    )
+    if req.stage != "sourced":
+        lead = LeadRepository.update_deal_stage(lead["id"], req.stage, org_id=principal.org_id)
+    else:
+        lead["deal_stage"] = lead.get("status", "sourced")
+    return lead
+
+
 from llm import reasoning as llm_reasoning
 
 @app.post("/api/opportunities/{opportunity_id}/analyze")

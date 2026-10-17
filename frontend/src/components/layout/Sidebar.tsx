@@ -3,7 +3,7 @@ import {
   Activity, Globe, Database, Send,
   Sparkles, BarChart3, Video, Layers,
   Lock, Users, Terminal, X,
-  Stethoscope, Radar, MapPinned, ShieldCheck, BookOpen, Mail
+  Stethoscope, Radar, MapPinned, ShieldCheck, Mail, Kanban
 } from 'lucide-react';
 import type { TabType } from '../../types';
 
@@ -30,7 +30,7 @@ const NAV_GROUPS: Array<{ title: string; items: NavItemDef[] }> = [
       { id: 'doctor', label: 'Website Doctor & Brief', icon: <Stethoscope className="h-4 w-4" />, badge: 'Evidence', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
       { id: 'hunt', label: 'Local Client Hunt', icon: <MapPinned className="h-4 w-4" />, badge: 'Maps', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
       { id: 'radar', label: 'Opportunity Radar', icon: <Radar className="h-4 w-4" />, badge: 'All Work', badgeColor: 'bg-cyan-500/20 text-cyan-300' },
-      { id: 'portfolio', label: 'Portfolio & Proof', icon: <BookOpen className="h-4 w-4" />, badge: 'Required', badgeColor: 'bg-amber-500/20 text-amber-300' },
+      { id: 'portfolio', label: 'Pipeline & Portfolio CRM', icon: <Kanban className="h-4 w-4" />, badge: 'CRM', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
       { id: 'sequences', label: 'Sequences', icon: <Mail className="h-4 w-4" />, badge: 'Outbound', badgeColor: 'bg-indigo-500/20 text-indigo-300' },
       { id: 'governance', label: 'Autonomy Policy & Learning', icon: <ShieldCheck className="h-4 w-4" />, badge: 'L0-L3', badgeColor: 'bg-amber-500/20 text-amber-300' },
       { id: 'sourcing', label: 'Open Sourcing', icon: <Globe className="h-4 w-4" />, badge: 'Maps + LI', badgeColor: 'bg-indigo-500/20 text-indigo-300' },

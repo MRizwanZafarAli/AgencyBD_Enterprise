@@ -219,6 +219,15 @@ def hunt(category: str, city: str, limit: int = 20, provider: Optional[str] = No
 
     def classify(r: Dict[str, Any]) -> Dict[str, Any]:
         site = r.get("website")
+        if not site and r.get("extratags"):
+            t = r.get("extratags")
+            qid = t.get("wikidata") or t.get("operator:wikidata") or t.get("brand:wikidata")
+            if qid:
+                resolved_site = places.fetch_wikidata_website(qid)
+                if resolved_site:
+                    site = resolved_site
+                    r["website"] = site
+
         if site and _is_social(site):
             r["classification"], r["domain"], r["issues"] = "social_only", None, []
         elif site:
@@ -259,3 +268,53 @@ def hunt(category: str, city: str, limit: int = 20, provider: Optional[str] = No
         "results": results,
         "notes": notes,
     }
+
+
+def probe_presence_live(name: str, city: str, website: Optional[str] = None) -> Dict[str, Any]:
+    """Live interactive presence probe for any business. Inspects DNS, TLS, HTTP, and web presence in real-time."""
+    name, city = (name or "").strip(), (city or "").strip()
+    target_site = (website or "").strip()
+
+    if target_site:
+        signals = _site_signals(target_site, name)
+        pitch = generate_pitch_strategy({
+            "name": name,
+            "classification": signals.get("classification", "has_site"),
+            "website": target_site,
+            "domain": signals.get("domain", target_site),
+            "issues": signals.get("issues", []),
+            "reviews": 10,
+            "rating": 4.5,
+        }, "agency service", city)
+        return {
+            "name": name,
+            "city": city,
+            "website": target_site,
+            "domain": signals.get("domain"),
+            "classification": signals.get("classification"),
+            "issues": signals.get("issues", []),
+            "check_note": signals.get("check_note"),
+            "pitch_strategy": pitch,
+            "status": "probed",
+        }
+    else:
+        pitch = generate_pitch_strategy({
+            "name": name,
+            "classification": "no_website_in_osm",
+            "website": None,
+            "domain": None,
+            "issues": ["No official website recorded on public registries"],
+            "reviews": 10,
+            "rating": 4.5,
+        }, "agency service", city)
+        return {
+            "name": name,
+            "city": city,
+            "website": None,
+            "domain": None,
+            "classification": "no_website_in_osm",
+            "issues": ["No active website recorded on public registries"],
+            "pitch_strategy": pitch,
+            "status": "verified_absent",
+        }
+

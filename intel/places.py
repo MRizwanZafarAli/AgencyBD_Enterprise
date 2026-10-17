@@ -89,6 +89,25 @@ def search_google(query: str, city: str, limit: int = 20) -> list:
     return out[:limit]
 
 
+def fetch_wikidata_website(qid: str) -> Optional[str]:
+    """Resolves official website (P856) from Wikidata for an entity QID (100% free, zero key required)."""
+    if not qid or not str(qid).startswith("Q"):
+        return None
+    try:
+        url = f"https://www.wikidata.org/wiki/Special:EntityData/{qid}.json"
+        resp = requests.get(url, headers={"User-Agent": OSM_UA}, timeout=6)
+        if resp.status_code == 200:
+            claims = resp.json().get("entities", {}).get(qid, {}).get("claims", {})
+            p856 = claims.get("P856")
+            if p856 and isinstance(p856, list):
+                val = p856[0].get("mainsnak", {}).get("datavalue", {}).get("value")
+                if val and isinstance(val, str) and val.startswith("http"):
+                    return val
+    except Exception:
+        pass
+    return None
+
+
 def parse_nominatim(rows: list, category: str, fallback_lat: Optional[float] = None, fallback_lon: Optional[float] = None) -> list:
     out: list = []
     for r in rows:
@@ -97,14 +116,19 @@ def parse_nominatim(rows: list, category: str, fallback_lat: Optional[float] = N
         street = " ".join(x for x in (a.get("house_number"), a.get("road")) if x)
         lat = float(r["lat"]) if r.get("lat") else fallback_lat
         lon = float(r["lon"]) if r.get("lon") else fallback_lon
+        raw_web = (
+            t.get("website") or t.get("contact:website") or t.get("url")
+            or t.get("brand:website") or t.get("operator:website")
+        )
         out.append({
             "provider": "osm", "place_id": f"osm_{r.get('osm_type')}_{r.get('osm_id')}", "name": r.get("name") or None,
-            "website": t.get("website") or t.get("contact:website") or t.get("url"),
+            "website": raw_web,
             "address": ", ".join(x for x in (street, a.get("suburb") or a.get("city_district"), a.get("city") or a.get("town")) if x) or None,
             "phone": t.get("phone") or t.get("contact:phone"), "rating": None, "reviews": 0,
             "maps_url": f"https://www.openstreetmap.org/{r.get('osm_type')}/{r.get('osm_id')}", "category": category, "business_status": None,
             "facebook": t.get("contact:facebook") or t.get("facebook"), "instagram": t.get("contact:instagram") or t.get("instagram"),
-            "lat": lat, "lon": lon})
+            "lat": lat, "lon": lon,
+            "extratags": t})
     return out
 
 

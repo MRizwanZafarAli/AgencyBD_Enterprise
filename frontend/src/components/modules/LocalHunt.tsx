@@ -4,7 +4,7 @@ import {
   MapPin, Phone, Star, ExternalLink, Search, BookmarkPlus, Check, Sparkles,
   Globe, Compass, Copy, SlidersHorizontal, Zap, Building2,
   ShieldCheck, X, Layers, AlertTriangle, Download, Send, CheckCircle2,
-  TrendingUp, ChevronDown, ChevronUp
+  TrendingUp, ChevronDown, ChevronUp, Stethoscope, FileText
 } from 'lucide-react';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
 import { ErrorBanner } from '../shared/ErrorBanner';
@@ -152,6 +152,7 @@ export const LocalHunt: FC = () => {
   const [enrolling, setEnrolling] = useState<Record<string, boolean>>({});
   const [enrolled, setEnrolled] = useState<Record<string, boolean>>({});
   const [enrollMessage, setEnrollMessage] = useState('');
+  const [probing, setProbing] = useState<Record<string, boolean>>({});
 
   // Market Intelligence & High-Yield Region Advisor state
   const [advisorOpen, setAdvisorOpen] = useState(false);
@@ -552,6 +553,59 @@ export const LocalHunt: FC = () => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
+
+  const probePresence = async (r: Result) => {
+    setProbing((prev) => ({ ...prev, [r.place_id]: true }));
+    try {
+      const res = await apiFetch('/api/hunt/local/probe_presence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: r.name,
+          city,
+          website: r.website || undefined,
+        }),
+      });
+      if (res.ok) {
+        const probed = await res.json();
+        if (data && data.results) {
+          const updated = data.results.map((item) => {
+            if (item.place_id === r.place_id) {
+              return {
+                ...item,
+                website: probed.website !== undefined ? probed.website : item.website,
+                domain: probed.domain !== undefined ? probed.domain : item.domain,
+                classification: probed.classification || item.classification,
+                issues: probed.issues?.length ? probed.issues : item.issues,
+                pitch_strategy: probed.pitch_strategy || item.pitch_strategy,
+              };
+            }
+            return item;
+          });
+          setData({ ...data, results: updated });
+          if (selectedResult?.place_id === r.place_id) {
+            setSelectedResult({
+              ...selectedResult,
+              website: probed.website !== undefined ? probed.website : selectedResult.website,
+              domain: probed.domain !== undefined ? probed.domain : selectedResult.domain,
+              classification: probed.classification || selectedResult.classification,
+              issues: probed.issues?.length ? probed.issues : selectedResult.issues,
+              pitch_strategy: probed.pitch_strategy || selectedResult.pitch_strategy,
+            });
+          }
+        }
+      }
+    } catch {
+      // Ignore
+    } finally {
+      setProbing((prev) => ({ ...prev, [r.place_id]: false }));
+    }
+  };
+
+  const exportTeardownPDF = () => {
+    window.print();
+  };
+
 
   const field = 'w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500';
 
@@ -1064,6 +1118,18 @@ export const LocalHunt: FC = () => {
                             <span className="truncate">{r.website.replace(/^https?:\/\/(www\.)?/, '')}</span>
                           </a>
                         )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            probePresence(r);
+                          }}
+                          disabled={probing[r.place_id]}
+                          className="px-2 py-0.5 rounded-md bg-slate-900/90 hover:bg-slate-800 text-amber-400 hover:text-amber-300 border border-slate-800 flex items-center gap-1 transition"
+                          title="Run live DNS & reachability doctor probe"
+                        >
+                          <Stethoscope className={`h-2.5 w-2.5 ${probing[r.place_id] ? 'animate-spin' : ''}`} />
+                          <span>{probing[r.place_id] ? 'Probing…' : 'Probe Site'}</span>
+                        </button>
                       </div>
 
                       {/* Card Action Buttons */}
@@ -1138,8 +1204,8 @@ export const LocalHunt: FC = () => {
 
       {/* Slide-over Pitch Strategy & Teardown Modal */}
       {selectedResult && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-          <div className="glass-panel w-full max-w-2xl rounded-2xl border border-slate-750 p-6 space-y-5 max-h-[90vh] overflow-y-auto relative z-[100000] shadow-2xl">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in print:static print:p-0 print:bg-transparent print:z-auto">
+          <div className="glass-panel w-full max-w-2xl rounded-2xl border border-slate-750 p-6 space-y-5 max-h-[90vh] overflow-y-auto relative z-[100000] shadow-2xl print:max-h-none print:overflow-visible print:border-none print:p-0 print:bg-transparent">
             {/* Modal Header */}
             <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-800">
               <div>
@@ -1159,7 +1225,7 @@ export const LocalHunt: FC = () => {
               </div>
               <button
                 onClick={() => setSelectedResult(null)}
-                className="p-1.5 rounded-lg border border-slate-800 text-slate-400 hover:text-white hover:border-slate-600"
+                className="p-1.5 rounded-lg border border-slate-800 text-slate-400 hover:text-white hover:border-slate-600 print:hidden"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1309,12 +1375,29 @@ export const LocalHunt: FC = () => {
             </div>
 
             {/* Modal Actions */}
-            <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+            <div className="flex items-center justify-between pt-4 border-t border-slate-800 print:hidden">
               <div className="text-xs text-slate-500 font-mono">
                 {selectedResult.lat && selectedResult.lon ? `Lat: ${selectedResult.lat.toFixed(4)}, Lon: ${selectedResult.lon.toFixed(4)}` : 'Coordinates via Nominatim'}
               </div>
 
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => probePresence(selectedResult)}
+                  disabled={probing[selectedResult.place_id]}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold transition"
+                  title="Live probe DNS, TLS, and website reachability"
+                >
+                  <Stethoscope className={`h-3.5 w-3.5 ${probing[selectedResult.place_id] ? 'animate-spin' : ''}`} />
+                  {probing[selectedResult.place_id] ? 'Probing…' : 'Probe Site Live'}
+                </button>
+                <button
+                  onClick={exportTeardownPDF}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition"
+                  title="Print / Save Executive Pitch Teardown PDF"
+                >
+                  <FileText className="h-3.5 w-3.5 text-indigo-400" />
+                  Print Teardown (PDF)
+                </button>
                 <button
                   onClick={() => enrollInCadence(selectedResult)}
                   disabled={enrolling[selectedResult.place_id] || enrolled[selectedResult.place_id]}

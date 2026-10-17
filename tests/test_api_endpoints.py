@@ -307,3 +307,49 @@ def test_internal_errors_do_not_leak_details(client, growth_headers):
     res = client.post("/api/pipeline/run", json={"lead_id": 999999}, headers=growth_headers)
     assert res.status_code == 404
     assert "Traceback" not in res.text
+
+
+def test_probe_presence_endpoint(client, growth_headers):
+    res = client.post("/api/hunt/local/probe_presence", headers=growth_headers, json={
+        "name": "Acme Motors",
+        "city": "Dallas",
+        "website": None
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["name"] == "Acme Motors"
+    assert data["classification"] == "no_website_in_osm"
+    assert "pitch_strategy" in data
+
+
+def test_pipeline_deals_crud_and_forecast(client, growth_headers):
+    # 1. Create Deal
+    res = client.post("/api/pipeline/deals/create", headers=growth_headers, json={
+        "company_name": "Lone Star Dental",
+        "domain": "lonestardental.org",
+        "deal_value": 7500,
+        "stage": "sourced",
+        "notes": "Dead website detected on mobile"
+    })
+    assert res.status_code == 200
+    deal = res.json()
+    deal_id = deal["id"]
+    assert deal["deal_stage"] == "sourced"
+
+    # 2. Query Pipeline
+    res_pipe = client.get("/api/pipeline/deals", headers=growth_headers)
+    assert res_pipe.status_code == 200
+    pipe = res_pipe.json()
+    assert pipe["total_deals"] >= 1
+    assert pipe["total_value"] >= 7500
+    assert "sourced" in pipe["stages"]
+
+    # 3. Advance Deal Stage
+    res_stage = client.post("/api/pipeline/deals/stage", headers=growth_headers, json={
+        "lead_id": deal_id,
+        "new_stage": "meeting_booked"
+    })
+    assert res_stage.status_code == 200
+    updated = res_stage.json()
+    assert updated["deal_stage"] == "meeting_booked"
+
