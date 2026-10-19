@@ -694,6 +694,79 @@ def calculate_lead_math_score(req: MathScoreRequest, principal: Principal = Depe
         "cost_of_delay": delay
     }
 
+from engines.native_browser_service import NativeBrowserService
+from engines.brain_gateway import BrainGateway
+
+browser_service = NativeBrowserService()
+brain_gateway = BrainGateway()
+
+class BrainPlanRequest(BaseModel):
+    goal: str
+    context: Optional[Dict[str, Any]] = None
+
+class BrainChatRequest(BaseModel):
+    messages: List[Dict[str, str]]
+    context: Optional[Dict[str, Any]] = None
+
+class BrainObjectionRequest(BaseModel):
+    objection: str
+    prospect_name: Optional[str] = "Lead"
+    company: Optional[str] = "Target Corp"
+    context: Optional[Dict[str, Any]] = None
+
+class BrainArtifactRequest(BaseModel):
+    lead: Dict[str, Any]
+    tech_audit: Optional[Dict[str, Any]] = None
+    deal_metrics: Optional[Dict[str, Any]] = None
+
+class BrowserRenderRequest(BaseModel):
+    domain: str
+
+class BrowserScreenshotRequest(BaseModel):
+    domain: str
+    viewport: Optional[str] = "desktop"
+
+@app.get("/api/brain/status")
+def get_brain_status_endpoint(principal: Principal = Depends(require_permission("leads:read"))):
+    """Returns real-time status of active cognitive brain (Ollama, Free Cloud, Claude BYOK, Native)."""
+    return {"status": "success", "brain": brain_gateway.detect_active_brain()}
+
+@app.post("/api/brain/plan")
+def get_brain_plan_endpoint(req: BrainPlanRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
+    """Generates Claude-style ReAct execution plan with tool calling sequence and chain-of-thought."""
+    return brain_gateway.think_and_plan(req.goal, req.context)
+
+@app.post("/api/brain/chat")
+def get_brain_chat_endpoint(req: BrainChatRequest, principal: Principal = Depends(require_permission("leads:read"))):
+    """Conversational Big Brain Co-Pilot for autonomous swarm guidance."""
+    return brain_gateway.chat_copilot(req.messages, req.context)
+
+@app.post("/api/brain/triage-objection")
+def get_brain_objection_endpoint(req: BrainObjectionRequest, principal: Principal = Depends(require_permission("leads:read"))):
+    """Categorizes inbound objection and generates evidence-based rebuttal battlecard."""
+    return brain_gateway.triage_objection(req.objection, req.prospect_name or "Lead", req.company or "Target Corp", req.context)
+
+@app.post("/api/brain/artifact")
+def get_brain_artifact_endpoint(req: BrainArtifactRequest, principal: Principal = Depends(require_permission("leads:read"))):
+    """Generates Claude-style rich interactive markdown proposal with KaTeX math and sprint milestones."""
+    return brain_gateway.generate_proposal_artifact(req.lead, req.tech_audit, req.deal_metrics)
+
+@app.post("/api/browser/render")
+def browser_render_endpoint(req: BrowserRenderRequest, principal: Principal = Depends(require_permission("leads:read"))):
+    """Renders virtual DOM of target website using sovereign headless Chromium and extracts contacts."""
+    try:
+        return browser_service.render_spa_dom(req.domain)
+    except Exception as e:
+        raise _fail(e)
+
+@app.post("/api/browser/screenshot")
+def browser_screenshot_endpoint(req: BrowserScreenshotRequest, principal: Principal = Depends(require_permission("leads:read"))):
+    """Captures high-resolution desktop or mobile screenshot using sovereign headless Chromium."""
+    try:
+        return browser_service.capture_screenshot(req.domain, viewport=req.viewport or "desktop")
+    except Exception as e:
+        raise _fail(e)
+
 # ==================== Phase 1: Website Doctor, Briefing & Presence Rescue ====================
 from intel.resolver import CompanyResolver
 from intel.company_brief import CompanyBriefEngine

@@ -434,4 +434,111 @@ def test_swarm_autopilot_run_endpoint(client, growth_headers, monkeypatch):
     assert data["result"]["total_expected_pipeline_usd"] > 0
 
 
+def test_brain_status_endpoint(client, growth_headers):
+    res = client.get("/api/brain/status", headers=growth_headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert "brain" in data
+    assert "tier" in data["brain"]
+
+
+def test_brain_plan_endpoint(client, growth_headers):
+    res = client.post("/api/brain/plan", headers=growth_headers, json={
+        "goal": "Acquire 5 Series A fintech companies with slow LCP"
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert "execution_plan" in data
+    assert len(data["execution_plan"]) >= 4
+
+
+def test_brain_chat_endpoint(client, growth_headers):
+    res = client.post("/api/brain/chat", headers=growth_headers, json={
+        "messages": [{"role": "user", "content": "Find 3 high intent accounts"}]
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert data["intent"] == "SOURCING_DISPATCH"
+    assert "reply" in data
+
+
+def test_brain_triage_objection_endpoint(client, growth_headers):
+    res = client.post("/api/brain/triage-objection", headers=growth_headers, json={
+        "objection": "Your squad is too expensive for our seed budget",
+        "prospect_name": "Sarah",
+        "company": "FintechHQ"
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert data["category"] == "BUDGET_PRICING"
+    assert "draft_reply" in data
+
+
+def test_brain_artifact_endpoint(client, growth_headers):
+    res = client.post("/api/brain/artifact", headers=growth_headers, json={
+        "lead": {"company_name": "Novu Labs", "domain": "novulabs.com", "contact_name": "Elena"},
+        "tech_audit": {"detected_stack": ["React", "Next.js"], "lcp_seconds": 3.7},
+        "deal_metrics": {"monthly_financial_loss_usd": 2800.0, "expected_value_usd": 50000.0}
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert "Novu Labs" in data["artifact_markdown"]
+    assert "artifact_title" in data
+
+
+def test_browser_render_endpoint(client, growth_headers, monkeypatch):
+    from api import browser_service
+    # Mock render_spa_dom to avoid external network calls during unit tests
+    monkeypatch.setattr(
+        browser_service,
+        "render_spa_dom",
+        lambda domain: {
+            "status": "success",
+            "domain": domain,
+            "rendered_by": "mock_chrome",
+            "title": "Mock Corp",
+            "emails": ["founders@mockcorp.com"],
+            "phones": ["+1-555-0100"],
+            "detected_stack": ["Next.js", "Tailwind CSS"],
+            "has_react": True
+        }
+    )
+    res = client.post("/api/browser/render", headers=growth_headers, json={
+        "domain": "mockcorp.com"
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert "Next.js" in data["detected_stack"]
+    assert "founders@mockcorp.com" in data["emails"]
+
+
+def test_browser_screenshot_endpoint(client, growth_headers, monkeypatch):
+    from api import browser_service
+    monkeypatch.setattr(
+        browser_service,
+        "capture_screenshot",
+        lambda domain, viewport: {
+            "status": "success",
+            "domain": domain,
+            "viewport": viewport,
+            "data_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        }
+    )
+    res = client.post("/api/browser/screenshot", headers=growth_headers, json={
+        "domain": "mockcorp.com",
+        "viewport": "mobile"
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert "data_uri" in data
+
+
+
 
