@@ -86,6 +86,12 @@ PROTECTED_ROUTES = [
     ("DELETE", "/api/services/x"),
     ("POST", "/api/companies/1/brief"),
     ("GET", "/api/companies/1/brief"),
+    ("POST", "/api/browser/interactive/navigate"),
+    ("POST", "/api/browser/interactive/action"),
+    ("POST", "/api/browser/interactive/headed-window"),
+    ("POST", "/api/swarm/pods/run"),
+    ("POST", "/api/teardown/deck/export"),
+    ("GET", "/api/teardown/deck/view/sample.html"),
 ]
 
 

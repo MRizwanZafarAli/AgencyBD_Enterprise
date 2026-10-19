@@ -12,7 +12,7 @@ from typing import Optional, List, Dict, Any
 
 from fastapi import FastAPI, HTTPException, Query, Header, Request, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from net.fetcher import SSRFSecurityError, HostUnreachableError
 from config.honesty import NotConfiguredError, PreconditionFailedError
@@ -805,6 +805,149 @@ def get_domain_unknowns_endpoint(domain: str, principal: Principal = Depends(req
     """Lists explicit unknown facets and missing fields for a domain."""
     unknowns = evidence_ledger.list_unknowns_for_domain(domain)
     return {"status": "success", "domain": domain, "unknowns": unknowns}
+
+# ==================== Interactive Browser, Swarm Pods & Teardown Deck ====================
+from engines.interactive_browser_session import InteractiveBrowserSession
+from agents.swarm_pods import (
+    SwarmPodController,
+    SourcingScoutPod,
+    ForensicsEngineerPod,
+    DealStrategistPod,
+    DeliverabilitySentinelPod,
+    ObjectionNegotiatorPod,
+)
+from engines.teardown_deck_exporter import TeardownDeckExporter
+
+_interactive_sessions: Dict[str, InteractiveBrowserSession] = {}
+
+def _get_interactive_session(session_id: str = "default_session") -> InteractiveBrowserSession:
+    if session_id not in _interactive_sessions:
+        _interactive_sessions[session_id] = InteractiveBrowserSession(session_id=session_id)
+    return _interactive_sessions[session_id]
+
+swarm_pod_controller = SwarmPodController()
+teardown_deck_exporter = TeardownDeckExporter(browser_service=browser_service, diff_engine=differential_engine)
+
+class InteractiveNavigateRequest(BaseModel):
+    target: str
+    session_id: Optional[str] = "default_session"
+    viewport: Optional[str] = "desktop"
+
+class InteractiveActionRequest(BaseModel):
+    action_type: str = Field(..., description="Action type: click, type, scroll, or refresh")
+    params: Dict[str, Any] = Field(default_factory=dict)
+    session_id: Optional[str] = "default_session"
+
+class InteractiveHeadedRequest(BaseModel):
+    url: Optional[str] = None
+    session_id: Optional[str] = "default_session"
+
+class SwarmPodsRunRequest(BaseModel):
+    domain: Optional[str] = "apexlabs.internal"
+    competitor: Optional[str] = "stripe.com"
+    pod_type: Optional[str] = "all"
+    params: Optional[Dict[str, Any]] = None
+
+class TeardownDeckExportRequest(BaseModel):
+    target_domain: str
+    competitor_domain: Optional[str] = "stripe.com"
+    monthly_visitors: Optional[int] = 50000
+    aov_usd: Optional[float] = 125.0
+    output_format: Optional[str] = "both"
+
+@app.post("/api/browser/interactive/navigate")
+def interactive_browser_navigate(req: InteractiveNavigateRequest, principal: Principal = Depends(require_permission("leads:read"))):
+    """Navigates the interactive browser session with Human Touch support and returns viewport screenshot."""
+    try:
+        session = _get_interactive_session(req.session_id or "default_session")
+        return session.navigate(req.target, viewport=req.viewport or "desktop")
+    except Exception as e:
+        raise _fail(e)
+
+@app.post("/api/browser/interactive/action")
+def interactive_browser_action(req: InteractiveActionRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
+    """Dispatches a human touch coordinate click, keystroke input, or scroll action."""
+    try:
+        session = _get_interactive_session(req.session_id or "default_session")
+        return session.dispatch_human_touch_action(req.action_type, req.params)
+    except Exception as e:
+        raise _fail(e)
+
+@app.post("/api/browser/interactive/headed-window")
+def interactive_browser_launch_headed(req: InteractiveHeadedRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
+    """Launches a live headed Chrome window on host system for direct physical human takeover."""
+    try:
+        session = _get_interactive_session(req.session_id or "default_session")
+        return session.launch_headed_window(url=req.url)
+    except Exception as e:
+        raise _fail(e)
+
+@app.post("/api/swarm/pods/run")
+def swarm_pods_run_endpoint(req: SwarmPodsRunRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
+    """Runs specialized autonomous multi-agent swarm pods."""
+    try:
+        ptype = (req.pod_type or "all").lower()
+        domain = req.domain or "apexlabs.internal"
+        comp = req.competitor or "stripe.com"
+        params = req.params or {}
+
+        if ptype == "all":
+            return swarm_pod_controller.run_full_pod_cycle(domain=domain, competitor=comp)
+        elif ptype == "scout":
+            scout = SourcingScoutPod()
+            return scout.run(limit=params.get("limit", 5))
+        elif ptype == "forensics":
+            forensics = ForensicsEngineerPod(browser_service=browser_service)
+            return forensics.run(domain=domain)
+        elif ptype == "strategist":
+            strategist = DealStrategistPod(diff_engine=differential_engine)
+            return strategist.run(target_domain=domain, competitor_domain=comp)
+        elif ptype == "sentinel":
+            sentinel = DeliverabilitySentinelPod()
+            return sentinel.run(day_number=params.get("day_number", 14), max_capacity=params.get("max_capacity", 50))
+        elif ptype == "negotiator":
+            negotiator = ObjectionNegotiatorPod(brain=brain_gateway)
+            return negotiator.run(
+                objection_text=params.get("objection_text", "We already have an in-house team."),
+                prospect_name=params.get("prospect_name", "Lead"),
+                company=params.get("company", domain)
+            )
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown pod_type: {ptype}")
+    except Exception as e:
+        raise _fail(e)
+
+@app.post("/api/teardown/deck/export")
+def teardown_deck_export_endpoint(req: TeardownDeckExportRequest, principal: Principal = Depends(require_permission("leads:read"))):
+    """Generates and exports an executive 3-page printable HTML & PDF teardown deck."""
+    try:
+        return teardown_deck_exporter.export_deck(
+            target_domain=req.target_domain,
+            competitor_domain=req.competitor_domain or "stripe.com",
+            monthly_visitors=req.monthly_visitors or 50000,
+            aov_usd=req.aov_usd or 125.0,
+            output_format=req.output_format or "both"
+        )
+    except Exception as e:
+        raise _fail(e)
+
+@app.get("/api/teardown/deck/view/{filename}")
+def teardown_deck_view_endpoint(filename: str, principal: Principal = Depends(require_permission("leads:read"))):
+    """Streams the rendered HTML or PDF teardown deck file."""
+    # Sanitize filename against directory traversal
+    clean_name = os.path.basename(filename)
+    deck_path = teardown_deck_exporter.storage_dir / clean_name
+    if not deck_path.exists() or not deck_path.is_file():
+        raise HTTPException(status_code=404, detail="Teardown deck file not found")
+
+    if clean_name.endswith(".html"):
+        return HTMLResponse(content=deck_path.read_text(encoding="utf-8"))
+    elif clean_name.endswith(".pdf"):
+        return FileResponse(path=str(deck_path), media_type="application/pdf", filename=clean_name)
+    else:
+        return FileResponse(path=str(deck_path))
+
+
 
 # ==================== Phase 1: Website Doctor, Briefing & Presence Rescue ====================
 from intel.resolver import CompanyResolver
