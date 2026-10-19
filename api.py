@@ -947,7 +947,35 @@ def teardown_deck_view_endpoint(filename: str, principal: Principal = Depends(re
     else:
         return FileResponse(path=str(deck_path))
 
+# ==================== Automated System Updater & Git Sync ====================
+from engines.system_updater import SystemUpdater
 
+system_updater = SystemUpdater()
+
+class SystemUpdaterApplyRequest(BaseModel):
+    remote: Optional[str] = "origin"
+    branch: Optional[str] = "main"
+    auto_push: Optional[bool] = True
+
+@app.get("/api/system/updater/status")
+def system_updater_status_endpoint(principal: Principal = Depends(require_permission("leads:read"))):
+    """Checks remote repository for new updates, returning commit delta and changelog."""
+    try:
+        return system_updater.check_for_updates()
+    except Exception as e:
+        raise _fail(e)
+
+@app.post("/api/system/updater/apply")
+def system_updater_apply_endpoint(req: SystemUpdaterApplyRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
+    """Pulls new updates, replaces workspace files, commits/pushes to GitHub, and triggers server reload."""
+    try:
+        return system_updater.apply_update(
+            remote=req.remote or "origin",
+            branch=req.branch or "main",
+            auto_push=True if req.auto_push is None else req.auto_push
+        )
+    except Exception as e:
+        raise _fail(e)
 
 # ==================== Phase 1: Website Doctor, Briefing & Presence Rescue ====================
 from intel.resolver import CompanyResolver

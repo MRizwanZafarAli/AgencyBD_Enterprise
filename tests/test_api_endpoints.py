@@ -92,6 +92,8 @@ PROTECTED_ROUTES = [
     ("POST", "/api/swarm/pods/run"),
     ("POST", "/api/teardown/deck/export"),
     ("GET", "/api/teardown/deck/view/sample.html"),
+    ("GET", "/api/system/updater/status"),
+    ("POST", "/api/system/updater/apply"),
 ]
 
 
