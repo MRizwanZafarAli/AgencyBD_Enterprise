@@ -32,6 +32,7 @@ data/*.db-*
 data/*.sqlite*
 data/evidence/
 data/screenshots/
+data/interactive_sessions/
 
 # Node & Frontend build
 node_modules/

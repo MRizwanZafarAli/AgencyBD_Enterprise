@@ -150,14 +150,14 @@ export const CallIntel: FC = () => {
                 <label className="text-xs text-slate-400 font-medium">Sales Call Transcript</label>
                 <button
                   type="button"
-                  onClick={() => setTranscript(`Me: Thanks for jumping on, Alex. I took a look at apexlabs.io before our call and noticed that your mobile LCP is around 4.1 seconds on 4G. How is that impacting your inbound enterprise conversions?
-Alex: Honestly, it's pretty brutal. We're running Next.js with a monolithic client bundle over 2.8 MB. Our marketing team is spending $60k a month on Google Ads, and our bounce rate on product pages is nearly 68%. We think we're losing at least $15,000 a month in pipeline.
-Me: That makes complete sense. We saw similar symptoms with FinVenture, where hydration bottlenecks were delaying the main thread by 1,200ms. If we were to execute a 3-week edge architecture overhaul to guarantee sub-1.5s LCP, what would the approval process look like on your end?
-Alex: If you can guarantee sub-1.5s LCP with verified before-and-after Lighthouse audits, our CTO and I have a $40,000 to $50,000 discretionary infrastructure budget. We can sign an SOW by next Thursday.`)}
+                  onClick={() => setTranscript(`Me: Thanks for taking the time today. I reviewed your web vitals before our call and noticed mobile LCP is around 3.8 seconds on 4G. How is that impacting inbound conversions?
+Prospect: It's our primary bottleneck. We're running Next.js with an unoptimized bundle. Our marketing team is spending heavily on paid acquisition, and our bounce rate on product pages is nearly 65%. We estimate losing significant pipeline every month.
+Me: That makes complete sense. Hydration bottlenecks often delay the main thread when SSR bundles grow. If we were to execute a 3-week edge architecture overhaul to guarantee sub-1.5s LCP, what would the approval process look like on your end?
+Prospect: If you can guarantee sub-1.5s LCP with verified before-and-after Lighthouse audits, our engineering leadership has an allocated technical budget and we can approve an SOW this month.`)}
                   className="text-[11px] font-mono text-indigo-400 hover:text-indigo-300 flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-950/40 border border-indigo-700/40 transition"
                 >
                   <Zap className="h-3 w-3" />
-                  <span>⚡ Load Discovery Call Sample</span>
+                  <span>Insert Discovery Template</span>
                 </button>
               </div>
               <textarea

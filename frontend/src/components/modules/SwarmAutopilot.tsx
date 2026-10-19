@@ -77,13 +77,13 @@ export const SwarmAutopilot: FC<SwarmAutopilotProps> = ({ setActiveTab, onBridge
   const [touchLogs, setTouchLogs] = useState<string[]>([]);
 
   // Mode: Specialized Swarm Pods State
-  const [podsDomain, setPodsDomain] = useState('apexlabs.io');
+  const [podsDomain, setPodsDomain] = useState('');
   const [podsCompetitor, setPodsCompetitor] = useState('stripe.com');
   const [podsLoading, setPodsLoading] = useState(false);
   const [podsResult, setPodsResult] = useState<any>(null);
 
   // Mode: Printable Teardown Deck State
-  const [deckTarget, setDeckTarget] = useState('apexlabs.io');
+  const [deckTarget, setDeckTarget] = useState('');
   const [deckCompetitor, setDeckCompetitor] = useState('stripe.com');
   const [deckVisitors, setDeckVisitors] = useState(50000);
   const [deckAov, setDeckAov] = useState(125);
@@ -304,9 +304,9 @@ export const SwarmAutopilot: FC<SwarmAutopilotProps> = ({ setActiveTab, onBridge
             domain: lead.domain,
             contact_name: lead.contact_name
           } : {
-            company_name: "Apex AI Labs",
-            domain: "apexlabs.com",
-            contact_name: "Alex Vance (CTO)"
+            company_name: "Prospect Enterprise",
+            domain: "prospect.com",
+            contact_name: "Technical Decision Maker"
           },
           tech_audit: {
             detected_stack: lead?.detected_stack || ["Next.js", "React", "Tailwind CSS"],
@@ -1660,7 +1660,8 @@ export const SwarmAutopilot: FC<SwarmAutopilotProps> = ({ setActiveTab, onBridge
                   type="text"
                   value={podsDomain}
                   onChange={e => setPodsDomain(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono"
+                  placeholder="e.g. prospectcompany.com"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono placeholder:text-slate-600"
                 />
               </div>
 
@@ -1670,7 +1671,8 @@ export const SwarmAutopilot: FC<SwarmAutopilotProps> = ({ setActiveTab, onBridge
                   type="text"
                   value={podsCompetitor}
                   onChange={e => setPodsCompetitor(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono"
+                  placeholder="e.g. stripe.com"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono placeholder:text-slate-600"
                 />
               </div>
             </div>
@@ -1780,7 +1782,8 @@ export const SwarmAutopilot: FC<SwarmAutopilotProps> = ({ setActiveTab, onBridge
                   type="text"
                   value={deckTarget}
                   onChange={e => setDeckTarget(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono"
+                  placeholder="e.g. prospectcompany.com"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono placeholder:text-slate-600"
                 />
               </div>
 
@@ -1790,7 +1793,8 @@ export const SwarmAutopilot: FC<SwarmAutopilotProps> = ({ setActiveTab, onBridge
                   type="text"
                   value={deckCompetitor}
                   onChange={e => setDeckCompetitor(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono"
+                  placeholder="e.g. stripe.com"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono placeholder:text-slate-600"
                 />
               </div>
 

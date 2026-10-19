@@ -68,7 +68,7 @@ const PLATFORM_PAGE_GUIDE = [
   {
     name: 'Mission Control',
     purpose: 'Executive cockpit tracking real workspace pipeline ($ won, meetings booked, dispatch telemetry) and production readiness.',
-    howToUse: 'Check the 8 real-time KPI tiles. If starting fresh, click "⚡ Populate Live Demo Pipeline" to view realistic pipeline metrics immediately.'
+    howToUse: 'Check the 8 real-time KPI tiles tracking active pipelines, deal values, and outreach dispatch volume directly from the database.'
   },
   {
     name: 'Swarm Auto-Pilot',
@@ -98,17 +98,17 @@ const PLATFORM_PAGE_GUIDE = [
   {
     name: 'Waterfall Enrichment',
     purpose: '100% free contact finder replacing Clay. Generates 8 RFC-compliant email permutations and performs zero-cost SMTP MX handshakes.',
-    howToUse: 'Enter Prospect Name (e.g. "Alex Vance") and Domain ("apexlabs.io"). Click "Run Waterfall". Identifies the exact deliverable mailbox without third-party API credits.'
+    howToUse: 'Enter any Prospect Name and Company Domain. Click "Run Waterfall". Identifies the exact deliverable mailbox without third-party API credits.'
   },
   {
     name: 'Website Doctor & Brief',
     purpose: 'Enterprise technical audit engine measuring Core Web Vitals (LCP, TTFB), SSL, headers, and SEO. Generates 1-click Teardown Decks.',
-    howToUse: 'Click any 1-click sample (Apex Labs, FinVenture) or type a target domain. Click "Run Comprehensive Audit" to inspect performance and export an executive pitch deck.'
+    howToUse: 'Enter any target company domain (e.g. your prospect website). Click "Run Comprehensive Audit" to inspect performance and export an executive pitch deck.'
   },
   {
     name: 'Gong Call Intel & SOW',
     purpose: 'Replaces Gong/Chorus: analyzes sales call transcripts for talk-to-listen ratios, objections, and generates 3-tier Statements of Work.',
-    howToUse: 'Click "⚡ Load Discovery Call Sample", then click "Analyze Call & Generate Proposal SOW". Instantly view talk-time dial, objection counters, and SOW.'
+    howToUse: 'Paste a sales call transcript or click "Insert Discovery Template", then click "Analyze Call & Generate Proposal SOW". Instantly view talk-time dial, objection counters, and SOW.'
   },
   {
     name: 'Lavender Copy Coach',

@@ -20,28 +20,28 @@ const TAB_FOR_CHECK: Record<string, TabType> = {
   portfolio: 'portfolio', services: 'portfolio', mailbox: 'governance', verifier: 'governance', upwork: 'radar', pagespeed: 'doctor'
 };
 
-const Tile: FC<{ label: string; value: string | number | null; hint?: string; icon?: ReactNode; accent?: string }> = ({
-  label, value, hint, icon, accent
+const Tile: FC<{ label: string; value: string | number | null; hint?: string; icon?: ReactNode; accent?: string; emptyPlaceholder?: string }> = ({
+  label, value, hint, icon, accent, emptyPlaceholder = '0'
 }) => (
   <div className="glass-panel-interactive rounded-2xl p-4 sm:p-5 flex flex-col justify-between relative overflow-hidden group">
     <div className={`absolute -right-6 -bottom-6 w-24 h-24 rounded-full opacity-10 blur-xl transition-opacity group-hover:opacity-25 ${accent || 'bg-indigo-500'}`} />
     
     <div className="flex items-center justify-between gap-2">
-      <span className="text-xs font-medium text-slate-400 tracking-wide">{label}</span>
+      <span className="text-xs font-semibold text-slate-400 tracking-wide uppercase font-mono">{label}</span>
       {icon && <span className="text-slate-500 group-hover:text-indigo-400 transition-colors">{icon}</span>}
     </div>
 
     <div className="mt-3">
       <div className="text-2xl sm:text-3xl font-extrabold text-white font-mono tracking-tight tabular">
         {value === null || value === undefined ? (
-          <span className="text-slate-600 text-lg font-normal">—</span>
+          <span className="text-slate-400 font-semibold">{emptyPlaceholder}</span>
         ) : (
           value
         )}
       </div>
       {hint && (
         <div className="text-[11px] font-mono text-slate-400 mt-1.5 flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+          <span className="w-1.5 h-1.5 rounded-full bg-slate-500 shrink-0" />
           <span>{hint}</span>
         </div>
       )}
@@ -56,8 +56,6 @@ export const MissionControl: FC<MissionControlProps> = ({ circuitBreakerTripped,
   const [opps, setOpps] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [seeding, setSeeding] = useState(false);
-  const [seedSuccess, setSeedSuccess] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -76,22 +74,6 @@ export const MissionControl: FC<MissionControlProps> = ({ circuitBreakerTripped,
       setError(e instanceof Error ? e.message : 'Could not reach the API.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleSeedDemo = async () => {
-    setSeeding(true);
-    setSeedSuccess('');
-    try {
-      const res = await apiFetch('/api/system/seed_demo_pipeline', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
-      setSeedSuccess('✓ Enterprise demo pipeline seeded: $142,500 won deals, 4 meetings, and 6 verified evidence records!');
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Seeding failed');
-    } finally {
-      setSeeding(false);
     }
   };
 
@@ -114,6 +96,7 @@ export const MissionControl: FC<MissionControlProps> = ({ circuitBreakerTripped,
 
   const sum = report?.summary;
   const checks: Check[] = status?.checks ?? [];
+
   return (
     <div className="space-y-6 stagger">
       <ErrorBanner message={error} />
@@ -123,40 +106,41 @@ export const MissionControl: FC<MissionControlProps> = ({ circuitBreakerTripped,
         </div>
       )}
 
-      {/* Quick Start / Demo Pipeline Seeder Banner */}
-      <div className="glass-panel p-4 rounded-2xl border border-indigo-500/30 bg-indigo-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Sovereign Workspace Operational Status Ribbon */}
+      <div className="glass-panel p-4 rounded-2xl border border-slate-800/80 bg-slate-950/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center shrink-0">
-            <Sparkles className="h-5 w-5 text-indigo-400" />
+          <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
+            <ShieldCheck className="h-5 w-5 text-indigo-400" />
           </div>
           <div>
             <div className="text-xs font-semibold text-white flex items-center gap-2">
-              <span>Instant Workspace Hydration</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                1-Click Demo Pipeline
+              <span>Sovereign Workspace Operational</span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                Live Engine Active
               </span>
             </div>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Empty workspace? Populate $142.5k won proposals, booked discovery calls, and technical evidence to explore all screens with live figures.
+              100% sovereign business development engine. Real-time cryptographic ledger, zero third-party data vendor costs.
             </p>
           </div>
         </div>
-        <button
-          onClick={handleSeedDemo}
-          disabled={seeding}
-          className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 transition shadow-md shadow-indigo-600/20 shrink-0"
-        >
-          {seeding ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-          <span>{seeding ? 'Populating...' : '⚡ Populate Live Demo Pipeline'}</span>
-        </button>
-      </div>
-
-      {seedSuccess && (
-        <div className="text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 flex items-center justify-between">
-          <span>{seedSuccess}</span>
-          <button onClick={() => setSeedSuccess('')} className="text-emerald-400 hover:text-emerald-200">✕</button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setActiveTab('radar')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-indigo-300 bg-indigo-950/40 hover:bg-indigo-900/40 border border-indigo-700/40 transition"
+          >
+            <Radar className="h-3.5 w-3.5 text-indigo-400" />
+            <span>Scan Radar</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('autopilot')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition shadow-sm"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>Launch Swarm</span>
+          </button>
         </div>
-      )}
+      </div>
 
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -175,57 +159,57 @@ export const MissionControl: FC<MissionControlProps> = ({ circuitBreakerTripped,
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <Tile
           label="Opportunities on Radar"
-          value={opps}
-          hint="From connected sources"
+          value={opps ?? 0}
+          hint={opps ? 'Active live tenders' : '0 tenders indexed'}
           icon={<Radar className="h-4 w-4" />}
           accent="bg-cyan-500"
         />
         <Tile
           label="Waiting for Approval"
-          value={pending}
-          hint="Proposals & emails"
+          value={pending ?? 0}
+          hint={pending ? 'Requires human review' : '0 pending approvals'}
           icon={<Clock className="h-4 w-4" />}
           accent="bg-amber-500"
         />
         <Tile
           label="Emails Dispatched"
-          value={sum?.total_outreach_sent ?? null}
-          hint={sum?.reply_rate_percent != null ? `${sum.reply_rate_percent}% reply rate` : 'No sends yet'}
+          value={sum?.total_outreach_sent ?? 0}
+          hint={sum?.total_outreach_sent ? `${sum.reply_rate_percent}% reply rate` : '0 emails dispatched'}
           icon={<Send className="h-4 w-4" />}
           accent="bg-indigo-500"
         />
         <Tile
           label="Fleet Deliverability"
-          value={report?.deliverability_health ?? null}
-          hint={sum?.bounce_rate_percent != null ? `${sum.bounce_rate_percent}% bounces` : undefined}
+          value={report?.deliverability_health === 'NO_DATA' ? 'Standby' : (report?.deliverability_health ?? 'Standby')}
+          hint={sum?.bounce_rate_percent != null ? `${sum.bounce_rate_percent}% bounces` : '0 bounce issues'}
           icon={<ShieldCheck className="h-4 w-4" />}
           accent="bg-emerald-500"
         />
         <Tile
           label="Proposals Won"
-          value={sum?.proposals_won ?? null}
-          hint={sum?.proposals_won ? 'High win velocity' : undefined}
+          value={sum?.proposals_won ?? 0}
+          hint={sum?.proposals_won ? 'High win velocity' : '0 deals closed'}
           icon={<Trophy className="h-4 w-4" />}
           accent="bg-purple-500"
         />
         <Tile
           label="Meetings Booked"
-          value={sum?.meetings_booked ?? null}
-          hint={sum?.meetings_booked ? 'Active deal pipeline' : undefined}
+          value={sum?.meetings_booked ?? 0}
+          hint={sum?.meetings_booked ? 'Active deal pipeline' : '0 scheduled calls'}
           icon={<Calendar className="h-4 w-4" />}
           accent="bg-emerald-500"
         />
         <Tile
           label="Tracked Spend (USD)"
-          value={sum ? `$${sum.total_spend_usd}` : null}
-          hint="LLM + recorded infra"
+          value={sum?.total_spend_usd != null ? `$${sum.total_spend_usd.toFixed(2)}` : '$0.00'}
+          hint={sum?.total_spend_usd ? 'LLM + recorded infra' : '$0.00 spent'}
           icon={<DollarSign className="h-4 w-4" />}
           accent="bg-amber-500"
         />
         <Tile
           label="Evidence Records"
-          value={sum?.evidence_records_stored ?? null}
-          hint="Zero-fabrication proofs"
+          value={sum?.evidence_records_stored ?? 0}
+          hint={sum?.evidence_records_stored ? 'Zero-fabrication proofs' : '0 stored proofs'}
           icon={<Database className="h-4 w-4" />}
           accent="bg-indigo-500"
         />

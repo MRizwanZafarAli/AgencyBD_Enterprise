@@ -28,6 +28,7 @@ export const DigestPanel: FC<DigestPanelProps> = ({ onRefresh }) => {
       } else {
         setDigest(null);
       }
+      if (onRefresh) onRefresh();
     } catch {
       setDigest(null);
     } finally {
@@ -59,23 +60,6 @@ export const DigestPanel: FC<DigestPanelProps> = ({ onRefresh }) => {
     if (!res.ok) setError(apiErrorMessage(res.status, body));
     else setNote(body.delivered ? 'Posted to Slack successfully.' : 'Slack webhook not configured in .env or rejected.');
     setBusy(false);
-  };
-
-  const handleSeed = async () => {
-    setBusy(true);
-    setError('');
-    try {
-      const res = await apiFetch('/api/system/seed_demo_pipeline', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
-      setNote('Enterprise pipeline seeded with $142.5k deals!');
-      await load();
-      if (onRefresh) onRefresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Seeding failed');
-    } finally {
-      setBusy(false);
-    }
   };
 
   return (
@@ -121,24 +105,16 @@ export const DigestPanel: FC<DigestPanelProps> = ({ onRefresh }) => {
           {digest.text}
         </pre>
       ) : (
-        <div className="p-6 rounded-xl bg-slate-900/30 border border-slate-800/60 text-center space-y-3">
+        <div className="p-6 rounded-xl bg-slate-900/30 border border-slate-800/60 text-center space-y-2">
           <div className="flex justify-center">
-            <Inbox className="h-8 w-8 text-slate-500" />
+            <Inbox className="h-7 w-7 text-slate-500" />
           </div>
           <div>
-            <h4 className="text-xs font-semibold text-slate-200">No Matched Opportunities Today</h4>
-            <p className="text-[11px] text-slate-400 mt-1 max-w-md mx-auto">
-              Your radar currently has no unreviewed opportunities. You can scan new market sources in Opportunity Radar or populate the live demo pipeline to explore the system.
+            <h4 className="text-xs font-semibold text-slate-200">No Outreach Digests Queued</h4>
+            <p className="text-[11px] text-slate-400 mt-0.5 max-w-md mx-auto">
+              Your radar currently has no unreviewed opportunities. Connect Upwork, GitHub, or RSS feeds in Opportunity Radar to prioritize live tenders.
             </p>
           </div>
-          <button
-            onClick={handleSeed}
-            disabled={busy}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-indigo-300 bg-indigo-950/40 border border-indigo-700/50 hover:bg-indigo-900/40 transition"
-          >
-            <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
-            <span>⚡ Populate Live Demo Pipeline ($142.5k Sample Deals)</span>
-          </button>
         </div>
       )}
     </section>

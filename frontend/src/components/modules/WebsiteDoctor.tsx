@@ -216,29 +216,9 @@ ${talkingPoints.length > 0 ? talkingPoints.map((tp: any) => `* **Evidence-Linked
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <span className="text-[11px] font-mono text-slate-400">⚡ 1-Click Samples:</span>
-          <button
-            type="button"
-            onClick={() => { setCompanyName('Apex Labs'); setDomainInput('apexlabs.io'); }}
-            className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-800 text-indigo-300 hover:bg-slate-700 transition border border-slate-700"
-          >
-            Apex Labs (apexlabs.io)
-          </button>
-          <button
-            type="button"
-            onClick={() => { setCompanyName('FinVenture'); setDomainInput('finventure.co'); }}
-            className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-800 text-cyan-300 hover:bg-slate-700 transition border border-slate-700"
-          >
-            FinVenture (finventure.co)
-          </button>
-          <button
-            type="button"
-            onClick={() => { setCompanyName('CloudScale'); setDomainInput('cloudscale.io'); }}
-            className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-800 text-emerald-300 hover:bg-slate-700 transition border border-slate-700"
-          >
-            CloudScale (cloudscale.io)
-          </button>
+        <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-400">
+          <span className="font-mono text-indigo-400">Target Audit:</span>
+          <span>Enter any live prospect or client domain (e.g. <code className="text-slate-300">stripe.com</code> or your target's web address) to run live Lighthouse, SSL, and header audits.</span>
         </div>
 
         <button
