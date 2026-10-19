@@ -353,3 +353,38 @@ def test_pipeline_deals_crud_and_forecast(client, growth_headers):
     updated = res_stage.json()
     assert updated["deal_stage"] == "meeting_booked"
 
+
+def test_sourcing_sec_edgar_venture_endpoint(client, growth_headers):
+    res = client.get("/api/sourcing/venture/sec_edgar?limit=5", headers=growth_headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert "leads" in data
+    assert isinstance(data["leads"], list)
+
+
+def test_sourcing_hiring_signals_endpoint(client, growth_headers):
+    res = client.get("/api/sourcing/hiring/signals?query=Engineer&limit=5", headers=growth_headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert "leads" in data
+    assert isinstance(data["leads"], list)
+
+
+def test_sourcing_xray_people_endpoint(client, growth_headers):
+    res = client.post("/api/sourcing/xray_people", headers=growth_headers, json={
+        "company_name": "Stripe",
+        "titles": ["CTO", "CEO"],
+        "location": "San Francisco, CA",
+        "limit": 3
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert "profiles" in data
+    assert len(data["profiles"]) > 0
+    first = data["profiles"][0]
+    assert "xray_url" in first or "linkedin_url" in first
+
+

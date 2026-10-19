@@ -173,3 +173,25 @@ def test_native_smartlead_router():
     pacing = NativeSmartleadRouter.calculate_dispatch_schedule(batch_size=25, daily_domain_cap=35)
     assert pacing["approved_sends_today"] == 25
     assert len(pacing["schedule"]) > 0
+
+
+def test_catch_all_decoder_gravatar_and_matrix(monkeypatch):
+    orchestrator = NativeWaterfallOrchestrator()
+
+    # Simulate a domain that is catch-all
+    monkeypatch.setattr(orchestrator.smtp_verifier, "is_catch_all_domain", lambda d: True)
+    monkeypatch.setattr(orchestrator.smtp_verifier, "verify_email", lambda e: {"is_valid": False, "confidence_score": 0, "status": "catch_all"})
+
+    # Case A: Gravatar footprint matches
+    monkeypatch.setattr(orchestrator, "check_gravatar_footprint", lambda e: "alex.smith" in e)
+
+    res = orchestrator.run_waterfall_enrichment("Alex", "Smith", "Acme", "acme.com")
+    assert res["catch_all"] is True
+    assert res["catch_all_decoded"] is True
+    assert "Gravatar" in res["decoder_evidence"]
+    assert res["resolved_email"] == "alex.smith@acme.com"
+    assert res["confidence_score"] >= 90
+    assert len(res["candidate_matrix"]) > 0
+    assert res["candidate_matrix"][0]["email"] == "alex.smith@acme.com"
+    assert res["candidate_matrix"][0]["gravatar_active"] is True
+

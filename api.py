@@ -257,6 +257,46 @@ def crawl_website(req: SiteCrawlRequest, principal: Principal = Depends(require_
     except Exception as e:
         raise _fail(e)
 
+class XRayPeopleRequest(BaseModel):
+    company_name: str
+    titles: Optional[List[str]] = None
+    location: Optional[str] = "United States"
+    limit: int = 5
+    domain_hint: Optional[str] = None
+
+@app.post("/api/sourcing/xray_people")
+def discover_xray_people(req: XRayPeopleRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
+    """Sovereign zero-key decision maker discovery using website DOM crawling & 1-click Google X-Ray."""
+    try:
+        profiles = engine.linkedin_agent.discover_xray_people(
+            company_name=req.company_name,
+            titles=req.titles,
+            location=req.location or "United States",
+            limit=req.limit,
+            domain_hint=req.domain_hint
+        )
+        return {"status": "success", "count": len(profiles), "profiles": profiles}
+    except Exception as e:
+        raise _fail(e)
+
+@app.get("/api/sourcing/venture/sec_edgar")
+def get_sec_edgar_venture_leads(limit: int = 15, principal: Principal = Depends(require_permission("leads:read"))):
+    """Sovereign real-time venture capital filings stream directly from SEC EDGAR Form D."""
+    try:
+        leads = engine.sourcing_agent.source_sec_edgar_venture(limit=min(limit, 50), org_id=principal.org_id)
+        return {"status": "success", "count": len(leads), "leads": leads}
+    except Exception as e:
+        raise _fail(e)
+
+@app.get("/api/sourcing/hiring/signals")
+def get_hiring_signals_leads(query: str = "Engineer", limit: int = 15, principal: Principal = Depends(require_permission("leads:read"))):
+    """Sovereign live hiring bottlenecks stream from Hacker News and RemoteOK."""
+    try:
+        leads = engine.sourcing_agent.source_hn_hiring_signals(role_keyword=query, limit=min(limit, 50), org_id=principal.org_id)
+        return {"status": "success", "count": len(leads), "leads": leads}
+    except Exception as e:
+        raise _fail(e)
+
 @app.post("/api/audit/run")
 def run_audit(req: AuditRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
     _owned_lead(req.lead_id, principal)

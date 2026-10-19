@@ -37,6 +37,23 @@ export interface LinkedInProfile {
   linkedin_url: string;
 }
 
+export interface WaterfallCandidate {
+  email: string;
+  is_primary: boolean;
+  gravatar_active: boolean;
+  syntax_valid: boolean;
+}
+
+export interface WaterfallResearchDossier {
+  company_name: string;
+  domain: string;
+  detected_stack: string[];
+  tech_debt_score: number;
+  custom_pitch_angle: string;
+  hiring_signal: string;
+  decision_maker_context: string;
+}
+
 export interface WaterfallResult {
   prospect_name: string;
   resolved_email: string;
@@ -46,6 +63,15 @@ export interface WaterfallResult {
   catch_all: boolean;
   verification_status: string;
   steps_completed: string[];
+  catch_all_decoded?: boolean;
+  decoder_evidence?: string;
+  candidate_matrix?: WaterfallCandidate[];
+  autonomous_research_dossier?: WaterfallResearchDossier;
+  estimated_commercial_dollars_saved?: number;
+  verdict?: string;
+  company?: string;
+  domain?: string;
+  waterfall_steps_executed?: string[];
 }
 
 export interface CopyScoreResult {
