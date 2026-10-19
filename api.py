@@ -634,6 +634,66 @@ def native_simulate_objection_endpoint(req: ObjectionSimulateRequest, principal:
 def native_objection_battlecards_endpoint(principal: Principal = Depends(require_permission("leads:read"))):
     return NativeSalesIntelligence().list_battlecards()
 
+from orchestrator.autonomous_autopilot import AutonomousAutopilot
+from engines.math_pipeline_engine import MathPipelineEngine
+
+autopilot_engine = AutonomousAutopilot()
+
+class AutopilotRunRequest(BaseModel):
+    channel: Optional[str] = "sec_edgar"
+    query: Optional[str] = "Form D"
+    location: Optional[str] = "United States"
+    limit: Optional[int] = 5
+    auto_enroll: Optional[bool] = True
+
+class MathScoreRequest(BaseModel):
+    source_channel: Optional[str] = "sec_edgar_form_d"
+    title: Optional[str] = "CTO"
+    lcp_seconds: Optional[float] = 3.2
+    detected_stack: Optional[List[str]] = None
+    email_confidence: Optional[int] = 90
+    catch_all_decoded: Optional[bool] = False
+
+@app.post("/api/swarm/autopilot/run")
+def run_swarm_autopilot(req: AutopilotRunRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
+    """Executes a fully autonomous multi-agent swarm cycle with Bayesian scoring and cadence dispatch."""
+    try:
+        result = autopilot_engine.run_autopilot_cycle(
+            channel=req.channel or "sec_edgar",
+            query=req.query or "Form D",
+            location=req.location or "United States",
+            limit=min(req.limit or 5, 20),
+            auto_enroll=req.auto_enroll if req.auto_enroll is not None else True,
+            org_id=principal.org_id
+        )
+        return {"status": "success", "result": result}
+    except Exception as e:
+        raise _fail(e)
+
+@app.post("/api/swarm/math/score")
+def calculate_lead_math_score(req: MathScoreRequest, principal: Principal = Depends(require_permission("leads:read"))):
+    """Calculates Bayesian P(Close), Expected Deal Value, and Cost of Delay."""
+    prob = MathPipelineEngine.predict_close_probability(
+        source_channel=req.source_channel or "sec_edgar_form_d",
+        title=req.title or "CTO",
+        lcp_seconds=req.lcp_seconds or 3.2,
+        detected_stack=req.detected_stack or ["Next.js"],
+        email_confidence=req.email_confidence or 90,
+        catch_all_decoded=req.catch_all_decoded or False
+    )
+    deal = MathPipelineEngine.calculate_expected_deal_value(
+        p_close=prob["p_close"],
+        source_channel=req.source_channel or "sec_edgar_form_d",
+        detected_stack=req.detected_stack or ["Next.js"]
+    )
+    delay = MathPipelineEngine.calculate_cost_of_delay(lcp_seconds=req.lcp_seconds or 3.2)
+    return {
+        "status": "success",
+        "probability": prob,
+        "deal_economics": deal,
+        "cost_of_delay": delay
+    }
+
 # ==================== Phase 1: Website Doctor, Briefing & Presence Rescue ====================
 from intel.resolver import CompanyResolver
 from intel.company_brief import CompanyBriefEngine

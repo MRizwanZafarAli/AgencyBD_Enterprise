@@ -3,7 +3,7 @@ import {
   Activity, Globe, Database, Send,
   Sparkles, BarChart3, Video, Layers,
   Lock, Users, Terminal, X,
-  Stethoscope, Radar, MapPinned, ShieldCheck, Mail, Kanban
+  Stethoscope, Radar, MapPinned, ShieldCheck, Mail, Kanban, Bot
 } from 'lucide-react';
 import type { TabType } from '../../types';
 
@@ -27,6 +27,7 @@ const NAV_GROUPS: Array<{ title: string; items: NavItemDef[] }> = [
     title: 'CORE INTELLIGENCE',
     items: [
       { id: 'overview', label: 'Mission Control', icon: <Activity className="h-4 w-4" /> },
+      { id: 'autopilot', label: 'Swarm Auto-Pilot', icon: <Bot className="h-4 w-4" />, badge: '100% Auto', badgeColor: 'bg-gradient-to-r from-purple-500/20 to-indigo-500/20 text-indigo-300 border border-indigo-500/30' },
       { id: 'doctor', label: 'Website Doctor & Brief', icon: <Stethoscope className="h-4 w-4" />, badge: 'Evidence', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
       { id: 'hunt', label: 'Local Client Hunt', icon: <MapPinned className="h-4 w-4" />, badge: 'Maps', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
       { id: 'radar', label: 'Opportunity Radar', icon: <Radar className="h-4 w-4" />, badge: 'All Work', badgeColor: 'bg-cyan-500/20 text-cyan-300' },

@@ -388,3 +388,50 @@ def test_sourcing_xray_people_endpoint(client, growth_headers):
     assert "xray_url" in first or "linkedin_url" in first
 
 
+def test_swarm_math_score_endpoint(client, growth_headers):
+    res = client.post("/api/swarm/math/score", headers=growth_headers, json={
+        "source_channel": "sec_edgar_form_d",
+        "title": "CTO",
+        "lcp_seconds": 3.6,
+        "detected_stack": ["Next.js", "WordPress"],
+        "email_confidence": 92,
+        "catch_all_decoded": True
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert "probability" in data
+    assert data["probability"]["p_close"] >= 0.70
+    assert "deal_economics" in data
+    assert data["deal_economics"]["expected_value_usd"] > 10000
+
+
+def test_swarm_autopilot_run_endpoint(client, growth_headers, monkeypatch):
+    from api import autopilot_engine
+    # Mock source_sec_edgar_venture to return a fast fixture
+    monkeypatch.setattr(
+        autopilot_engine.sourcing,
+        "source_sec_edgar_venture",
+        lambda funding_stage, limit, org_id: [
+            {
+                "id": 999,
+                "company_name": "Apex AI Labs",
+                "domain": "apex-ai.internal",
+                "source_channel": "sec_edgar_form_d"
+            }
+        ]
+    )
+    res = client.post("/api/swarm/autopilot/run", headers=growth_headers, json={
+        "channel": "sec_edgar",
+        "limit": 1
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert "result" in data
+    assert data["result"]["status"] == "completed"
+    assert len(data["result"]["leads"]) == 1
+    assert data["result"]["total_expected_pipeline_usd"] > 0
+
+
+

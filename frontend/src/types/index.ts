@@ -1,5 +1,6 @@
 export type TabType = 
   | 'overview' 
+  | 'autopilot'
   | 'doctor'
   | 'radar'
   | 'hunt'

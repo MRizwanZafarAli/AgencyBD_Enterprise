@@ -25,6 +25,7 @@ import { CanSpamVault } from './components/modules/CanSpamVault';
 import { EnterpriseRbac } from './components/modules/EnterpriseRbac';
 import { ApiExplorer } from './components/modules/ApiExplorer';
 import { GovernanceAndLearning } from './components/modules/GovernanceAndLearning';
+import { SwarmAutopilot } from './components/modules/SwarmAutopilot';
 
 
 export function App() {
@@ -137,6 +138,12 @@ export function App() {
         {/* Content Viewport */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full transition-all">
           <div key={activeTab} className="page-enter">
+          {activeTab === 'autopilot' && (
+            <SwarmAutopilot
+              setActiveTab={setActiveTab}
+              onBridgeToCopyCoach={handleBridgeToCopyCoach}
+            />
+          )}
           {activeTab === 'hunt' && <LocalHunt />}
           {activeTab === 'overview' && (
             <MissionControl
