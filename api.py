@@ -977,6 +977,17 @@ def system_updater_apply_endpoint(req: SystemUpdaterApplyRequest, principal: Pri
     except Exception as e:
         raise _fail(e)
 
+from engines.demo_seeder import DemoSeeder
+
+@app.post("/api/system/seed_demo_pipeline")
+def seed_demo_pipeline_endpoint(principal: Principal = Depends(require_permission("pipeline:run"))):
+    """Populates realistic enterprise pipeline, won deals, meetings, and evidence."""
+    try:
+        return DemoSeeder.seed_demo_data(org_id=principal.org_id)
+    except Exception as e:
+        raise _fail(e)
+
+
 # ==================== Phase 1: Website Doctor, Briefing & Presence Rescue ====================
 from intel.resolver import CompanyResolver
 from intel.company_brief import CompanyBriefEngine

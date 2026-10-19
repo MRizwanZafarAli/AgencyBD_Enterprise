@@ -215,6 +215,31 @@ ${talkingPoints.length > 0 ? talkingPoints.map((tp: any) => `* **Evidence-Linked
           </div>
         )}
 
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <span className="text-[11px] font-mono text-slate-400">⚡ 1-Click Samples:</span>
+          <button
+            type="button"
+            onClick={() => { setCompanyName('Apex Labs'); setDomainInput('apexlabs.io'); }}
+            className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-800 text-indigo-300 hover:bg-slate-700 transition border border-slate-700"
+          >
+            Apex Labs (apexlabs.io)
+          </button>
+          <button
+            type="button"
+            onClick={() => { setCompanyName('FinVenture'); setDomainInput('finventure.co'); }}
+            className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-800 text-cyan-300 hover:bg-slate-700 transition border border-slate-700"
+          >
+            FinVenture (finventure.co)
+          </button>
+          <button
+            type="button"
+            onClick={() => { setCompanyName('CloudScale'); setDomainInput('cloudscale.io'); }}
+            className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-800 text-emerald-300 hover:bg-slate-700 transition border border-slate-700"
+          >
+            CloudScale (cloudscale.io)
+          </button>
+        </div>
+
         <button
           onClick={handleRunFullAnalysis}
           disabled={loading || (!companyName && !domainInput)}

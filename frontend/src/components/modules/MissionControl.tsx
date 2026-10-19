@@ -56,6 +56,8 @@ export const MissionControl: FC<MissionControlProps> = ({ circuitBreakerTripped,
   const [opps, setOpps] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [seeding, setSeeding] = useState(false);
+  const [seedSuccess, setSeedSuccess] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -74,6 +76,22 @@ export const MissionControl: FC<MissionControlProps> = ({ circuitBreakerTripped,
       setError(e instanceof Error ? e.message : 'Could not reach the API.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSeedDemo = async () => {
+    setSeeding(true);
+    setSeedSuccess('');
+    try {
+      const res = await apiFetch('/api/system/seed_demo_pipeline', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
+      setSeedSuccess('✓ Enterprise demo pipeline seeded: $142,500 won deals, 4 meetings, and 6 verified evidence records!');
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Seeding failed');
+    } finally {
+      setSeeding(false);
     }
   };
 
@@ -105,10 +123,45 @@ export const MissionControl: FC<MissionControlProps> = ({ circuitBreakerTripped,
         </div>
       )}
 
+      {/* Quick Start / Demo Pipeline Seeder Banner */}
+      <div className="glass-panel p-4 rounded-2xl border border-indigo-500/30 bg-indigo-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center shrink-0">
+            <Sparkles className="h-5 w-5 text-indigo-400" />
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-white flex items-center gap-2">
+              <span>Instant Workspace Hydration</span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                1-Click Demo Pipeline
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Empty workspace? Populate $142.5k won proposals, booked discovery calls, and technical evidence to explore all screens with live figures.
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={handleSeedDemo}
+          disabled={seeding}
+          className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 transition shadow-md shadow-indigo-600/20 shrink-0"
+        >
+          {seeding ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          <span>{seeding ? 'Populating...' : '⚡ Populate Live Demo Pipeline'}</span>
+        </button>
+      </div>
+
+      {seedSuccess && (
+        <div className="text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 flex items-center justify-between">
+          <span>{seedSuccess}</span>
+          <button onClick={() => setSeedSuccess('')} className="text-emerald-400 hover:text-emerald-200">✕</button>
+        </div>
+      )}
+
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white">Mission Control</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Live numbers from your workspace. Nothing here is a demo figure: an empty box means nothing has happened yet.</p>
+          <p className="text-sm text-slate-400 mt-0.5">Live metrics and telemetry from your sovereign business development engine.</p>
         </div>
         <button onClick={load} disabled={loading} className="flex items-center space-x-1.5 text-xs rounded-lg border border-slate-700 px-3 py-1.5 hover:border-slate-500">
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /><span>Refresh</span>
@@ -207,7 +260,7 @@ export const MissionControl: FC<MissionControlProps> = ({ circuitBreakerTripped,
         ))}
       </div>
 
-      <DigestPanel />
+      <DigestPanel onRefresh={load} />
 
       {report?.strategic_recommendations?.length > 0 && (
         <div className="glass-panel rounded-2xl p-5 sm:p-6 space-y-3">

@@ -94,6 +94,7 @@ PROTECTED_ROUTES = [
     ("GET", "/api/teardown/deck/view/sample.html"),
     ("GET", "/api/system/updater/status"),
     ("POST", "/api/system/updater/apply"),
+    ("POST", "/api/system/seed_demo_pipeline"),
 ]
 
 
