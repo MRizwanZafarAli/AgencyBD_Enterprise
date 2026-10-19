@@ -540,5 +540,42 @@ def test_browser_screenshot_endpoint(client, growth_headers, monkeypatch):
     assert "data_uri" in data
 
 
+def test_differential_compare_endpoint(client, growth_headers):
+    res = client.post("/api/differential/compare", headers=growth_headers, json={
+        "target_domain": "novalabs.internal",
+        "competitor_domain": "benchmarks.internal"
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert "target" in data
+    assert "competitor" in data
+    assert "differential" in data
+    assert "competitive_pitch_hook" in data["differential"]
+
+
+def test_evidence_endpoints(client, growth_headers):
+    from api import evidence_ledger
+    rec = evidence_ledger.record_evidence(
+        target_domain="ledgercorp.com",
+        operation="test_ledger_api",
+        observations={"http_status": 200},
+        derivations={"lcp": 2.1},
+        inferences={"p_close": 0.88},
+        unknowns=[{"facet": "phone", "reason_code": "NOT_PUBLIC"}]
+    )
+
+    # 1. Test get by ID
+    res_get = client.get(f"/api/evidence/ledger/{rec.evidence_id}", headers=growth_headers)
+    assert res_get.status_code == 200
+    assert res_get.json()["evidence"]["target_domain"] == "ledgercorp.com"
+
+    # 2. Test get unknowns
+    res_unk = client.get("/api/evidence/unknowns/ledgercorp.com", headers=growth_headers)
+    assert res_unk.status_code == 200
+    assert len(res_unk.json()["unknowns"]) >= 1
+
+
+
 
 

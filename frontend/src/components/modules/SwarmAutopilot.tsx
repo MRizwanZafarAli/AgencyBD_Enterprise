@@ -61,9 +61,16 @@ const SAMPLE_OBJECTIONS = [
 ];
 
 export const SwarmAutopilot: FC<SwarmAutopilotProps> = ({ setActiveTab, onBridgeToCopyCoach }) => {
-  // Navigation Sub-modes: 'autopilot' | 'copilot' | 'browser' | 'artifact'
-  const [activeMode, setActiveMode] = useState<'autopilot' | 'copilot' | 'browser' | 'artifact'>('autopilot');
+  // Navigation Sub-modes: 'autopilot' | 'copilot' | 'browser' | 'artifact' | 'diff'
+  const [activeMode, setActiveMode] = useState<'autopilot' | 'copilot' | 'browser' | 'artifact' | 'diff'>('autopilot');
   const [error, setError] = useState('');
+
+  // Mode 5: Competitor Diff Engine State
+  const [diffTarget, setDiffTarget] = useState('acmecorp.com');
+  const [diffCompetitor, setDiffCompetitor] = useState('stripe.com');
+  const [diffLoading, setDiffLoading] = useState(false);
+  const [diffResult, setDiffResult] = useState<any>(null);
+  const [hookCopied, setHookCopied] = useState(false);
 
   // Brain Telemetry State
   const [brainStatus, setBrainStatus] = useState<any>(null);
@@ -305,6 +312,26 @@ export const SwarmAutopilot: FC<SwarmAutopilotProps> = ({ setActiveTab, onBridge
     }
   };
 
+  const handleRunDifferential = async () => {
+    if (!diffTarget.trim() || !diffCompetitor.trim() || diffLoading) return;
+    setDiffLoading(true);
+    setError('');
+    try {
+      const res = await apiFetch('/api/differential/compare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_domain: diffTarget.trim(), competitor_domain: diffCompetitor.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
+      setDiffResult(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Differential comparison failed.');
+    } finally {
+      setDiffLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* 1. Header Banner & Cognitive Brain Status */}
@@ -411,6 +438,18 @@ export const SwarmAutopilot: FC<SwarmAutopilotProps> = ({ setActiveTab, onBridge
           >
             <FileText className="h-4 w-4" />
             Proposal Artifacts
+          </button>
+
+          <button
+            onClick={() => setActiveMode('diff')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+              activeMode === 'diff'
+                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <TrendingUp className="h-4 w-4" />
+            Competitor Diff Engine
           </button>
         </div>
       </div>
@@ -1043,6 +1082,116 @@ export const SwarmAutopilot: FC<SwarmAutopilotProps> = ({ setActiveTab, onBridge
 
               <div className="prose prose-invert max-w-none text-xs text-slate-300 font-mono whitespace-pre-wrap leading-relaxed bg-slate-900/60 p-5 rounded-xl border border-slate-800/80">
                 {artifactResult.artifact_markdown}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODE 5: COMPETITOR DIFFERENTIAL ENGINE (REA PATTERN)
+         ========================================================================= */}
+      {activeMode === 'diff' && (
+        <div className="space-y-6">
+          <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+            <div>
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-purple-400" />
+                Semantic Differential Comparison: Target vs. Benchmark
+              </h2>
+              <p className="text-xs text-slate-400">
+                Pits your prospect's DOM and Core Web Vitals against their #1 competitor to generate mathematically unassailable cold outreach hooks.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <div className="flex-1 w-full">
+                <label className="text-xs text-slate-400 font-mono block mb-1">Target Prospect Domain</label>
+                <input
+                  type="text"
+                  placeholder="e.g. acmecorp.com"
+                  value={diffTarget}
+                  onChange={(e) => setDiffTarget(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-lg px-3 py-2.5 outline-none focus:border-indigo-500 font-mono"
+                />
+              </div>
+
+              <div className="flex-1 w-full">
+                <label className="text-xs text-slate-400 font-mono block mb-1">Key Competitor / Industry Leader</label>
+                <input
+                  type="text"
+                  placeholder="e.g. stripe.com"
+                  value={diffCompetitor}
+                  onChange={(e) => setDiffCompetitor(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 text-white text-xs rounded-lg px-3 py-2.5 outline-none focus:border-purple-500 font-mono"
+                />
+              </div>
+
+              <div className="pt-5 w-full sm:w-auto">
+                <button
+                  onClick={handleRunDifferential}
+                  disabled={diffLoading}
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white flex items-center justify-center gap-2 transition-colors shadow-lg shadow-purple-600/20"
+                >
+                  {diffLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Layers className="h-3.5 w-3.5" />}
+                  Generate Teardown Diff
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {diffResult && (
+            <div className="space-y-4">
+              {/* Pitch Hook Callout */}
+              <div className="bg-gradient-to-r from-purple-950/40 via-indigo-950/40 to-slate-950 border border-purple-500/30 rounded-xl p-5 shadow-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-mono font-bold text-purple-300 uppercase tracking-wider">
+                    High-Converting Comparative Outreach Hook
+                  </span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(diffResult.differential?.competitive_pitch_hook || '');
+                      setHookCopied(true);
+                      setTimeout(() => setHookCopied(false), 2000);
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center gap-1.5 transition-colors"
+                  >
+                    {hookCopied ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> : <Layers className="h-3.5 w-3.5" />}
+                    {hookCopied ? 'Copied Hook!' : 'Copy Hook'}
+                  </button>
+                </div>
+                <div className="text-sm font-sans text-white p-3.5 bg-slate-900/60 rounded-lg border border-slate-800/80 leading-relaxed">
+                  "{diffResult.differential?.competitive_pitch_hook}"
+                </div>
+              </div>
+
+              {/* Side-by-Side Diagnostic Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Target Card */}
+                <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-lg space-y-2">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <span className="text-sm font-bold text-white">{diffResult.target?.domain} (Prospect)</span>
+                    <span className="text-xs font-mono text-rose-400 font-bold">{diffResult.target?.lcp_seconds}s LCP</span>
+                  </div>
+                  <div className="text-xs space-y-1 text-slate-300">
+                    <div>Monthly Latency Loss: <strong className="text-rose-400">${diffResult.target?.monthly_loss_usd?.toLocaleString()}/mo</strong></div>
+                    <div>Detected Stack: {diffResult.target?.detected_stack?.join(', ') || 'Standard Web'}</div>
+                    <div className="text-slate-500 font-mono text-[10px]">Evidence ID: {diffResult.target?.evidence_id}</div>
+                  </div>
+                </div>
+
+                {/* Competitor Card */}
+                <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 shadow-lg space-y-2">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <span className="text-sm font-bold text-white">{diffResult.competitor?.domain} (Competitor)</span>
+                    <span className="text-xs font-mono text-emerald-400 font-bold">{diffResult.competitor?.lcp_seconds}s LCP</span>
+                  </div>
+                  <div className="text-xs space-y-1 text-slate-300">
+                    <div>Monthly Latency Loss: <strong className="text-emerald-400">${diffResult.competitor?.monthly_loss_usd?.toLocaleString()}/mo</strong></div>
+                    <div>Detected Stack: {diffResult.competitor?.detected_stack?.join(', ') || 'Standard Web'}</div>
+                    <div className="text-slate-500 font-mono text-[10px]">Evidence ID: {diffResult.competitor?.evidence_id}</div>
+                  </div>
+                </div>
               </div>
             </div>
           )}

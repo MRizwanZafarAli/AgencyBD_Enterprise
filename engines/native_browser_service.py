@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional, Set
 
 from bs4 import BeautifulSoup
 from net.fetcher import _check_ip, SafeFetcher, SSRFSecurityError
+from net.process_supervisor import ProcessSupervisor
 from net.validate import clean_domain, is_valid_hostname
 
 
@@ -119,21 +120,14 @@ class NativeBrowserService:
                 target_url
             ]
             try:
-                proc = subprocess.run(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    timeout=timeout_seconds
-                )
-                if proc.returncode == 0 and len(proc.stdout) > 200:
-                    html = proc.stdout
+                res = ProcessSupervisor.run_confined(cmd, timeout_seconds=timeout_seconds)
+                if res.returncode == 0 and len(res.stdout) > 200:
+                    html = res.stdout
                 else:
-                    # Fallback to SafeFetcher
                     resp = SafeFetcher.safe_fetch(target_url, timeout=5)
                     html = resp.text
                     rendered_by = "safe_fetcher_fallback"
-            except (subprocess.TimeoutExpired, Exception):
+            except Exception:
                 resp = SafeFetcher.safe_fetch(target_url, timeout=5)
                 html = resp.text
                 rendered_by = "safe_fetcher_fallback"
@@ -183,35 +177,29 @@ class NativeBrowserService:
             target_url
         ]
 
-        try:
-            proc = subprocess.run(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                timeout=timeout_seconds
-            )
-            if out_path.exists() and out_path.stat().st_size > 1000:
-                with open(out_path, "rb") as f:
-                    b64_data = base64.b64encode(f.read()).decode("utf-8")
-                return {
-                    "status": "success",
-                    "domain": clean_host,
-                    "viewport": viewport,
-                    "file_path": str(out_path),
-                    "file_size_bytes": out_path.stat().st_size,
-                    "data_uri": f"data:image/png;base64,{b64_data}"
-                }
-            else:
-                return {
-                    "status": "failed",
-                    "error": proc.stderr.decode("utf-8", errors="replace") if proc.stderr else "Unknown screenshot error",
-                    "file_path": None,
-                    "data_uri": None
-                }
-        except subprocess.TimeoutExpired:
+        res = ProcessSupervisor.run_confined(cmd, timeout_seconds=timeout_seconds)
+        if out_path.exists() and out_path.stat().st_size > 1000:
+            with open(out_path, "rb") as f:
+                b64_data = base64.b64encode(f.read()).decode("utf-8")
+            return {
+                "status": "success",
+                "domain": clean_host,
+                "viewport": viewport,
+                "file_path": str(out_path),
+                "file_size_bytes": out_path.stat().st_size,
+                "data_uri": f"data:image/png;base64,{b64_data}"
+            }
+        elif res.timed_out:
             return {
                 "status": "timeout",
                 "error": f"Screenshot timed out after {timeout_seconds}s",
+                "file_path": None,
+                "data_uri": None
+            }
+        else:
+            return {
+                "status": "failed",
+                "error": res.stderr if res.stderr else "Unknown screenshot error",
                 "file_path": None,
                 "data_uri": None
             }

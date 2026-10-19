@@ -30,6 +30,8 @@ tmp/
 data/*.db
 data/*.db-*
 data/*.sqlite*
+data/evidence/
+data/screenshots/
 
 # Node & Frontend build
 node_modules/

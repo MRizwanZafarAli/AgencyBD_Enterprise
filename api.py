@@ -767,6 +767,45 @@ def browser_screenshot_endpoint(req: BrowserScreenshotRequest, principal: Princi
     except Exception as e:
         raise _fail(e)
 
+from engines.differential_audit_engine import DifferentialAuditEngine
+from intel.evidence_ledger import EvidenceLedger
+
+evidence_ledger = EvidenceLedger()
+differential_engine = DifferentialAuditEngine(browser_service=browser_service, evidence_ledger=evidence_ledger)
+
+class DifferentialCompareRequest(BaseModel):
+    target_domain: str
+    competitor_domain: str
+    monthly_visitors: Optional[int] = 40000
+    average_order_value_usd: Optional[float] = 120.0
+
+@app.post("/api/differential/compare")
+def differential_compare_endpoint(req: DifferentialCompareRequest, principal: Principal = Depends(require_permission("leads:read"))):
+    """Generates side-by-side technical & financial comparison between prospect and competitor."""
+    try:
+        return differential_engine.compare_domains(
+            target_domain=req.target_domain,
+            competitor_domain=req.competitor_domain,
+            monthly_visitors=req.monthly_visitors or 40000,
+            average_order_value_usd=req.average_order_value_usd or 120.0
+        )
+    except Exception as e:
+        raise _fail(e)
+
+@app.get("/api/evidence/ledger/{evidence_id}")
+def get_evidence_record_endpoint(evidence_id: str, principal: Principal = Depends(require_permission("leads:read"))):
+    """Retrieves an immutable evidence record by ID."""
+    rec = evidence_ledger.get_evidence(evidence_id)
+    if not rec:
+        raise HTTPException(status_code=404, detail="Evidence record not found")
+    return {"status": "success", "evidence": rec.to_dict()}
+
+@app.get("/api/evidence/unknowns/{domain}")
+def get_domain_unknowns_endpoint(domain: str, principal: Principal = Depends(require_permission("leads:read"))):
+    """Lists explicit unknown facets and missing fields for a domain."""
+    unknowns = evidence_ledger.list_unknowns_for_domain(domain)
+    return {"status": "success", "domain": domain, "unknowns": unknowns}
+
 # ==================== Phase 1: Website Doctor, Briefing & Presence Rescue ====================
 from intel.resolver import CompanyResolver
 from intel.company_brief import CompanyBriefEngine
