@@ -6,6 +6,7 @@ import {
   Play, Download, Copy, Check, X
 } from 'lucide-react';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
+import { ExternalLink } from '../shared/ClickableContact';
 
 export const WebsiteDoctor: FC = () => {
   const [domainInput, setDomainInput] = useState('');
@@ -393,7 +394,14 @@ ${talkingPoints.length > 0 ? talkingPoints.map((tp: any) => `* **Evidence-Linked
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="text-lg font-bold text-white">{briefResult.company_name}</h3>
-                  <p className="text-xs text-slate-400 font-mono">{briefResult.domain || 'no verified website'} · status: {briefResult.status}</p>
+                  <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400 font-mono">
+                    {briefResult.domain ? (
+                      <ExternalLink href={briefResult.domain} className="text-xs font-mono" />
+                    ) : (
+                      <span>no verified website</span>
+                    )}
+                    <span>· status: {briefResult.status}</span>
+                  </div>
                 </div>
                 <span className="px-3 py-1 rounded-full text-xs font-mono bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
                   {briefResult.evidence_count} evidence items

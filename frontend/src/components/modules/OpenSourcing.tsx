@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { FC } from 'react';
 import {
   MapPin, UserCheck, Play, RefreshCw,
-  ExternalLink, ArrowRight, Rocket, Flame,
+  ArrowRight, Rocket, Flame,
   Building2, Check, Search, Sparkles
 } from 'lucide-react';
 import {
@@ -14,6 +14,7 @@ import {
 import type { GoogleMapsLead, LinkedInProfile, TabType } from '../../types';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
 import { ErrorBanner } from '../shared/ErrorBanner';
+import { ExternalLink, CopyablePhone, CopyableEmail } from '../shared/ClickableContact';
 
 interface OpenSourcingProps {
   onBridgeToWaterfall: (first: string, last: string, company: string, domain: string) => void;
@@ -382,6 +383,10 @@ export const OpenSourcing: FC<OpenSourcingProps> = ({
                       <div>
                         <h4 className="text-xs font-bold text-white">{lead.company_name}</h4>
                         <div className="text-[11px] text-slate-400 truncate">{lead.address}</div>
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          {lead.domain && <ExternalLink href={lead.domain} className="text-[11px] font-mono" />}
+                          {lead.phone && lead.phone !== 'Local Business' && <CopyablePhone phone={lead.phone} />}
+                        </div>
                       </div>
                       <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 shrink-0">
                         ⭐ {lead.rating} ({lead.reviews_count} reviews)
@@ -465,6 +470,10 @@ export const OpenSourcing: FC<OpenSourcingProps> = ({
 
                 <div className="text-[11px] text-slate-400 space-y-1">
                   <div className="flex items-center justify-between">
+                    <span className="text-slate-500">Domain:</span>
+                    <ExternalLink href={round.domain} className="font-mono text-indigo-400" />
+                  </div>
+                  <div className="flex items-center justify-between">
                     <span className="text-slate-500">CIK:</span>
                     <span className="font-mono text-slate-300">{round.cik || 'Registered'}</span>
                   </div>
@@ -472,6 +481,13 @@ export const OpenSourcing: FC<OpenSourcingProps> = ({
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500">Filed:</span>
                       <span className="font-mono text-slate-300">{round.filing_date.split('T')[0]}</span>
+                    </div>
+                  )}
+                  {round.filing_url && (
+                    <div className="pt-0.5">
+                      <ExternalLink href={round.filing_url} className="text-[10px] font-mono text-cyan-400">
+                        View SEC Edgar Filing ↗
+                      </ExternalLink>
                     </div>
                   )}
                 </div>
@@ -556,7 +572,15 @@ export const OpenSourcing: FC<OpenSourcingProps> = ({
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <h4 className="text-xs font-bold text-white">{job.company_name}</h4>
-                    <div className="text-[11px] text-indigo-400 font-medium mt-0.5">{job.opportunity_title}</div>
+                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                      <ExternalLink href={job.domain} className="text-[11px] font-mono" />
+                      {job.application_url && (
+                        <ExternalLink href={job.application_url} className="text-[10px] text-cyan-400 font-mono">
+                          View Post ↗
+                        </ExternalLink>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-indigo-400 font-medium mt-1">{job.opportunity_title}</div>
                   </div>
                   <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/10 text-rose-300 border border-rose-500/30 shrink-0">
                     Hiring Pain
@@ -727,22 +751,20 @@ export const OpenSourcing: FC<OpenSourcingProps> = ({
                       </div>
 
                       {prof.linkedin_url && (
-                        <a
+                        <ExternalLink
                           href={prof.linkedin_url}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="px-2 py-1 rounded-md bg-slate-900 hover:bg-slate-800 border border-slate-800 text-indigo-400 hover:text-indigo-300 text-[10px] font-mono flex items-center gap-1 transition shrink-0"
+                          className="px-2 py-1 rounded-md bg-slate-900 hover:bg-slate-800 border border-slate-800 text-indigo-400 hover:text-indigo-300 text-[10px] font-mono shrink-0"
                           title="Open 1-Click Profile on Google"
                         >
-                          <ExternalLink className="h-3 w-3" />
-                          <span>Profile</span>
-                        </a>
+                          Profile
+                        </ExternalLink>
                       )}
                     </div>
 
                     {prof.email_candidates && prof.email_candidates.length > 0 && (
-                      <div className="text-[11px] font-mono text-emerald-400/90 bg-emerald-500/5 px-2 py-1 rounded border border-emerald-500/20">
-                        Permutation: {prof.email_candidates[0]}
+                      <div className="flex items-center gap-1.5 pt-0.5">
+                        <span className="text-[10px] font-mono text-slate-500">Email:</span>
+                        <CopyableEmail email={prof.email_candidates[0]} />
                       </div>
                     )}
 

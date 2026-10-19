@@ -5,6 +5,7 @@ import {
   DollarSign, Sparkles, XCircle, FileText
 } from 'lucide-react';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
+import { ExternalLink } from '../shared/ClickableContact';
 
 export const OpportunityRadar: FC = () => {
   const [opportunities, setOpportunities] = useState<any[]>([]);
@@ -312,9 +313,9 @@ export const OpportunityRadar: FC = () => {
                     Fit: {opp.fit_score === null || opp.fit_score === undefined ? 'n/a' : `${Math.round(opp.fit_score * 100)}%`}
                   </span>
                   {opp.url && (
-                    <a href={opp.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-slate-400 hover:text-white underline">
+                    <ExternalLink href={opp.url} className="text-slate-400 hover:text-white underline">
                       Open original
-                    </a>
+                    </ExternalLink>
                   )}
                   <button
                     onClick={(e) => {

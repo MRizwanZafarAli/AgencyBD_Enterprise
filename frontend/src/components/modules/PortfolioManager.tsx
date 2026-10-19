@@ -3,10 +3,11 @@ import type { FC, FormEvent } from 'react';
 import {
   BookOpen, Trash2, Plus, DollarSign, TrendingUp,
   CheckCircle2, ArrowRight, ArrowLeft, Trophy,
-  Kanban, RefreshCw, Phone, Globe, Building2,
+  Kanban, RefreshCw, Globe, Building2,
   Sparkles, Filter, X
 } from 'lucide-react';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
+import { ExternalLink, CopyablePhone } from '../shared/ClickableContact';
 
 // ==================== Interfaces ====================
 
@@ -427,7 +428,7 @@ const KanbanPipelineSection: FC = () => {
                             {deal.domain ? (
                               <div className="flex items-center gap-1 truncate text-indigo-400">
                                 <Globe className="h-3 w-3 shrink-0" />
-                                <span className="truncate">{deal.domain}</span>
+                                <ExternalLink href={deal.domain} className="text-xs truncate" />
                               </div>
                             ) : (
                               <div className="flex items-center gap-1 text-amber-400/90 text-[10px]">
@@ -437,9 +438,8 @@ const KanbanPipelineSection: FC = () => {
                             )}
 
                             {deal.phone && (
-                              <div className="flex items-center gap-1 truncate text-slate-400 font-mono text-[10px]">
-                                <Phone className="h-2.5 w-2.5 shrink-0" />
-                                <span className="truncate">{deal.phone}</span>
+                              <div className="pt-0.5">
+                                <CopyablePhone phone={deal.phone} />
                               </div>
                             )}
                           </div>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import {
-  MapPin, Phone, Star, ExternalLink, Search, BookmarkPlus, Check, Sparkles,
+  MapPin, Star, ExternalLink, Search, BookmarkPlus, Check, Sparkles,
   Globe, Compass, Copy, SlidersHorizontal, Zap, Building2,
   ShieldCheck, X, Layers, AlertTriangle, Download, Send, CheckCircle2,
   TrendingUp, ChevronDown, ChevronUp, Stethoscope, FileText
@@ -9,6 +9,8 @@ import {
 import { apiFetch, apiErrorMessage } from '../../lib/api';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { useTheme } from '../../lib/useTheme';
+import { CopyablePhone } from '../shared/ClickableContact';
+import { normalizeUrl } from '../../lib/urls';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -1041,7 +1043,7 @@ export const LocalHunt: FC = () => {
                           </div>
                           <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-400 mt-1">
                             {r.address && <span className="flex items-center gap-1 truncate max-w-xs"><MapPin className="h-3 w-3 shrink-0" />{r.address}</span>}
-                            {r.phone && <span className="flex items-center gap-1 font-mono"><Phone className="h-3 w-3 shrink-0" />{r.phone}</span>}
+                            {r.phone && <CopyablePhone phone={r.phone} />}
                             {r.rating != null && (
                               <span className="flex items-center gap-1 text-amber-400 font-mono">
                                 <Star className="h-3 w-3 shrink-0 fill-amber-400" />{r.rating} ({r.reviews})
@@ -1107,7 +1109,7 @@ export const LocalHunt: FC = () => {
                         </a>
                         {r.website && (
                           <a
-                            href={r.website}
+                            href={normalizeUrl(r.website)}
                             target="_blank"
                             rel="noreferrer noopener"
                             onClick={(e) => e.stopPropagation()}
@@ -1220,7 +1222,7 @@ export const LocalHunt: FC = () => {
                 <h2 className="text-xl font-bold text-white mt-1">{selectedResult.name}</h2>
                 <div className="text-xs text-slate-400 flex items-center gap-3 mt-1">
                   <span>{selectedResult.address || city}</span>
-                  {selectedResult.phone && <span className="font-mono">{selectedResult.phone}</span>}
+                  {selectedResult.phone && <CopyablePhone phone={selectedResult.phone} />}
                 </div>
               </div>
               <button
@@ -1355,7 +1357,7 @@ export const LocalHunt: FC = () => {
                 </a>
                 {selectedResult.website ? (
                   <a
-                    href={selectedResult.website}
+                    href={normalizeUrl(selectedResult.website)}
                     target="_blank"
                     rel="noreferrer noopener"
                     className="p-2.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 flex flex-col items-center justify-center gap-1 text-center transition group"

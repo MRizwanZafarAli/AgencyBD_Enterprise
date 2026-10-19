@@ -6,12 +6,13 @@ import {
   Cpu, Terminal, TrendingUp,
   MessageSquare, Flame, Globe, Camera,
   FileText, Send, CheckCircle2,
-  ExternalLink, Layers, Search,
+  Layers, Search,
   MousePointerClick, Users, Printer, Download
 } from 'lucide-react';
 import type { TabType } from '../../types';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
 import { ErrorBanner } from '../shared/ErrorBanner';
+import { ExternalLink, CopyablePhone, CopyableEmail } from '../shared/ClickableContact';
 
 interface SwarmAutopilotProps {
   setActiveTab: (t: TabType) => void;
@@ -846,15 +847,18 @@ export const SwarmAutopilot: FC<SwarmAutopilotProps> = ({ setActiveTab, onBridge
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <span className="text-white font-bold text-base">{lead.company_name}</span>
-                            <span className="text-slate-400 text-xs font-mono">({lead.domain})</span>
+                            <ExternalLink href={lead.domain} className="text-xs font-mono" />
                             <span className="px-2 py-0.5 rounded text-xs font-mono font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                               {lead.tier}
                             </span>
                           </div>
-                          <div className="text-xs text-slate-400 flex items-center gap-3">
+                          <div className="text-xs text-slate-400 flex flex-wrap items-center gap-3">
                             <span>Contact: <strong className="text-slate-200">{lead.contact_name}</strong></span>
                             <span>•</span>
-                            <span className="text-emerald-400 font-mono">{lead.resolved_email} ({lead.email_confidence}% Conf)</span>
+                            <div className="flex items-center gap-1.5">
+                              <CopyableEmail email={lead.resolved_email} />
+                              <span className="text-[10px] font-mono text-emerald-400">({lead.email_confidence}% Conf)</span>
+                            </div>
                           </div>
                         </div>
 
@@ -1578,13 +1582,23 @@ export const SwarmAutopilot: FC<SwarmAutopilotProps> = ({ setActiveTab, onBridge
                       </div>
                     </div>
                     {touchNavResult.emails?.length > 0 && (
-                      <div>
-                        <strong>Emails:</strong> {touchNavResult.emails.join(', ')}
+                      <div className="space-y-1">
+                        <strong className="text-slate-300">Emails:</strong>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {touchNavResult.emails.map((em: string, idx: number) => (
+                            <CopyableEmail key={idx} email={em} />
+                          ))}
+                        </div>
                       </div>
                     )}
                     {touchNavResult.phones?.length > 0 && (
-                      <div>
-                        <strong>Phones:</strong> {touchNavResult.phones.join(', ')}
+                      <div className="space-y-1">
+                        <strong className="text-slate-300">Phones:</strong>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {touchNavResult.phones.map((ph: string, idx: number) => (
+                            <CopyablePhone key={idx} phone={ph} />
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
