@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import {
   Shield, Activity, Menu, X, Cpu, Command, Sun, Moon,
-  Sparkles, Download, RefreshCw, CheckCircle2, GitBranch, AlertCircle
+  Sparkles, Download, RefreshCw, CheckCircle2, GitBranch, AlertCircle, ChevronRight
 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import type { Me } from '../../lib/api';
+import type { TabType } from '../../types';
 import { useTheme } from '../../lib/useTheme';
 
 interface HeaderProps {
+  activeTab?: TabType;
   circuitBreakerTripped: boolean;
   onToggleHalt: () => void;
   mobileMenuOpen: boolean;
@@ -16,6 +18,27 @@ interface HeaderProps {
   identity?: Me;
   onSignOut?: () => void;
 }
+
+const TAB_TITLES: Record<string, string> = {
+  overview: 'Mission Control',
+  autopilot: 'Swarm Auto-Pilot',
+  portfolio: 'Deal Pipeline & CRM',
+  radar: 'Opportunity Radar',
+  hunt: 'Local Client Hunt',
+  sourcing: 'Open Sourcing',
+  waterfall: 'Waterfall Enrichment',
+  doctor: 'Website Doctor & Brief',
+  callintel: 'Gong Call Intel & SOW',
+  copycoach: 'Lavender Copy Coach',
+  multimodal: 'Video Pitch Studio',
+  sequences: 'Multi-Step Sequences',
+  deliverability: 'Fleet Deliverability',
+  dns: 'DNS Fleet Studio',
+  suppression: 'CAN-SPAM Vault',
+  governance: 'Autonomy Policy & Learning',
+  rbac: 'Enterprise RBAC',
+  apidocs: 'Developer API Console',
+};
 
 interface UpdaterStatus {
   status: string;
@@ -35,6 +58,7 @@ interface UpdaterStatus {
 }
 
 export const Header: FC<HeaderProps> = ({
+  activeTab = 'overview',
   circuitBreakerTripped,
   onToggleHalt,
   mobileMenuOpen,
@@ -132,33 +156,34 @@ export const Header: FC<HeaderProps> = ({
   return (
     <>
       <header className="sticky top-0 z-40 h-16 border-b border-[var(--app-border)] bg-[var(--app-header-bg)] backdrop-blur-xl px-4 sm:px-6 flex items-center justify-between transition-all">
-        {/* Left: Mobile hamburger + Brand */}
+        {/* Left: Mobile hamburger + Brand & Breadcrumb */}
         <div className="flex items-center space-x-3 sm:space-x-4">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white focus:outline-none"
+            className="lg:hidden p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white focus:outline-none"
             aria-label="Toggle navigation menu"
           >
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
 
           <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 p-0.5 shadow-lg shadow-indigo-500/25 flex items-center justify-center">
-              <Cpu className="h-5 w-5 text-white" />
+            <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 p-0.5 shadow-md shadow-indigo-500/20 flex items-center justify-center">
+              <Cpu className="h-4.5 w-4.5 text-white" />
             </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="font-bold text-white tracking-tight text-sm sm:text-base">AgencyBD</span>
-                <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                  ENTERPRISE
-                </span>
-              </div>
-              <div className="text-[10px] text-slate-400 hidden sm:block -mt-0.5 font-mono">Client and project hunting</div>
+            <div className="flex items-center space-x-2">
+              <span className="font-bold text-white tracking-tight text-sm sm:text-base">AgencyBD</span>
+              <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                ENTERPRISE
+              </span>
+              <ChevronRight className="h-3.5 w-3.5 text-slate-600 hidden md:inline" />
+              <span className="text-xs font-semibold text-slate-300 hidden md:inline tracking-tight font-sans">
+                {TAB_TITLES[activeTab] || 'Mission Control'}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Center: Live Update Notification + API Status */}
+        {/* Center: Interactive Search / Jump Command + Telemetry */}
         <div className="hidden md:flex items-center space-x-3">
           {/* Animated Update Notification Pill */}
           {updater?.update_available && (
@@ -172,28 +197,35 @@ export const Header: FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* Live API Health & Telemetry */}
-          <div className="flex items-center space-x-4 px-3 py-1.5 rounded-full bg-slate-900/60 border border-slate-800/70 text-xs font-mono">
+          {/* Interactive Raycast-grade Command Bar */}
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
+            className="flex items-center space-x-2.5 px-3.5 py-1.5 rounded-full bg-slate-900/80 hover:bg-slate-800/90 border border-slate-800 hover:border-slate-700/80 text-xs font-mono text-slate-400 hover:text-slate-200 transition shadow-sm group cursor-pointer"
+            title="Search modules and commands (⌘K)"
+          >
+            <Command className="h-3.5 w-3.5 text-slate-400 group-hover:text-indigo-400 transition-colors" />
+            <span className="text-slate-400 group-hover:text-slate-200 font-sans text-xs">Jump to module…</span>
+            <kbd className="px-1.5 py-0.5 rounded bg-slate-800/90 text-[10px] text-slate-400 border border-slate-700/60 font-mono">⌘K</kbd>
+          </button>
+
+          {/* Live API Health & Latency */}
+          <div className="flex items-center space-x-3 px-3 py-1.5 rounded-full bg-slate-900/60 border border-slate-800/70 text-xs font-mono">
             <div className={`flex items-center space-x-1.5 ${api.ok ? 'text-emerald-400' : 'text-rose-400'}`}>
               <span className="relative flex h-2 w-2">
                 {api.ok && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
                 <span className={`relative inline-flex rounded-full h-2 w-2 ${api.ok ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
               </span>
-              <span>{api.ok ? 'API online' : 'API unreachable'}</span>
+              <span>{api.ok ? 'API live' : 'API offline'}</span>
             </div>
             {api.ms !== null && (
               <>
                 <span className="text-slate-700">|</span>
                 <div className="text-slate-400 flex items-center space-x-1 tabular">
-                  <Activity className="h-3.5 w-3.5 text-cyan-400" />
-                  <span>{api.ms} ms</span>
+                  <Activity className="h-3 w-3 text-cyan-400" />
+                  <span>{api.ms}ms</span>
                 </div>
               </>
             )}
-            <span className="text-slate-700">|</span>
-            <div className="text-slate-500 flex items-center space-x-1">
-              <Command className="h-3 w-3" /><span>K to jump</span>
-            </div>
           </div>
         </div>
 

@@ -117,6 +117,7 @@ export function App() {
     <div className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)] flex flex-col font-sans selection:bg-indigo-500/30 selection:text-white antialiased transition-colors duration-200">
       {/* 1. Header with Telemetry & Global Controls */}
       <Header
+        activeTab={activeTab}
         circuitBreakerTripped={circuitBreakerTripped}
         onToggleHalt={toggleHalt}
         mobileMenuOpen={mobileMenuOpen}
@@ -136,7 +137,7 @@ export function App() {
         />
 
         {/* Content Viewport */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full transition-all">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 max-w-[1480px] mx-auto w-full transition-all">
           <div key={activeTab} className="page-enter">
           {activeTab === 'autopilot' && (
             <SwarmAutopilot

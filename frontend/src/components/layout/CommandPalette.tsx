@@ -4,16 +4,24 @@ import { Search } from 'lucide-react';
 import type { TabType } from '../../types';
 
 const COMMANDS: Array<{ id: TabType; label: string; hint: string }> = [
-  { id: 'hunt', label: 'Local Client Hunt', hint: 'find businesses by city' },
-  { id: 'radar', label: 'Opportunity Radar', hint: 'jobs, tenders, bounties' },
-  { id: 'overview', label: 'Mission Control', hint: 'setup, KPIs, digest' },
-  { id: 'doctor', label: 'Website Doctor & Brief', hint: 'audit a company' },
-  { id: 'portfolio', label: 'Portfolio & Proof', hint: 'case studies for proposals' },
-  { id: 'sequences', label: 'Sequences', hint: 'outbound email' },
-  { id: 'governance', label: 'Autonomy Policy & Learning', hint: 'approvals, mailboxes' },
-  { id: 'suppression', label: 'CAN-SPAM Vault', hint: 'unsubscribe list' },
-  { id: 'dns', label: 'DNS Fleet Studio', hint: 'SPF, DKIM, DMARC' },
-  { id: 'rbac', label: 'Enterprise RBAC', hint: 'keys and roles' },
+  { id: 'overview', label: 'Mission Control', hint: 'executive cockpit & pipeline telemetry' },
+  { id: 'autopilot', label: 'Swarm Auto-Pilot', hint: 'autonomous multi-agent lead engine' },
+  { id: 'portfolio', label: 'Deal Pipeline & CRM', hint: 'deals, won contracts, portfolio assets' },
+  { id: 'radar', label: 'Opportunity Radar', hint: 'high-value RFPs, tenders & jobs' },
+  { id: 'hunt', label: 'Local Client Hunt', hint: 'OpenStreetMap local business sourcing' },
+  { id: 'sourcing', label: 'Open Sourcing', hint: 'multi-channel B2B directory scraper' },
+  { id: 'waterfall', label: 'Waterfall Enrichment', hint: '$0 free email permutation & SMTP check' },
+  { id: 'doctor', label: 'Website Doctor & Brief', hint: 'Core Web Vitals audit & teardown deck' },
+  { id: 'callintel', label: 'Gong Call Intel & SOW', hint: 'sales transcript analysis & objection counter' },
+  { id: 'copycoach', label: 'Lavender Copy Coach', hint: 'cold email readability & spam audit' },
+  { id: 'multimodal', label: 'Video Pitch Studio', hint: 'personalized 60-second video teardown scripts' },
+  { id: 'sequences', label: 'Multi-Step Sequences', hint: 'outbound cadences & auto-stop on reply' },
+  { id: 'deliverability', label: 'Fleet Deliverability', hint: 'ESP routing & Spintax optimization' },
+  { id: 'dns', label: 'DNS Fleet Studio', hint: 'SPF, DKIM, DMARC alignment audit' },
+  { id: 'suppression', label: 'CAN-SPAM Vault', hint: 'HMAC suppression registry & opt-outs' },
+  { id: 'governance', label: 'Autonomy Policy & Learning', hint: 'L0-L3 approval policies & bandit learning' },
+  { id: 'rbac', label: 'Enterprise RBAC', hint: 'cryptographic API keys & tenant permissions' },
+  { id: 'apidocs', label: 'Developer API Console', hint: 'interactive OpenAPI documentation' },
 ];
 
 /** ⌘K / Ctrl+K quick navigation. */
@@ -32,8 +40,19 @@ export const CommandPalette: FC<{ onNavigate: (tab: TabType) => void }> = ({ onN
         setCursor(0);
       } else if (e.key === 'Escape') setOpen(false);
     };
+
+    const onCustomOpen = () => {
+      setOpen(true);
+      setQ('');
+      setCursor(0);
+    };
+
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('open-command-palette', onCustomOpen);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('open-command-palette', onCustomOpen);
+    };
   }, []);
 
   useEffect(() => {

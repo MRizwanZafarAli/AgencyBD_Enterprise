@@ -63,7 +63,7 @@ export const DigestPanel: FC<DigestPanelProps> = ({ onRefresh }) => {
   };
 
   return (
-    <section className="glass-panel rounded-2xl p-5 space-y-3 border border-slate-800">
+    <section className="bento-tile p-5 sm:p-6 space-y-3.5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-indigo-400" />

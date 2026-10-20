@@ -20,18 +20,33 @@ const TAB_FOR_CHECK: Record<string, TabType> = {
   portfolio: 'portfolio', services: 'portfolio', mailbox: 'governance', verifier: 'governance', upwork: 'radar', pagespeed: 'doctor'
 };
 
-const Tile: FC<{ label: string; value: string | number | null; hint?: string; icon?: ReactNode; accent?: string; emptyPlaceholder?: string }> = ({
-  label, value, hint, icon, accent, emptyPlaceholder = '0'
+const Tile: FC<{
+  label: string;
+  value: string | number | null;
+  hint?: string;
+  icon?: ReactNode;
+  accent?: string;
+  emptyPlaceholder?: string;
+  statusBadge?: string;
+}> = ({
+  label, value, hint, icon, accent = 'bg-indigo-500', emptyPlaceholder = '0', statusBadge
 }) => (
-  <div className="glass-panel-interactive rounded-2xl p-4 sm:p-5 flex flex-col justify-between relative overflow-hidden group">
-    <div className={`absolute -right-6 -bottom-6 w-24 h-24 rounded-full opacity-10 blur-xl transition-opacity group-hover:opacity-25 ${accent || 'bg-indigo-500'}`} />
+  <div className="bento-tile-interactive p-4 sm:p-5 flex flex-col justify-between relative overflow-hidden group">
+    <div className={`absolute -right-6 -bottom-6 w-24 h-24 rounded-full opacity-10 blur-xl transition-opacity group-hover:opacity-25 ${accent}`} />
     
     <div className="flex items-center justify-between gap-2">
-      <span className="text-xs font-semibold text-slate-400 tracking-wide uppercase font-mono">{label}</span>
-      {icon && <span className="text-slate-500 group-hover:text-indigo-400 transition-colors">{icon}</span>}
+      <span className="text-[11px] font-semibold text-slate-400 tracking-wider uppercase font-mono">{label}</span>
+      <div className="flex items-center gap-1.5">
+        {statusBadge && (
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800/80 text-slate-300 border border-slate-700/60">
+            {statusBadge}
+          </span>
+        )}
+        {icon && <span className="text-slate-500 group-hover:text-indigo-400 transition-colors">{icon}</span>}
+      </div>
     </div>
 
-    <div className="mt-3">
+    <div className="mt-3.5">
       <div className="text-2xl sm:text-3xl font-extrabold text-white font-mono tracking-tight tabular">
         {value === null || value === undefined ? (
           <span className="text-slate-400 font-semibold">{emptyPlaceholder}</span>
@@ -40,9 +55,9 @@ const Tile: FC<{ label: string; value: string | number | null; hint?: string; ic
         )}
       </div>
       {hint && (
-        <div className="text-[11px] font-mono text-slate-400 mt-1.5 flex items-center gap-1.5">
+        <div className="text-[11px] font-mono text-slate-400 mt-2 flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-slate-500 shrink-0" />
-          <span>{hint}</span>
+          <span className="truncate">{hint}</span>
         </div>
       )}
     </div>
@@ -153,23 +168,29 @@ export const MissionControl: FC<MissionControlProps> = ({ circuitBreakerTripped,
       </div>
 
       {status?.warnings?.map((w: string) => (
-        <div key={w} className="text-xs text-amber-200 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">{w}</div>
+        <div key={w} className="text-xs text-amber-200 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3.5 flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+          <span>{w}</span>
+        </div>
       ))}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      {/* 8-Tile Executive Bento Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
         <Tile
           label="Opportunities on Radar"
           value={opps ?? 0}
-          hint={opps ? 'Active live tenders' : '0 tenders indexed'}
+          hint={opps ? 'Active live market tenders' : '0 tenders indexed'}
           icon={<Radar className="h-4 w-4" />}
           accent="bg-cyan-500"
+          statusBadge="Live Feed"
         />
         <Tile
           label="Waiting for Approval"
           value={pending ?? 0}
-          hint={pending ? 'Requires human review' : '0 pending approvals'}
+          hint={pending ? 'Requires human review gate' : '0 pending approvals'}
           icon={<Clock className="h-4 w-4" />}
           accent="bg-amber-500"
+          statusBadge="Human Gate"
         />
         <Tile
           label="Emails Dispatched"
@@ -177,6 +198,7 @@ export const MissionControl: FC<MissionControlProps> = ({ circuitBreakerTripped,
           hint={sum?.total_outreach_sent ? `${sum.reply_rate_percent}% reply rate` : '0 emails dispatched'}
           icon={<Send className="h-4 w-4" />}
           accent="bg-indigo-500"
+          statusBadge="Outreach"
         />
         <Tile
           label="Fleet Deliverability"
@@ -184,27 +206,31 @@ export const MissionControl: FC<MissionControlProps> = ({ circuitBreakerTripped,
           hint={sum?.bounce_rate_percent != null ? `${sum.bounce_rate_percent}% bounces` : '0 bounce issues'}
           icon={<ShieldCheck className="h-4 w-4" />}
           accent="bg-emerald-500"
+          statusBadge="Inbox Rate"
         />
         <Tile
           label="Proposals Won"
           value={sum?.proposals_won ?? 0}
-          hint={sum?.proposals_won ? 'High win velocity' : '0 deals closed'}
+          hint={sum?.proposals_won ? 'Closed client contracts' : '0 deals closed'}
           icon={<Trophy className="h-4 w-4" />}
           accent="bg-purple-500"
+          statusBadge="Won ACV"
         />
         <Tile
           label="Meetings Booked"
           value={sum?.meetings_booked ?? 0}
-          hint={sum?.meetings_booked ? 'Active deal pipeline' : '0 scheduled calls'}
+          hint={sum?.meetings_booked ? 'Active sales discovery calls' : '0 scheduled calls'}
           icon={<Calendar className="h-4 w-4" />}
           accent="bg-emerald-500"
+          statusBadge="Discovery"
         />
         <Tile
           label="Tracked Spend (USD)"
           value={sum?.total_spend_usd != null ? `$${sum.total_spend_usd.toFixed(2)}` : '$0.00'}
-          hint={sum?.total_spend_usd ? 'LLM + recorded infra' : '$0.00 spent'}
+          hint={sum?.total_spend_usd ? 'Cryptographic ledger spend' : '$0.00 API cost'}
           icon={<DollarSign className="h-4 w-4" />}
           accent="bg-amber-500"
+          statusBadge="Sovereign"
         />
         <Tile
           label="Evidence Records"
@@ -212,19 +238,35 @@ export const MissionControl: FC<MissionControlProps> = ({ circuitBreakerTripped,
           hint={sum?.evidence_records_stored ? 'Zero-fabrication proofs' : '0 stored proofs'}
           icon={<Database className="h-4 w-4" />}
           accent="bg-indigo-500"
+          statusBadge="Proof Vault"
         />
       </div>
 
-      <div className="glass-panel rounded-2xl p-5 sm:p-6 space-y-4">
-        <div className="flex items-center justify-between">
+      {/* Production Readiness Checklist with Progress Bar */}
+      <div className="bento-tile p-5 sm:p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-indigo-400" />
             <h2 className="text-sm font-semibold text-white">Production Readiness Checklist</h2>
           </div>
-          <span className={`text-xs font-mono font-medium px-2.5 py-1 rounded-full border ${status?.ready_to_send_email ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : 'text-amber-300 border-amber-500/30 bg-amber-500/10'}`}>
-            {status ? (status.ready_to_send_email ? '✓ Ready to Dispatch Outbound' : '⚠ Outbound Blocked (Setup Incomplete)') : ''}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-mono text-slate-400">
+              {checks.filter(c => c.status === 'ok').length} of {checks.length} checks passing
+            </span>
+            <span className={`text-xs font-mono font-medium px-2.5 py-1 rounded-full border ${status?.ready_to_send_email ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : 'text-amber-300 border-amber-500/30 bg-amber-500/10'}`}>
+              {status ? (status.ready_to_send_email ? '✓ Ready to Dispatch Outbound' : '⚠ Outbound Blocked (Setup Incomplete)') : ''}
+            </span>
+          </div>
         </div>
+
+        {checks.length > 0 && (
+          <div className="w-full bg-slate-800/80 rounded-full h-1.5 overflow-hidden">
+            <div
+              className="bg-gradient-to-r from-indigo-500 to-emerald-400 h-full rounded-full transition-all duration-500"
+              style={{ width: `${Math.round((checks.filter(c => c.status === 'ok').length / checks.length) * 100)}%` }}
+            />
+          </div>
+        )}
         {checks.map((c) => (
           <div key={c.key} className="flex items-start justify-between gap-3 text-xs p-2.5 rounded-xl bg-slate-900/50 border border-slate-800/60 hover:border-slate-700/80 transition">
             <div className="flex items-start space-x-2.5">

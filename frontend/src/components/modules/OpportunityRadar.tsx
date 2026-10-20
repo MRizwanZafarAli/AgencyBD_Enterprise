@@ -237,25 +237,25 @@ export const OpportunityRadar: FC = () => {
       {scanError && <div role="alert" className="p-3 rounded-xl bg-amber-950/40 border border-amber-500/40 text-xs text-amber-200">{scanError}</div>}
 
       {/* Source status: what each source did on the last scan, never hidden */}
-      <div className="glass-panel rounded-2xl p-4 border border-slate-800">
-        <div className="text-xs font-semibold text-white mb-2">Sources</div>
+      <div className="bento-tile p-5 space-y-3">
+        <div className="text-xs font-semibold text-white uppercase tracking-wider font-mono">Connected Inbound Feed Sources</div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2">
           {sources.map((s) => {
             const state = s.last_run?.status ?? s.status ?? 'ready';
             const ok = state === 'ok' || state === 'ready' || state === 'connected';
             return (
-              <div key={s.source} className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] space-y-0.5">
+              <div key={s.source} className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] space-y-1">
                 <div className="flex justify-between font-mono">
-                  <span className="text-slate-200">{s.source}</span>
-                  <span className={ok ? 'text-emerald-400' : state === 'error' ? 'text-red-400' : 'text-amber-300'}>{state.replace('_', ' ')}</span>
+                  <span className="text-slate-200 font-semibold">{s.source}</span>
+                  <span className={ok ? 'text-emerald-400 font-bold' : state === 'error' ? 'text-red-400 font-bold' : 'text-amber-300 font-bold'}>{state.replace('_', ' ')}</span>
                 </div>
-                <div className="text-slate-500">
+                <div className="text-slate-400">
                   {s.last_run ? `${s.last_run.fetched} read, ${s.last_run.stored} kept` : 'not scanned yet'}
                   {s.automation_level === 'L1' ? ' · you submit' : ''}
                 </div>
                 {(s.last_run?.detail || s.detail) && <div className="text-amber-300/80 line-clamp-2">{s.last_run?.detail || s.detail}</div>}
                 {s.source === 'upwork' && s.status === 'not_connected' && (
-                  <button onClick={connectUpwork} className="text-cyan-400 hover:text-cyan-300 font-semibold">Connect Upwork</button>
+                  <button onClick={connectUpwork} className="text-cyan-400 hover:text-cyan-300 font-semibold cursor-pointer">Connect Upwork</button>
                 )}
               </div>
             );
@@ -266,7 +266,7 @@ export const OpportunityRadar: FC = () => {
       {/* Main Grid: Feed + Proposal Studio */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left: Opportunities Feed */}
-        <div className="glass-panel rounded-2xl p-5 border border-slate-800 space-y-4">
+        <div className="bento-tile p-5 sm:p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-white">Live Discovered Opportunities</h3>
             <span className="text-xs font-mono text-slate-400">{opportunities.length} Total</span>
@@ -362,7 +362,7 @@ export const OpportunityRadar: FC = () => {
         </div>
 
         {/* Right: Proposal Studio Drafter */}
-        <div className="glass-panel rounded-2xl p-5 border border-slate-800 space-y-4">
+        <div className="bento-tile p-5 sm:p-6 space-y-4">
           <div className="flex items-center space-x-2">
             <FileText className="h-5 w-5 text-indigo-400" />
             <h3 className="text-sm font-semibold text-white">Proposal Studio (Grounded RAG)</h3>

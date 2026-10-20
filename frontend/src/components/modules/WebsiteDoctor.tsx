@@ -170,44 +170,44 @@ ${talkingPoints.length > 0 ? talkingPoints.map((tp: any) => `* **Evidence-Linked
       </div>
 
       {/* Target Input Card */}
-      <div className="glass-panel rounded-2xl p-5 border border-slate-800 space-y-4">
+      <div className="bento-tile p-5 sm:p-6 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="text-xs text-slate-400 font-medium">Target Company Name</label>
+            <label className="text-[11px] font-mono text-slate-400 uppercase tracking-wider font-semibold">Target Company Name</label>
             <input
               type="text"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
-              placeholder="Company name"
-              className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono mt-1 focus:border-indigo-500 focus:outline-none"
+              placeholder="e.g. Acme Corp"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono mt-1.5 focus:border-indigo-500 focus:outline-none transition"
             />
           </div>
           <div>
-            <label className="text-xs text-slate-400 font-medium">City (for local businesses)</label>
+            <label className="text-[11px] font-mono text-slate-400 uppercase tracking-wider font-semibold">City (for local searches)</label>
             <input
               type="text"
               value={city}
               onChange={(e) => setCity(e.target.value)}
               placeholder="e.g. Austin, TX"
-              className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono mt-1 focus:border-indigo-500 focus:outline-none"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono mt-1.5 focus:border-indigo-500 focus:outline-none transition"
             />
           </div>
           <div>
-            <label className="text-xs text-slate-400 font-medium">Domain (optional, verified if given)</label>
+            <label className="text-[11px] font-mono text-slate-400 uppercase tracking-wider font-semibold">Domain (verified if given)</label>
             <input
               type="text"
               value={domainInput}
               onChange={(e) => setDomainInput(e.target.value)}
-              placeholder="e.g. example.com"
-              className="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono mt-1 focus:border-emerald-500 focus:outline-none"
+              placeholder="e.g. stripe.com"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono mt-1.5 focus:border-emerald-500 focus:outline-none transition"
             />
           </div>
         </div>
 
         {error && <div role="alert" className="p-3 rounded-xl bg-amber-950/40 border border-amber-500/40 text-xs text-amber-200">{error}</div>}
         {resolveResult && resolveResult.status !== 'resolved' && (
-          <div role="status" className="p-3 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-300">
-            <strong>{resolveResult.status.replace('_', ' ')}.</strong> {resolveResult.note}
+          <div role="status" className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300">
+            <strong className="text-white">{resolveResult.status.replace('_', ' ')}.</strong> {resolveResult.note}
             {resolveResult.candidates?.length > 0 && (
               <div className="mt-1 font-mono text-[11px] text-slate-400">
                 Closest: {resolveResult.candidates.map((c: any) => `${c.domain} (${Math.round(c.score * 100)}%)`).join(', ')}
@@ -216,20 +216,20 @@ ${talkingPoints.length > 0 ? talkingPoints.map((tp: any) => `* **Evidence-Linked
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-400">
-          <span className="font-mono text-indigo-400">Target Audit:</span>
-          <span>Enter any live prospect or client domain (e.g. <code className="text-slate-300">stripe.com</code> or your target's web address) to run live Lighthouse, SSL, and header audits.</span>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+          <span className="font-mono text-indigo-400 font-semibold">Instant Telemetry:</span>
+          <span>Enter any prospect domain (e.g. <code className="text-slate-300 font-mono">shopify.com</code> or your target's web address) to run live Lighthouse, SSL, and header audits.</span>
         </div>
 
         <button
           onClick={handleRunFullAnalysis}
           disabled={loading || (!companyName && !domainInput)}
-          className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 rounded-xl text-xs flex items-center justify-center space-x-2 transition-all shadow-lg shadow-emerald-600/25"
+          className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl text-xs flex items-center justify-center space-x-2 transition-all shadow-lg shadow-emerald-600/25 active:scale-[0.99] cursor-pointer"
         >
           {loading ? (
             <>
               <RefreshCw className="h-4 w-4 animate-spin" />
-              <span>Verifying the company, auditing the site and collecting evidence...</span>
+              <span>Verifying company, auditing site performance and capturing evidence...</span>
             </>
           ) : (
             <>
@@ -241,7 +241,7 @@ ${talkingPoints.length > 0 ? talkingPoints.map((tp: any) => `* **Evidence-Linked
       </div>
 
       {/* Sub-Tabs Luxury Pill Navigation */}
-      <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-slate-900/70 border border-slate-800/80 shadow-sm">
+      <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-slate-950/80 border border-slate-800 shadow-sm">
         <button
           onClick={() => setActiveSubTab('audit')}
           className={`py-2 px-3.5 text-xs font-semibold rounded-xl flex items-center space-x-2 transition-all ${
