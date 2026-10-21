@@ -76,7 +76,7 @@ export const FleetRouter: FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Panel 1: Recursive Spintax Synthesizer */}
-        <div className="glass-panel rounded-2xl p-5 sm:p-6 border border-slate-800 space-y-4">
+        <div className="bento-tile specular-border rounded-2xl p-5 sm:p-6 border border-slate-800 space-y-4">
           <div className="flex items-center space-x-2">
             <Shuffle className="h-5 w-5 text-indigo-400" />
             <h3 className="text-sm font-semibold text-white">Recursive Spintax Synthesizer</h3>
@@ -108,7 +108,7 @@ export const FleetRouter: FC = () => {
         </div>
 
         {/* Panel 2: ESP Provider Router */}
-        <div className="glass-panel rounded-2xl p-5 sm:p-6 border border-slate-800 space-y-4">
+        <div className="bento-tile specular-border rounded-2xl p-5 sm:p-6 border border-slate-800 space-y-4">
           <div className="flex items-center space-x-2">
             <Send className="h-5 w-5 text-cyan-400" />
             <h3 className="text-sm font-semibold text-white">ESP Matching Router</h3>

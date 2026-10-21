@@ -1361,7 +1361,28 @@ app.include_router(system_router)
 # ==================== Unified Sovereign Frontend Mount ====================
 frontend_dist = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend", "dist")
 if os.path.exists(frontend_dist):
-    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="static_frontend")
+    assets_dir = os.path.join(frontend_dist, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="static_assets")
+
+    @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
+    async def serve_spa_frontend(full_path: str):
+        # Never hijack API, health, or telemetry endpoints
+        if full_path.startswith("api/") or full_path.startswith("healthz/") or full_path == "metrics":
+            raise HTTPException(status_code=404, detail="API route not found")
+
+        file_path = os.path.join(frontend_dist, full_path)
+        if full_path and os.path.isfile(file_path):
+            return FileResponse(file_path)
+
+        index_file = os.path.join(frontend_dist, "index.html")
+        if os.path.exists(index_file):
+            response = FileResponse(index_file)
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            return response
+        raise HTTPException(status_code=404, detail="Frontend index.html not found")
 
 
 

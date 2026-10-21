@@ -61,7 +61,7 @@ export const CanSpamVault: FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <form onSubmit={checkCountry} className="glass-panel rounded-2xl p-6 space-y-4">
+        <form onSubmit={checkCountry} className="bento-tile specular-border rounded-2xl p-6 space-y-4">
           <div className="flex items-center space-x-2">
             <Globe className="h-5 w-5 text-indigo-400" />
             <h2 className="text-sm font-semibold text-white">Can I cold-email this country?</h2>
@@ -78,7 +78,7 @@ export const CanSpamVault: FC = () => {
           )}
         </form>
 
-        <form onSubmit={checkEmail} className="glass-panel rounded-2xl p-6 space-y-4">
+        <form onSubmit={checkEmail} className="bento-tile specular-border rounded-2xl p-6 space-y-4">
           <div className="flex items-center space-x-2">
             <Ban className="h-5 w-5 text-rose-400" />
             <h2 className="text-sm font-semibold text-white">Universal Suppression List</h2>

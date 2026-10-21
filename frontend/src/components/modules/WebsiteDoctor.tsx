@@ -284,7 +284,7 @@ ${talkingPoints.length > 0 ? talkingPoints.map((tp: any) => `* **Evidence-Linked
             <>
               {/* Score Ribbon */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="glass-panel rounded-2xl p-4 border border-slate-800 flex items-center justify-between">
+                <div className="bento-tile specular-border rounded-2xl p-4 border border-slate-800 flex items-center justify-between">
                   <div>
                     <span className="text-xs text-slate-400">Overall Health Score</span>
                     <div className="text-3xl font-extrabold text-emerald-400 font-mono mt-0.5">
@@ -296,7 +296,7 @@ ${talkingPoints.length > 0 ? talkingPoints.map((tp: any) => `* **Evidence-Linked
                   </div>
                 </div>
 
-                <div className="glass-panel rounded-2xl p-4 border border-slate-800 flex items-center justify-between">
+                <div className="bento-tile specular-border rounded-2xl p-4 border border-slate-800 flex items-center justify-between">
                   <div>
                     <span className="text-xs text-slate-400">Response time</span>
                     <div className="text-2xl font-extrabold text-white font-mono mt-0.5">
@@ -306,7 +306,7 @@ ${talkingPoints.length > 0 ? talkingPoints.map((tp: any) => `* **Evidence-Linked
                   <span className="text-xs font-mono text-cyan-400">{auditResult.status === 'unreachable' ? 'Unreachable' : 'Measured'}</span>
                 </div>
 
-                <div className="glass-panel rounded-2xl p-4 border border-slate-800 flex items-center justify-between">
+                <div className="bento-tile specular-border rounded-2xl p-4 border border-slate-800 flex items-center justify-between">
                   <div>
                     <span className="text-xs text-slate-400">Diagnosed Issues</span>
                     <div className="text-2xl font-extrabold text-amber-400 font-mono mt-0.5">
@@ -318,7 +318,7 @@ ${talkingPoints.length > 0 ? talkingPoints.map((tp: any) => `* **Evidence-Linked
               </div>
 
               {/* Findings List */}
-              <div className="glass-panel rounded-2xl p-5 border border-slate-800 space-y-3">
+              <div className="bento-tile specular-border rounded-2xl p-5 border border-slate-800 space-y-3">
                 <h3 className="text-sm font-semibold text-white">Categorized Diagnostic Findings & Remediation</h3>
                 <div className="space-y-2.5">
                   {auditResult.findings.map((f: any, idx: number) => (
@@ -359,7 +359,7 @@ ${talkingPoints.length > 0 ? talkingPoints.map((tp: any) => `* **Evidence-Linked
               </div>
             </>
           ) : (
-            <div className="glass-panel rounded-2xl p-8 border border-slate-800 text-center text-slate-400 text-xs">
+            <div className="bento-tile specular-border rounded-2xl p-8 border border-slate-800 text-center text-slate-400 text-xs">
               Click &quot;Run Website Doctor Audit&quot; above to inspect live performance, security, SEO, and AI-readiness.
             </div>
           )}
@@ -370,7 +370,7 @@ ${talkingPoints.length > 0 ? talkingPoints.map((tp: any) => `* **Evidence-Linked
       {activeSubTab === 'brief' && (
         <div className="space-y-4">
           {briefResult ? (
-            <div className="glass-panel rounded-2xl p-6 border border-slate-800 space-y-5">
+            <div className="bento-tile specular-border rounded-2xl p-6 border border-slate-800 space-y-5">
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="text-lg font-bold text-white">{briefResult.company_name}</h3>
@@ -453,7 +453,7 @@ ${talkingPoints.length > 0 ? talkingPoints.map((tp: any) => `* **Evidence-Linked
               )}
             </div>
           ) : (
-            <div className="glass-panel rounded-2xl p-8 border border-slate-800 text-center text-slate-400 text-xs">
+            <div className="bento-tile specular-border rounded-2xl p-8 border border-slate-800 text-center text-slate-400 text-xs">
               Run the analysis above to generate the evidence-linked executive brief.
             </div>
           )}
@@ -464,7 +464,7 @@ ${talkingPoints.length > 0 ? talkingPoints.map((tp: any) => `* **Evidence-Linked
       {activeSubTab === 'rescue' && (
         <div className="space-y-4">
           {rescueResult ? (
-            <div className="glass-panel rounded-2xl p-6 border border-slate-800 space-y-5">
+            <div className="bento-tile specular-border rounded-2xl p-6 border border-slate-800 space-y-5">
               <div className="flex justify-between items-center">
                 <div>
                   <h3 className="text-sm font-semibold text-white">Web presence check</h3>
@@ -504,7 +504,7 @@ ${talkingPoints.length > 0 ? talkingPoints.map((tp: any) => `* **Evidence-Linked
               </div>
             </div>
           ) : (
-            <div className="glass-panel rounded-2xl p-8 border border-slate-800 text-center text-slate-400 text-xs">
+            <div className="bento-tile specular-border rounded-2xl p-8 border border-slate-800 text-center text-slate-400 text-xs">
               Run the analysis above to check web presence.
             </div>
           )}
@@ -514,7 +514,7 @@ ${talkingPoints.length > 0 ? talkingPoints.map((tp: any) => `* **Evidence-Linked
       {/* Slide-over Executive Teardown Deck Modal */}
       {showDeckModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-          <div className="glass-panel w-full max-w-3xl rounded-2xl border border-slate-800 p-6 space-y-4 max-h-[90vh] flex flex-col">
+          <div className="bento-tile specular-border w-full max-w-3xl rounded-2xl border border-slate-800 p-6 space-y-4 max-h-[90vh] flex flex-col">
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-2">

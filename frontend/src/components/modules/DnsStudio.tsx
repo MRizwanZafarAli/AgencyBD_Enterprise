@@ -74,7 +74,7 @@ export const DnsStudio: FC = () => {
         </h1>
         <p className="text-sm text-slate-400 mt-1">Live DNS verification and instant record generator for isolated cold outbound domains.</p>
       </div>
-      <form onSubmit={run} className="glass-panel rounded-2xl p-6 flex flex-wrap gap-3 items-center">
+      <form onSubmit={run} className="bento-tile specular-border rounded-2xl p-6 flex flex-wrap gap-3 items-center">
         <input className={`${input} flex-1 min-w-[240px]`} placeholder="send.youragency.com" value={domain} onChange={(e) => setDomain(e.target.value)} required />
         <select className={input} value={esp} onChange={(e) => setEsp(e.target.value)}>
           <option value="google_workspace">Google Workspace</option>
@@ -91,7 +91,7 @@ export const DnsStudio: FC = () => {
       </form>
 
       {audit && (
-        <div className="glass-panel rounded-2xl p-6 text-xs space-y-3">
+        <div className="bento-tile specular-border rounded-2xl p-6 text-xs space-y-3">
           <div className="font-semibold text-white text-sm mb-1 flex items-center justify-between">
             <span>Live DNS Status ({audit.checked_at})</span>
             <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono ${audit.ready_for_outreach ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'}`}>

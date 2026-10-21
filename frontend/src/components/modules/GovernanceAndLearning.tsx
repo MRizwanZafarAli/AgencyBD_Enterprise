@@ -252,7 +252,7 @@ export const GovernanceAndLearning: FC = () => {
           </div>
 
           {/* Policy Matrix Table */}
-          <div className="glass-panel rounded-2xl border border-slate-800 p-6 space-y-4">
+          <div className="bento-tile specular-border rounded-2xl border border-slate-800 p-6 space-y-4">
             <h2 className="text-sm font-semibold text-white flex items-center space-x-2">
               <ShieldCheck className="h-4 w-4 text-emerald-400" />
               <span>Tenant Autonomy Matrix</span>
@@ -312,7 +312,7 @@ export const GovernanceAndLearning: FC = () => {
           {/* Workbench & Live Decisions */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Interactive Policy Tester */}
-            <div className="glass-panel rounded-2xl border border-slate-800 p-6 space-y-4">
+            <div className="bento-tile specular-border rounded-2xl border border-slate-800 p-6 space-y-4">
               <h3 className="text-sm font-semibold text-white">Policy Decision Tester</h3>
               <p className="text-xs text-slate-400">
                 Simulates real runtime policy decisions against verified contact states and deal values.
@@ -360,7 +360,7 @@ export const GovernanceAndLearning: FC = () => {
             </div>
 
             {/* Live Decision Audit Log */}
-            <div className="glass-panel rounded-2xl border border-slate-800 p-6 space-y-4">
+            <div className="bento-tile specular-border rounded-2xl border border-slate-800 p-6 space-y-4">
               <h3 className="text-sm font-semibold text-white">Policy Decision Audit Trail</h3>
               <p className="text-xs text-slate-400">
                 Every action execution attempts are logged with reason and timestamp.
@@ -442,7 +442,7 @@ export const GovernanceAndLearning: FC = () => {
               </div>
 
               {/* Proposal Variant Performance */}
-              <div className="glass-panel rounded-2xl border border-slate-800 p-6 space-y-4">
+              <div className="bento-tile specular-border rounded-2xl border border-slate-800 p-6 space-y-4">
                 <h3 className="text-sm font-semibold text-white flex items-center space-x-2">
                   <Award className="h-4 w-4 text-amber-400" />
                   <span>Proposal Studio A/B Multi-Armed Bandit</span>
@@ -465,7 +465,7 @@ export const GovernanceAndLearning: FC = () => {
               </div>
 
               {/* AI Strategic Recommendations */}
-              <div className="glass-panel rounded-2xl border border-slate-800 p-6 space-y-3">
+              <div className="bento-tile specular-border rounded-2xl border border-slate-800 p-6 space-y-3">
                 <h3 className="text-sm font-semibold text-white flex items-center space-x-2">
                   <HelpCircle className="h-4 w-4 text-emerald-400" />
                   <span>Autonomous Strategic Recommendations</span>
@@ -490,7 +490,7 @@ export const GovernanceAndLearning: FC = () => {
       {subTab === 'mailboxes' && (
         <div className="space-y-6">
           {/* Fail-Closed Verification Gate Tester */}
-          <div className="glass-panel rounded-2xl border border-slate-800 p-6 space-y-4">
+          <div className="bento-tile specular-border rounded-2xl border border-slate-800 p-6 space-y-4">
             <h3 className="text-sm font-semibold text-white flex items-center space-x-2">
               <Lock className="h-4 w-4 text-emerald-400" />
               <span>Fail-Closed Email Verification Gate</span>
@@ -530,7 +530,7 @@ export const GovernanceAndLearning: FC = () => {
           </div>
 
           {/* Mailbox Fleet Table */}
-          <div className="glass-panel rounded-2xl border border-slate-800 p-6 space-y-4">
+          <div className="bento-tile specular-border rounded-2xl border border-slate-800 p-6 space-y-4">
             <h3 className="text-sm font-semibold text-white flex items-center space-x-2">
               <Mail className="h-4 w-4 text-cyan-400" />
               <span>Active Sender Mailboxes (Anti-Clustering Pacing)</span>

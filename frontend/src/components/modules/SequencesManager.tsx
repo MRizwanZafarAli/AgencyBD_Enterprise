@@ -85,7 +85,7 @@ export const SequencesManager: FC = () => {
       </div>
       {msg && <div role="status" className="text-xs text-amber-200 bg-amber-950/40 border border-amber-500/30 rounded-lg p-3">{msg}</div>}
 
-      <form onSubmit={createSequence} className="glass-panel rounded-2xl p-5 sm:p-6 space-y-4">
+      <form onSubmit={createSequence} className="bento-tile specular-border rounded-2xl p-5 sm:p-6 space-y-4">
         <input className={input} placeholder="Sequence name" value={name} onChange={(e) => setName(e.target.value)} required />
         {steps.map((s, i) => (
           <div key={i} className="grid sm:grid-cols-[1fr_100px] gap-2.5 p-3 rounded-xl bg-slate-900/40 border border-slate-800/60">
@@ -101,7 +101,7 @@ export const SequencesManager: FC = () => {
       </form>
 
       {sequences.length > 0 && (
-        <form onSubmit={enrollRecipient} className="glass-panel rounded-2xl p-5 sm:p-6 grid sm:grid-cols-3 gap-3">
+        <form onSubmit={enrollRecipient} className="bento-tile specular-border rounded-2xl p-5 sm:p-6 grid sm:grid-cols-3 gap-3">
           <select className={input} value={enroll.sequence_id} onChange={(e) => setEnroll({ ...enroll, sequence_id: Number(e.target.value) })} required>
             <option value={0} disabled>Choose a sequence</option>
             {sequences.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.steps.length} steps)</option>)}
@@ -116,7 +116,7 @@ export const SequencesManager: FC = () => {
 
       <div className="space-y-2">
         {enrollments.map((e) => (
-          <div key={e.id} className="glass-panel-interactive rounded-xl p-3.5 text-xs flex justify-between gap-3 items-center">
+          <div key={e.id} className="bento-tile-interactive specular-border rounded-xl p-3.5 text-xs flex justify-between gap-3 items-center">
             <div className="font-mono space-y-0.5">
               <div className="text-white font-semibold">{e.recipient_email} <span className="text-slate-500 font-normal">({e.country_code})</span></div>
               <div className="text-slate-400">Step {e.current_step} · {e.status.replace('_', ' ')} · Next {e.next_run_at} UTC{e.stop_reason ? ` · ${e.stop_reason}` : ''}</div>

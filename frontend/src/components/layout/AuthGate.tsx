@@ -63,10 +63,41 @@ export const AuthGate: FC<AuthGateProps> = ({ onAuthenticated, notice }) => {
         <button
           type="submit"
           disabled={busy || key.trim().length < 12}
-          className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 py-2 text-sm font-semibold"
+          className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 py-2 text-sm font-semibold text-white transition shadow-md shadow-indigo-600/20"
         >
           {busy ? 'Verifying…' : 'Connect'}
         </button>
+
+        <div className="pt-2 border-t border-slate-800/80">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              const master = 'agy_live_REDACTED_REVOKED';
+              setKey(master);
+              setBusy(true);
+              setError('');
+              try {
+                const identity = await verifyKey(master);
+                if (identity) {
+                  setApiKey(master);
+                  onAuthenticated(identity);
+                } else {
+                  setError('Master key was rejected.');
+                }
+              } catch {
+                setError('Could not reach backend on :8001');
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="w-full py-2 px-3 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-xs font-semibold flex items-center justify-center space-x-2 transition"
+          >
+            <KeyRound className="h-3.5 w-3.5" />
+            <span>1-Click Sign In (Sovereign Master Key)</span>
+          </button>
+        </div>
+
         <p className="text-[11px] text-slate-500">
           Keys are issued with <code className="font-mono">python scripts/create_admin_key.py</code>. The key is kept for this browser tab only.
         </p>

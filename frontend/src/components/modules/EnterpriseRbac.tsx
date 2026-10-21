@@ -92,7 +92,7 @@ export const EnterpriseRbac: FC<Props> = () => {
         </div>
       )}
 
-      <div className="glass-panel rounded-2xl p-6">
+      <div className="bento-tile specular-border rounded-2xl p-6">
         <h2 className="text-sm font-semibold text-white mb-3">Enterprise Role Permissions</h2>
         <div className="grid md:grid-cols-2 gap-3">
           {Object.entries(roles).map(([role, perms]) => (
@@ -104,14 +104,14 @@ export const EnterpriseRbac: FC<Props> = () => {
         </div>
       </div>
 
-      <div className="glass-panel rounded-2xl p-6 space-y-3">
+      <div className="bento-tile specular-border rounded-2xl p-6 space-y-3">
         <h2 className="text-sm font-semibold text-white flex items-center space-x-2"><Webhook className="h-4 w-4 text-cyan-400" /><span>Inbound Reply Webhook Signature</span></h2>
         <p className="text-xs text-slate-400 leading-relaxed">Your mail infrastructure posts prospect replies to <code>/api/webhooks/inbound</code>, cryptographically signed with your workspace secret. Rotating immediately invalidates past signatures.</p>
         <button onClick={rotateWebhook} className="rounded-xl bg-slate-800 hover:bg-slate-750 px-4 py-2 text-xs font-semibold text-slate-200 border border-slate-700 shadow-sm transition-all">Generate / Rotate Inbound Webhook Secret</button>
       </div>
 
       {keys !== null && (
-        <div className="glass-panel rounded-2xl p-6 space-y-4">
+        <div className="bento-tile specular-border rounded-2xl p-6 space-y-4">
           <h2 className="text-sm font-semibold text-white">Cryptographic API Keys (Tenant Administrator Gate)</h2>
           <form onSubmit={createKey} className="flex flex-wrap gap-2.5 items-center">
             <input className={input} placeholder="Key name (e.g. CI/CD Dispatcher)" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />

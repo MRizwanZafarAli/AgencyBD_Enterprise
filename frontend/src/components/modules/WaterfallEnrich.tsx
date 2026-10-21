@@ -152,7 +152,7 @@ export const WaterfallEnrich: FC<WaterfallEnrichProps> = ({
         </div>
 
         {/* Live Savings Counter */}
-        <div className="glass-panel px-4 py-2.5 rounded-xl border border-emerald-500/30 bg-emerald-950/20 flex items-center space-x-3 shrink-0">
+        <div className="bento-tile specular-border px-4 py-2.5 rounded-xl border border-emerald-500/30 bg-emerald-950/20 flex items-center space-x-3 shrink-0">
           <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
             <DollarSign className="h-5 w-5" />
           </div>

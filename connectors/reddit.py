@@ -13,6 +13,14 @@ NS = {"a": "http://www.w3.org/2005/Atom"}
 UA = {"User-Agent": "AgencyBD-Enterprise/1.0 (opportunity radar; read-only)"}
 
 
+CONSUMER_KEYWORDS = {
+    "virtual assistant", "vocalist", "singing", "voice actor", "voice acting",
+    "laborer", "laborers", "home project", "ebay listing", "ebay", "dog walk",
+    "homework", "essay", "transcribe", "transcription", "ugc campaign",
+    "college students", "on-camera presenter", "video editor for fashion brand and personal use"
+}
+
+
 def parse_feed(xml_text: str) -> List[OpportunityItem]:
     items: List[OpportunityItem] = []
     for e in ET.fromstring(xml_text).findall("a:entry", NS):
@@ -22,11 +30,20 @@ def parse_feed(xml_text: str) -> List[OpportunityItem]:
         link = (e.find("a:link", NS).get("href") if e.find("a:link", NS) is not None else "")
         body = clean_html(e.findtext("a:content", "", NS) or "")
         amounts = money(title + " " + body[:800])
+        b_max = max(amounts) if amounts else None
+
+        # Filter out consumer micro-tasks under $500 or non-agency tasks
+        if b_max is not None and b_max < 500:
+            continue
+        title_lower = title.lower()
+        if any(k in title_lower for k in CONSUMER_KEYWORDS):
+            continue
+
         author = (e.findtext("a:author/a:name", "", NS) or "").lstrip("/u/")
         items.append(OpportunityItem(
             type="inbound", source="reddit", external_id=(e.findtext("a:id", "", NS) or link).rsplit("/", 1)[-1], title=title.split("]", 1)[-1].strip() or title,
             description=body, company_name=None, url=link, posted_at=e.findtext("a:updated", None, NS),
-            budget_min=min(amounts) if amounts else None, budget_max=max(amounts) if amounts else None,
+            budget_min=min(amounts) if amounts else None, budget_max=b_max,
             metadata={"author": author, "attribution": "Source: Reddit r/forhire", "contact_method": "reply on Reddit"}))
     return items
 

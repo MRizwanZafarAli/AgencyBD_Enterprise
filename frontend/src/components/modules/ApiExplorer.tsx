@@ -74,7 +74,7 @@ export const ApiExplorer: FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Endpoint List */}
-        <div className="glass-panel rounded-2xl p-4 border border-slate-800 space-y-2">
+        <div className="bento-tile specular-border rounded-2xl p-4 border border-slate-800 space-y-2">
           <div className="text-xs font-semibold text-slate-400 px-2 uppercase font-mono">Available Endpoints</div>
           <div className="space-y-1">
             {ENDPOINTS.map((ep, i) => (

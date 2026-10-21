@@ -107,11 +107,13 @@ class SourcingAgent:
             updated_elem = entry.find(f"{ns}updated")
             updated_date = updated_elem.text if updated_elem is not None and updated_elem.text else ""
 
-            slug = re.sub(r'[^a-zA-Z0-9]', '', comp_name).lower()
-            domain = f"{slug}.sec-edgar.gov"
+            # Clean legal entity noise from company name to get real trading identity
+            clean_name = re.sub(r'\b(Inc\.?|LLC|LP|Ltd\.?|Corp\.?|Holdings|Series of.*)\b', '', comp_name, flags=re.I).strip()
+            slug = re.sub(r'[^a-zA-Z0-9]', '', clean_name or comp_name).lower()
+            domain = f"{slug}.com" if slug else "company.com"
 
             lead = LeadRepository.create_or_get_lead(
-                company_name=comp_name,
+                company_name=clean_name or comp_name,
                 domain=domain,
                 phone=None,
                 address=None,
@@ -119,7 +121,7 @@ class SourcingAgent:
                 reviews_count=0,
                 source_channel="sec_edgar_form_d",
                 source_query=funding_stage,
-                notes=f"VENTURE CAPITAL: Form {form_type} Filing | CIK: {cik} | URL: {filing_url}",
+                notes=f"VENTURE CAPITAL: Form {form_type} Filing | Legal: {comp_name} | CIK: {cik} | URL: {filing_url}",
                 org_id=org_id
             )
             parsed_entries.append({
@@ -170,16 +172,26 @@ class SourcingAgent:
         leads = []
         for it in matched_items[:limit]:
             comp_name = it.company_name or "Tech Employer"
-            slug = re.sub(r'[^a-zA-Z0-9]', '', comp_name).lower()
-            domain = f"{slug}.jobs"
-            if it.url:
+            # Strip URLs embedded in name e.g. "Snout https://snout.com/"
+            clean_name = re.sub(r'https?://[^\s]+', '', comp_name).strip() or comp_name
+            slug = re.sub(r'[^a-zA-Z0-9]', '', clean_name).lower()
+
+            # Attempt to extract real domain from company name or description
+            domain = f"{slug}.com" if slug else "company.com"
+            raw_text = f"{it.company_name} {it.description or ''}"
+            url_match = re.search(r'https?://(?:www\.)?([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', raw_text)
+            if url_match:
+                cand = url_match.group(1).lower()
+                if not any(skip in cand for skip in ["ycombinator.com", "remoteok.com", "github.com", "google.com", "lever.co", "greenhouse.io", "ashbyhq.com", "workable.com"]):
+                    domain = cand
+            elif it.url:
                 match = re.search(r'https?://(?:www\.)?([^/]+)', it.url)
                 if match and "ycombinator" not in match.group(1) and "remoteok" not in match.group(1):
                     domain = match.group(1)
 
             notes = f"HIRING INTENT: {it.title} | SOURCE: {it.source} | URL: {it.url}"
             lead = LeadRepository.create_or_get_lead(
-                company_name=comp_name,
+                company_name=clean_name,
                 domain=domain,
                 phone=None,
                 address=it.metadata.get("location") if isinstance(it.metadata, dict) else None,

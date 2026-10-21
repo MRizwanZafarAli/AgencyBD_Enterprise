@@ -667,7 +667,7 @@ export const LocalHunt: FC = () => {
 
       {/* Expandable Market Intelligence & Profit Advisory Panel */}
       {advisorOpen && (
-        <div className="glass-panel rounded-2xl p-5 border border-amber-500/30 space-y-4 animate-fade-in">
+        <div className="bento-tile specular-border rounded-2xl p-5 border border-amber-500/30 space-y-4 animate-fade-in">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
             <div>
               <div className="flex items-center gap-2">
@@ -847,7 +847,7 @@ export const LocalHunt: FC = () => {
       </div>
 
       {/* Search Form */}
-      <form onSubmit={search} className="glass-panel rounded-2xl p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
+      <form onSubmit={search} className="bento-tile specular-border rounded-2xl p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
         <label className="space-y-1 text-xs text-slate-400 lg:col-span-1">
           Industry / Keyword
           <input className={field} required minLength={2} placeholder="dentist, software agency, clinic" value={category} onChange={(e) => setCategory(e.target.value)} />
@@ -933,7 +933,7 @@ export const LocalHunt: FC = () => {
           <div className={`${viewMode === 'split' ? 'lg:col-span-5' : 'w-full'} space-y-3`}>
             {/* Filter and Batch Action Bar */}
             {data && data.results.length > 0 && (
-              <div className="glass-panel rounded-2xl p-3 space-y-3">
+              <div className="bento-tile specular-border rounded-2xl p-3 space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-xs font-medium text-white flex items-center gap-1.5">
                     <SlidersHorizontal className="h-3.5 w-3.5 text-indigo-400" /> Filter Leads
@@ -1207,7 +1207,7 @@ export const LocalHunt: FC = () => {
       {/* Slide-over Pitch Strategy & Teardown Modal */}
       {selectedResult && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in print:static print:p-0 print:bg-transparent print:z-auto">
-          <div className="glass-panel w-full max-w-2xl rounded-2xl border border-slate-750 p-6 space-y-5 max-h-[90vh] overflow-y-auto relative z-[100000] shadow-2xl print:max-h-none print:overflow-visible print:border-none print:p-0 print:bg-transparent">
+          <div className="bento-tile specular-border w-full max-w-2xl rounded-2xl border border-slate-750 p-6 space-y-5 max-h-[90vh] overflow-y-auto relative z-[100000] shadow-2xl print:max-h-none print:overflow-visible print:border-none print:p-0 print:bg-transparent">
             {/* Modal Header */}
             <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-800">
               <div>

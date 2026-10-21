@@ -289,7 +289,7 @@ export const OpenSourcing: FC<OpenSourcingProps> = ({
       {/* ==================== TAB 1: LOCAL BUSINESS HUNT ==================== */}
       {activeTab === 'local' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="glass-panel rounded-2xl p-5 border border-slate-800 space-y-4">
+          <div className="bento-tile specular-border rounded-2xl p-5 border border-slate-800 space-y-4">
             <div className="flex items-center space-x-2">
               <MapPin className="h-5 w-5 text-emerald-400" />
               <h3 className="text-sm font-semibold text-white">Local Target Search Parameters</h3>
@@ -372,13 +372,13 @@ export const OpenSourcing: FC<OpenSourcingProps> = ({
             </div>
 
             {gmapsResults.length === 0 ? (
-              <div className="glass-panel rounded-2xl p-8 border border-slate-800 text-center text-xs text-slate-500">
+              <div className="bento-tile specular-border rounded-2xl p-8 border border-slate-800 text-center text-xs text-slate-500">
                 Configure your industry niche and click "Hunt Local Enterprises" to stream live accounts.
               </div>
             ) : (
               <div className="space-y-2.5 max-h-[580px] overflow-y-auto pr-1">
                 {gmapsResults.map((lead, idx) => (
-                  <div key={idx} className="glass-panel-interactive rounded-xl p-3.5 border border-slate-800/90 bg-slate-950/70 space-y-2">
+                  <div key={idx} className="bento-tile-interactive specular-border rounded-xl p-3.5 border border-slate-800/90 bg-slate-950/70 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <h4 className="text-xs font-bold text-white">{lead.company_name}</h4>
@@ -436,7 +436,7 @@ export const OpenSourcing: FC<OpenSourcingProps> = ({
       {/* ==================== TAB 2: SEC EDGAR FORM D VENTURE ==================== */}
       {activeTab === 'venture' && (
         <div className="space-y-4">
-          <div className="glass-panel rounded-2xl p-4 border border-amber-500/20 bg-amber-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="bento-tile specular-border rounded-2xl p-4 border border-amber-500/20 bg-amber-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
                 <Rocket className="h-5 w-5 text-amber-400" />
@@ -458,7 +458,7 @@ export const OpenSourcing: FC<OpenSourcingProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {ventureResults.map((round, idx) => (
-              <div key={idx} className="glass-panel-interactive rounded-xl p-4 border border-slate-800 bg-slate-950/70 space-y-2.5">
+              <div key={idx} className="bento-tile-interactive specular-border rounded-xl p-4 border border-slate-800 bg-slate-950/70 space-y-2.5">
                 <div className="flex items-start justify-between gap-2">
                   <h4 className="text-xs font-bold text-white truncate" title={round.company_name}>
                     {round.company_name}
@@ -537,7 +537,7 @@ export const OpenSourcing: FC<OpenSourcingProps> = ({
       {/* ==================== TAB 3: HACKER NEWS TECH HIRING ==================== */}
       {activeTab === 'hiring' && (
         <div className="space-y-4">
-          <div className="glass-panel rounded-2xl p-4 border border-rose-500/20 bg-rose-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="bento-tile specular-border rounded-2xl p-4 border border-rose-500/20 bg-rose-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
                 <Flame className="h-5 w-5 text-rose-400" />
@@ -568,7 +568,7 @@ export const OpenSourcing: FC<OpenSourcingProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {hiringResults.map((job, idx) => (
-              <div key={idx} className="glass-panel-interactive rounded-xl p-4 border border-slate-800 bg-slate-950/70 space-y-2.5">
+              <div key={idx} className="bento-tile-interactive specular-border rounded-xl p-4 border border-slate-800 bg-slate-950/70 space-y-2.5">
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <h4 className="text-xs font-bold text-white">{job.company_name}</h4>
@@ -642,7 +642,7 @@ export const OpenSourcing: FC<OpenSourcingProps> = ({
       {/* ==================== TAB 4: EXECUTIVE DISCOVERY ==================== */}
       {activeTab === 'executives' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="glass-panel rounded-2xl p-5 border border-slate-800 space-y-4">
+          <div className="bento-tile specular-border rounded-2xl p-5 border border-slate-800 space-y-4">
             <div className="flex items-center space-x-2">
               <UserCheck className="h-5 w-5 text-indigo-400" />
               <h3 className="text-sm font-semibold text-white">Target Executive Criteria</h3>
@@ -731,13 +731,13 @@ export const OpenSourcing: FC<OpenSourcingProps> = ({
             </div>
 
             {liResults.length === 0 ? (
-              <div className="glass-panel rounded-2xl p-8 border border-slate-800 text-center text-xs text-slate-500">
+              <div className="bento-tile specular-border rounded-2xl p-8 border border-slate-800 text-center text-xs text-slate-500">
                 Select a target company and run discovery to extract executive profiles and email permutations.
               </div>
             ) : (
               <div className="space-y-2.5 max-h-[580px] overflow-y-auto pr-1">
                 {liResults.map((prof, idx) => (
-                  <div key={idx} className="glass-panel-interactive rounded-xl p-3.5 border border-slate-800/90 bg-slate-950/70 space-y-2">
+                  <div key={idx} className="bento-tile-interactive specular-border rounded-xl p-3.5 border border-slate-800/90 bg-slate-950/70 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <h4 className="text-xs font-bold text-white flex items-center gap-1.5">

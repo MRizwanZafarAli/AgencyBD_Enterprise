@@ -16,15 +16,19 @@ export const MultimodalStudio: FC = () => {
   const [result, setResult] = useState<VideoPitchStoryboard | null>(null);
 
   const handleGeneratePitch = async () => {
+    if (!prospectName.trim() || !companyName.trim() || !domain.trim()) {
+      setError('Please provide a Prospect Name, Company Name, and Target Domain.');
+      return;
+    }
     setLoading(true);
     try {
       const res = await apiFetch('/api/native/generate_video_storyboard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prospect_name: prospectName,
-          company_name: companyName,
-          domain: domain,
+          prospect_name: prospectName.trim(),
+          company_name: companyName.trim(),
+          domain: domain.trim(),
           lcp_score: lcpScore === '' ? null : lcpScore,
           proof_point: proofPoint.trim() || null
         })
@@ -40,24 +44,43 @@ export const MultimodalStudio: FC = () => {
     }
   };
 
+  const loadSample = () => {
+    setProspectName('Sarah Connor');
+    setCompanyName('Cyberdyne Systems');
+    setDomain('cyberdyne.io');
+    setLcpScore(4.2);
+    setProofPoint('Engineered a 68% LCP speedup for an enterprise SaaS platform, dropping TTFB to 140ms.');
+    setError('');
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn">
       <ErrorBanner message={error} />
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-white flex items-center space-x-2">
-          <span>Multimodal Video Storyboard Studio</span>
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/20">
-            TAVUS / LOOM REPLACEMENT
-          </span>
-        </h1>
-        <p className="text-sm text-slate-400 mt-0.5">
-          Generates personalized, high-converting video pitch scripts and visual action storyboards mapped to prospect websites.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center space-x-2">
+            <span>Multimodal Video Storyboard Studio</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/20">
+              TAVUS / LOOM REPLACEMENT
+            </span>
+          </h1>
+          <p className="text-sm text-slate-400 mt-0.5">
+            Generates personalized, high-converting video pitch scripts and visual action storyboards mapped to prospect websites.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={loadSample}
+          className="self-start sm:self-auto px-3 py-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-xs font-semibold flex items-center gap-1.5 transition"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          <span>Load Sample Target</span>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Input Parameters */}
-        <div className="glass-panel rounded-2xl p-5 sm:p-6 border border-slate-800 space-y-4">
+        <div className="bento-tile specular-border rounded-2xl p-5 sm:p-6 space-y-4">
           <div className="flex items-center space-x-2">
             <Video className="h-5 w-5 text-indigo-400" />
             <h3 className="text-sm font-semibold text-white">Prospect Teardown Targets</h3>
@@ -65,18 +88,20 @@ export const MultimodalStudio: FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-slate-400 font-medium">Prospect Name</label>
+              <label className="text-xs text-slate-400 font-medium">Prospect Name *</label>
               <input
                 value={prospectName}
                 onChange={(e) => setProspectName(e.target.value)}
+                placeholder="e.g. Sarah Connor"
                 className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-3 py-2 text-sm text-white mt-1 focus:border-indigo-500 focus:outline-none"
               />
             </div>
             <div>
-              <label className="text-xs text-slate-400 font-medium">Company Name</label>
+              <label className="text-xs text-slate-400 font-medium">Company Name *</label>
               <input
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
+                placeholder="e.g. Acme Corp"
                 className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-3 py-2 text-sm text-white mt-1 focus:border-indigo-500 focus:outline-none"
               />
             </div>
@@ -84,27 +109,29 @@ export const MultimodalStudio: FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-slate-400 font-medium">Target Website Domain</label>
+              <label className="text-xs text-slate-400 font-medium">Target Website Domain *</label>
               <input
                 value={domain}
                 onChange={(e) => setDomain(e.target.value)}
+                placeholder="e.g. acme.com"
                 className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-3 py-2 text-sm text-white mt-1 focus:border-indigo-500 focus:outline-none"
               />
             </div>
             <div>
-              <label className="text-xs text-slate-400 font-medium">Measured LCP in seconds (leave blank if you have not measured it)</label>
+              <label className="text-xs text-slate-400 font-medium">Measured LCP in seconds (optional)</label>
               <input
                 type="number"
                 step="0.1"
                 value={lcpScore}
                 onChange={(e) => setLcpScore(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                placeholder="e.g. 3.8"
                 className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-3 py-2 text-sm text-white mt-1 focus:border-indigo-500 focus:outline-none"
               />
             </div>
           </div>
 
           <div>
-            <label className="text-xs text-slate-400 font-medium">Proof point from your portfolio (optional; stated word for word, never invented)</label>
+            <label className="text-xs text-slate-400 font-medium">Proof point from your portfolio (optional)</label>
             <input
               type="text"
               value={proofPoint}
@@ -116,8 +143,8 @@ export const MultimodalStudio: FC = () => {
 
           <button
             onClick={handleGeneratePitch}
-            disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 rounded-lg text-xs flex items-center justify-center space-x-2 transition-all shadow-lg shadow-indigo-600/20"
+            disabled={loading || !prospectName.trim() || !companyName.trim() || !domain.trim()}
+            className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-semibold py-2.5 rounded-lg text-xs flex items-center justify-center space-x-2 transition-all shadow-lg shadow-indigo-600/20"
           >
             {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             <span>Synthesize 4-Scene Loom Storyboard</span>
@@ -125,7 +152,7 @@ export const MultimodalStudio: FC = () => {
         </div>
 
         {/* Storyboard Output */}
-        <div className="glass-panel rounded-2xl p-5 sm:p-6 border border-slate-800 space-y-4">
+        <div className="bento-tile specular-border rounded-2xl p-5 sm:p-6 space-y-4">
           <h3 className="text-sm font-semibold text-white">Storyboard Execution Blueprint</h3>
 
           {result ? (

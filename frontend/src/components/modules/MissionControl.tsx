@@ -122,7 +122,7 @@ export const MissionControl: FC<MissionControlProps> = ({ circuitBreakerTripped,
       )}
 
       {/* Sovereign Workspace Operational Status Ribbon */}
-      <div className="glass-panel p-4 rounded-2xl border border-slate-800/80 bg-slate-950/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bento-tile specular-border p-4 rounded-2xl border border-slate-800/80 bg-slate-950/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
             <ShieldCheck className="h-5 w-5 text-indigo-400" />
@@ -289,7 +289,7 @@ export const MissionControl: FC<MissionControlProps> = ({ circuitBreakerTripped,
       <DigestPanel onRefresh={load} />
 
       {report?.strategic_recommendations?.length > 0 && (
-        <div className="glass-panel rounded-2xl p-5 sm:p-6 space-y-3">
+        <div className="bento-tile specular-border rounded-2xl p-5 sm:p-6 space-y-3">
           <h2 className="text-sm font-semibold text-white flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-indigo-400" />
             <span>Autonomous Strategic Insights</span>

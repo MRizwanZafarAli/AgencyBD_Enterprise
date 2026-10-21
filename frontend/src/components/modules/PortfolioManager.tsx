@@ -125,7 +125,7 @@ const ServicesSection: FC = () => {
         <h2 className="text-lg font-bold text-white tracking-tight">Services &amp; Price Bands</h2>
         <p className="text-xs text-slate-400 mt-0.5">Briefs and presence offers quote only the price bands you enter here. Nothing is estimated for you.</p>
       </div>
-      <form onSubmit={save} className="glass-panel rounded-2xl p-5 grid sm:grid-cols-3 gap-3">
+      <form onSubmit={save} className="bento-tile specular-border rounded-2xl p-5 grid sm:grid-cols-3 gap-3">
         <select className={input} value={form.service_key} onChange={(e) => setForm({ ...form, service_key: e.target.value })}>
           {Object.entries(SERVICE_KEYS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
@@ -277,7 +277,7 @@ const KanbanPipelineSection: FC = () => {
     <div className="space-y-6">
       {/* Metrics Banner */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="glass-panel rounded-2xl p-4 border border-indigo-500/20 bg-indigo-500/5">
+        <div className="bento-tile specular-border rounded-2xl p-4 border border-indigo-500/20 bg-indigo-500/5">
           <div className="flex items-center justify-between text-xs text-indigo-300 font-medium">
             <span>Total Pipeline Value</span>
             <DollarSign className="h-4 w-4 text-indigo-400" />
@@ -290,7 +290,7 @@ const KanbanPipelineSection: FC = () => {
           </div>
         </div>
 
-        <div className="glass-panel rounded-2xl p-4 border border-cyan-500/20 bg-cyan-500/5">
+        <div className="bento-tile specular-border rounded-2xl p-4 border border-cyan-500/20 bg-cyan-500/5">
           <div className="flex items-center justify-between text-xs text-cyan-300 font-medium">
             <span>Weighted Revenue</span>
             <TrendingUp className="h-4 w-4 text-cyan-400" />
@@ -303,7 +303,7 @@ const KanbanPipelineSection: FC = () => {
           </div>
         </div>
 
-        <div className="glass-panel rounded-2xl p-4 border border-emerald-500/20 bg-emerald-500/5">
+        <div className="bento-tile specular-border rounded-2xl p-4 border border-emerald-500/20 bg-emerald-500/5">
           <div className="flex items-center justify-between text-xs text-emerald-300 font-medium">
             <span>Closed Won Revenue</span>
             <Trophy className="h-4 w-4 text-emerald-400" />
@@ -316,7 +316,7 @@ const KanbanPipelineSection: FC = () => {
           </div>
         </div>
 
-        <div className="glass-panel rounded-2xl p-4 border border-purple-500/20 bg-purple-500/5 flex flex-col justify-between">
+        <div className="bento-tile specular-border rounded-2xl p-4 border border-purple-500/20 bg-purple-500/5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-xs text-purple-300 font-medium">
             <span>CRM Operations</span>
             <Sparkles className="h-4 w-4 text-purple-400" />
@@ -412,7 +412,7 @@ const KanbanPipelineSection: FC = () => {
                       return (
                         <div
                           key={deal.id}
-                          className="glass-panel-interactive rounded-xl p-3 border border-slate-800/90 hover:border-slate-700 bg-slate-950/70 shadow-sm space-y-2 group transition"
+                          className="bento-tile-interactive rounded-xl p-3 border border-slate-800/90 hover:border-slate-700 bg-slate-950/70 shadow-sm space-y-2 group transition"
                         >
                           <div className="flex items-start justify-between gap-1.5">
                             <h4 className="text-xs font-bold text-slate-100 group-hover:text-indigo-300 transition truncate" title={deal.company_name}>
@@ -500,7 +500,7 @@ const KanbanPipelineSection: FC = () => {
       {/* New Deal Creation Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="glass-panel w-full max-w-lg rounded-2xl border border-slate-750 p-6 space-y-4 shadow-2xl">
+          <div className="bento-tile specular-border w-full max-w-lg rounded-2xl p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5 text-indigo-400" />
@@ -725,7 +725,7 @@ export const PortfolioManager: FC = () => {
 
       {activeTab === 'proof' && (
         <div className="space-y-6">
-          <form onSubmit={add} className="glass-panel rounded-2xl p-5 sm:p-6 space-y-4">
+          <form onSubmit={add} className="bento-tile specular-border rounded-2xl p-5 sm:p-6 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
               <h2 className="text-sm font-bold text-white uppercase tracking-wider">Add Verifiable Proof Case Study</h2>
               <span className="text-xs text-amber-400 font-mono">Verifier Enforced</span>
@@ -751,7 +751,7 @@ export const PortfolioManager: FC = () => {
               </div>
             )}
             {assets.map((a) => (
-              <div key={a.id} className="glass-panel-interactive rounded-2xl p-5 text-sm">
+              <div key={a.id} className="bento-tile-interactive specular-border rounded-2xl p-5 text-sm">
                 <div className="flex justify-between items-start gap-3">
                   <div>
                     <div className="font-bold text-white text-base">{a.title}</div>
