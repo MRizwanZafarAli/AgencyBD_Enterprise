@@ -4,7 +4,8 @@ import {
   Activity, Globe, Database, Send,
   Sparkles, BarChart3, Video, Layers,
   Lock, Users, Terminal, X, BookOpen,
-  Stethoscope, Radar, MapPinned, ShieldCheck, Mail, Kanban, Bot
+  Stethoscope, Radar, MapPinned, ShieldCheck, Mail, Kanban, Bot,
+  SlidersHorizontal
 } from 'lucide-react';
 import type { TabType } from '../../types';
 
@@ -23,13 +24,39 @@ interface NavItemDef {
   badgeColor?: string;
 }
 
-const NAV_GROUPS: Array<{ title: string; items: NavItemDef[] }> = [
+const SIMPLE_NAV_GROUPS: Array<{ title: string; items: NavItemDef[] }> = [
+  {
+    title: 'AUTONOMOUS CORE',
+    items: [
+      { id: 'autopilot', label: 'Swarm Auto-Pilot', icon: <Bot className="h-4 w-4" />, badge: '100% Auto', badgeColor: 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' },
+      { id: 'overview', label: 'Mission Control', icon: <Activity className="h-4 w-4" /> },
+      { id: 'portfolio', label: 'Deal Pipeline & CRM', icon: <Kanban className="h-4 w-4" />, badge: 'CRM', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
+    ]
+  },
+  {
+    title: 'PROSPECTING & AUDIT',
+    items: [
+      { id: 'radar', label: 'Opportunity Radar', icon: <Radar className="h-4 w-4" />, badge: 'Bids', badgeColor: 'bg-cyan-500/20 text-cyan-300' },
+      { id: 'hunt', label: 'Local Client Hunt', icon: <MapPinned className="h-4 w-4" />, badge: 'Maps', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
+      { id: 'doctor', label: 'Website Doctor & Brief', icon: <Stethoscope className="h-4 w-4" />, badge: 'Teardown', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
+    ]
+  },
+  {
+    title: 'DOCUMENTATION & HELP',
+    items: [
+      { id: 'guide', label: 'Visual User Guide', icon: <BookOpen className="h-4 w-4" />, badge: 'Tutorials', badgeColor: 'bg-purple-500/20 text-purple-300' },
+    ]
+  }
+];
+
+const STUDIO_NAV_GROUPS: Array<{ title: string; items: NavItemDef[] }> = [
   {
     title: 'COMMAND & PIPELINE',
     items: [
-      { id: 'overview', label: 'Mission Control', icon: <Activity className="h-4 w-4" /> },
       { id: 'autopilot', label: 'Swarm Auto-Pilot', icon: <Bot className="h-4 w-4" />, badge: '100% Auto', badgeColor: 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' },
+      { id: 'overview', label: 'Mission Control', icon: <Activity className="h-4 w-4" /> },
       { id: 'portfolio', label: 'Deal Pipeline & CRM', icon: <Kanban className="h-4 w-4" />, badge: 'CRM', badgeColor: 'bg-emerald-500/20 text-emerald-300' },
+      { id: 'guide', label: 'Visual User Guide', icon: <BookOpen className="h-4 w-4" />, badge: 'Tutorials', badgeColor: 'bg-purple-500/20 text-purple-300' },
     ]
   },
   {
@@ -164,15 +191,32 @@ export const Sidebar: FC<SidebarProps> = ({
   setMobileMenuOpen
 }) => {
   const [guideOpen, setGuideOpen] = useState(false);
+  const [showStudioTools, setShowStudioTools] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('agencybd.viewMode') === 'studio';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleStudioTools = () => {
+    const next = !showStudioTools;
+    setShowStudioTools(next);
+    try {
+      localStorage.setItem('agencybd.viewMode', next ? 'studio' : 'simple');
+    } catch {}
+  };
 
   const handleItemClick = (id: TabType) => {
     setActiveTab(id);
     setMobileMenuOpen(false);
   };
 
+  const activeGroups = showStudioTools ? STUDIO_NAV_GROUPS : SIMPLE_NAV_GROUPS;
+
   const navContent = (
     <div className="flex flex-col h-full py-4 px-3 space-y-6">
-      {NAV_GROUPS.map((group, gIdx) => (
+      {activeGroups.map((group, gIdx) => (
         <div key={gIdx} className="space-y-1">
           <div className="px-3 text-[11px] font-mono font-bold tracking-wider text-slate-400 uppercase">
             {group.title}
@@ -211,14 +255,28 @@ export const Sidebar: FC<SidebarProps> = ({
         </div>
       ))}
 
-      {/* Platform Guide Launcher Button */}
-      <div className="pt-2 px-1">
+      {/* Mode Switcher Toggle */}
+      <div className="pt-2 px-1 space-y-2">
         <button
-          onClick={() => setGuideOpen(true)}
+          onClick={toggleStudioTools}
+          className="w-full flex items-center justify-between p-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-900/80 hover:bg-slate-800/90 border border-slate-800 transition"
+        >
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-3.5 w-3.5 text-indigo-400" />
+            <span>{showStudioTools ? 'Simplified View' : 'Show 18 Studio Tools'}</span>
+          </div>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-800 text-indigo-300 font-bold">
+            {showStudioTools ? '18 Tools' : 'Simple'}
+          </span>
+        </button>
+
+        {/* Platform Guide Launcher Button */}
+        <button
+          onClick={() => setActiveTab('guide')}
           className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl text-xs font-semibold text-indigo-300 bg-indigo-950/40 hover:bg-indigo-900/50 border border-indigo-700/40 transition shadow-sm"
         >
           <BookOpen className="h-4 w-4 text-indigo-400" />
-          <span>📖 Platform Guide & Usage</span>
+          <span>📖 Visual User Guide &amp; Diagrams</span>
         </button>
       </div>
     </div>

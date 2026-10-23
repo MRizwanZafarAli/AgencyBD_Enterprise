@@ -26,6 +26,7 @@ import { EnterpriseRbac } from './components/modules/EnterpriseRbac';
 import { ApiExplorer } from './components/modules/ApiExplorer';
 import { GovernanceAndLearning } from './components/modules/GovernanceAndLearning';
 import { SwarmAutopilot } from './components/modules/SwarmAutopilot';
+import { VisualGuide } from './components/modules/VisualGuide';
 
 
 export function App() {
@@ -157,6 +158,7 @@ export function App() {
 
           {activeTab === 'radar' && <OpportunityRadar />}
           {activeTab === 'portfolio' && <PortfolioManager />}
+          {activeTab === 'guide' && <VisualGuide setActiveTab={setActiveTab} />}
           {activeTab === 'sequences' && <SequencesManager />}
 
           {activeTab === 'governance' && <GovernanceAndLearning />}

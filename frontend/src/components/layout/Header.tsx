@@ -23,6 +23,7 @@ const TAB_TITLES: Record<string, string> = {
   overview: 'Mission Control',
   autopilot: 'Swarm Auto-Pilot',
   portfolio: 'Deal Pipeline & CRM',
+  guide: 'Visual User Guide',
   radar: 'Opportunity Radar',
   hunt: 'Local Client Hunt',
   sourcing: 'Open Sourcing',

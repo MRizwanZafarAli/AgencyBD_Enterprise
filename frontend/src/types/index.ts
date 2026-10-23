@@ -5,6 +5,7 @@ export type TabType =
   | 'radar'
   | 'hunt'
   | 'portfolio'
+  | 'guide'
   | 'sequences'
   | 'governance'
   | 'sourcing' 

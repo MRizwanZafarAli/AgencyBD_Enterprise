@@ -5,6 +5,7 @@ import type { TabType } from '../../types';
 
 const COMMANDS: Array<{ id: TabType; label: string; hint: string }> = [
   { id: 'overview', label: 'Mission Control', hint: 'executive cockpit & pipeline telemetry' },
+  { id: 'guide', label: 'Visual User Guide', hint: 'step-by-step interactive visual manual with diagrams' },
   { id: 'autopilot', label: 'Swarm Auto-Pilot', hint: 'autonomous multi-agent lead engine' },
   { id: 'portfolio', label: 'Deal Pipeline & CRM', hint: 'deals, won contracts, portfolio assets' },
   { id: 'radar', label: 'Opportunity Radar', hint: 'high-value RFPs, tenders & jobs' },

@@ -581,6 +581,109 @@ export const SwarmAutopilot: FC<SwarmAutopilotProps> = ({ setActiveTab, onBridge
           </div>
         </div>
 
+        {/* 1-Click Autonomous Quick Launchpad */}
+        <div className="mt-6 pt-5 border-t border-slate-800/80">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-indigo-400" />
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                1-Click Autonomous Quick Launchpad (Zero Configuration)
+              </span>
+            </div>
+            <span className="text-[11px] font-mono text-slate-400">Click any card to run end-to-end</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Card 1: Venture Startups */}
+            <button
+              onClick={() => {
+                setChannel('sec_edgar');
+                setQuery('Form D');
+                setLimit(5);
+                setActiveMode('autopilot');
+                setTimeout(() => handleLaunchAutopilot(), 50);
+              }}
+              disabled={running}
+              className="p-4 rounded-xl border border-indigo-500/30 bg-indigo-950/20 hover:bg-indigo-900/30 text-left transition hover:scale-[1.01] group relative overflow-hidden"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
+                  RECOMMENDED
+                </span>
+                <Flame className="h-4 w-4 text-amber-400" />
+              </div>
+              <h4 className="text-xs font-bold text-white mt-2 group-hover:text-indigo-300 transition">
+                🚀 Auto-Hunt Venture Startups
+              </h4>
+              <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                Discovers 5 newly funded tech companies, audits LCP performance, and drafts tailored pitches.
+              </p>
+              <div className="mt-2 text-[10px] font-mono text-indigo-400 font-semibold flex items-center gap-1">
+                <span>1-Click Launch Now</span>
+                <ArrowRight className="h-3 w-3" />
+              </div>
+            </button>
+
+            {/* Card 2: Local High-Ticket Clients */}
+            <button
+              onClick={() => {
+                setChannel('local_maps');
+                setQuery('Dental, Austin, TX');
+                setLimit(5);
+                setActiveMode('autopilot');
+                setTimeout(() => handleLaunchAutopilot(), 50);
+              }}
+              disabled={running}
+              className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-950/20 hover:bg-emerald-900/30 text-left transition hover:scale-[1.01] group relative overflow-hidden"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
+                  HIGH TICKET
+                </span>
+                <Globe className="h-4 w-4 text-emerald-400" />
+              </div>
+              <h4 className="text-xs font-bold text-white mt-2 group-hover:text-emerald-300 transition">
+                🏢 Auto-Hunt Local Clinics &amp; Firms
+              </h4>
+              <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                Finds Austin dental &amp; legal practices with missing/broken sites and logs presence rescue deals.
+              </p>
+              <div className="mt-2 text-[10px] font-mono text-emerald-400 font-semibold flex items-center gap-1">
+                <span>1-Click Launch Now</span>
+                <ArrowRight className="h-3 w-3" />
+              </div>
+            </button>
+
+            {/* Card 3: Teardown Deck */}
+            <button
+              onClick={() => {
+                setActiveMode('deck');
+                setDeckTarget('stripe.com');
+                setDeckCompetitor('adyen.com');
+              }}
+              disabled={running}
+              className="p-4 rounded-xl border border-purple-500/30 bg-purple-950/20 hover:bg-purple-900/30 text-left transition hover:scale-[1.01] group relative overflow-hidden"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">
+                  SLIDE DECK
+                </span>
+                <Sparkles className="h-4 w-4 text-purple-400" />
+              </div>
+              <h4 className="text-xs font-bold text-white mt-2 group-hover:text-purple-300 transition">
+                🩺 1-Click Executive Teardown
+              </h4>
+              <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                Runs instant Core Web Vitals benchmark against competitors and generates a client-ready deck.
+              </p>
+              <div className="mt-2 text-[10px] font-mono text-purple-400 font-semibold flex items-center gap-1">
+                <span>Open Teardown Studio</span>
+                <ArrowRight className="h-3 w-3" />
+              </div>
+            </button>
+          </div>
+        </div>
+
         {/* 2. Sub-Navigation Tabs */}
         <div className="flex items-center gap-2 mt-6 pt-4 border-t border-slate-800/80 overflow-x-auto">
           <button
