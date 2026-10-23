@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import type { FC } from 'react';
 import {
-  Shield, Activity, Menu, X, Cpu, Command, Sun, Moon,
-  Sparkles, Download, RefreshCw, CheckCircle2, GitBranch, AlertCircle, ChevronRight
+  Shield, Menu, X, Cpu, Command, Sun, Moon,
+  Sparkles, Download, RefreshCw, CheckCircle2, GitBranch, AlertCircle, ChevronRight,
+  LogOut, ChevronDown
 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import type { Me } from '../../lib/api';
@@ -78,6 +79,21 @@ export const Header: FC<HeaderProps> = ({
   const [updateSuccess, setUpdateSuccess] = useState<any>(null);
   const [updateError, setUpdateError] = useState('');
 
+  // User Profile Dropdown State
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  // Close profile dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // 1. Live API Ping
   useEffect(() => {
     let active = true;
@@ -143,12 +159,11 @@ export const Header: FC<HeaderProps> = ({
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || data.detail || 'Failed to apply update');
       setUpdateSuccess(data);
-      // Wait 2.5s and reload interface to reflect hot-restarted server state
       setTimeout(() => {
         window.location.reload();
       }, 2500);
     } catch (e) {
-      setUpdateError(e instanceof Error ? e.message : 'Update installation failed');
+      setUpdateError(e instanceof Error ? e.message : 'An error occurred while updating system');
     } finally {
       setUpdating(false);
     }
@@ -156,7 +171,7 @@ export const Header: FC<HeaderProps> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-40 h-16 border-b border-[var(--app-border)] bg-[var(--app-header-bg)] backdrop-blur-xl px-4 sm:px-6 flex items-center justify-between transition-all">
+      <header className="h-16 px-4 sm:px-6 flex items-center justify-between border-b border-[var(--app-border)] bg-[var(--app-header-bg)] backdrop-blur-xl sticky top-0 z-40 transition-colors">
         {/* Left: Mobile hamburger + Brand & Breadcrumb */}
         <div className="flex items-center space-x-3 sm:space-x-4">
           <button
@@ -184,9 +199,9 @@ export const Header: FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Center: Interactive Search / Jump Command + Telemetry */}
+        {/* Center: Command Palette Trigger + Subtle Live Health */}
         <div className="hidden md:flex items-center space-x-3">
-          {/* Animated Update Notification Pill */}
+          {/* Animated Update Notification Pill (Only when update is ready) */}
           {updater?.update_available && (
             <button
               onClick={() => setShowModal(true)}
@@ -194,101 +209,132 @@ export const Header: FC<HeaderProps> = ({
               title="Click to review and apply new enterprise update"
             >
               <Sparkles className="h-3.5 w-3.5 text-yellow-300 animate-spin" style={{ animationDuration: '3s' }} />
-              <span>Update Ready ({updater.behind_count} new)</span>
+              <span>Update Ready ({updater.behind_count})</span>
             </button>
           )}
 
           {/* Interactive Raycast-grade Command Bar */}
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
-            className="flex items-center space-x-2.5 px-3.5 py-1.5 rounded-full bg-slate-900/80 hover:bg-slate-800/90 border border-slate-800 hover:border-slate-700/80 text-xs font-mono text-slate-400 hover:text-slate-200 transition shadow-sm group cursor-pointer"
+            className="flex items-center space-x-3 px-4 py-1.5 rounded-full bg-slate-900/70 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 text-xs font-sans text-slate-400 hover:text-slate-200 transition shadow-sm w-64 justify-between group cursor-pointer"
             title="Search modules and commands (⌘K)"
           >
-            <Command className="h-3.5 w-3.5 text-slate-400 group-hover:text-indigo-400 transition-colors" />
-            <span className="text-slate-400 group-hover:text-slate-200 font-sans text-xs">Jump to module…</span>
-            <kbd className="px-1.5 py-0.5 rounded bg-slate-800/90 text-[10px] text-slate-400 border border-slate-700/60 font-mono">⌘K</kbd>
+            <div className="flex items-center space-x-2">
+              <Command className="h-3.5 w-3.5 text-slate-400 group-hover:text-indigo-400 transition-colors" />
+              <span>Search or jump to...</span>
+            </div>
+            <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-400 border border-slate-700/60 font-mono">⌘K</kbd>
           </button>
 
-          {/* Live API Health & Latency */}
-          <div className="flex items-center space-x-3 px-3 py-1.5 rounded-full bg-slate-900/60 border border-slate-800/70 text-xs font-mono">
-            <div className={`flex items-center space-x-1.5 ${api.ok ? 'text-emerald-400' : 'text-rose-400'}`}>
-              <span className="relative flex h-2 w-2">
-                {api.ok && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
-                <span className={`relative inline-flex rounded-full h-2 w-2 ${api.ok ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
-              </span>
-              <span>{api.ok ? 'API live' : 'API offline'}</span>
-            </div>
+          {/* Minimalist Live Telemetry */}
+          <div
+            className="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-900/60 border border-slate-800/70 text-xs font-mono"
+            title={api.ms !== null ? `Engine latency: ${api.ms}ms` : 'Checking connectivity...'}
+          >
+            <span className="relative flex h-2 w-2">
+              {api.ok && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${api.ok ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+            </span>
+            <span className={api.ok ? 'text-emerald-400 font-medium' : 'text-rose-400 font-medium'}>
+              {api.ok ? 'Operational' : 'Offline'}
+            </span>
             {api.ms !== null && (
-              <>
-                <span className="text-slate-700">|</span>
-                <div className="text-slate-400 flex items-center space-x-1 tabular">
-                  <Activity className="h-3 w-3 text-cyan-400" />
-                  <span>{api.ms}ms</span>
-                </div>
-              </>
+              <span className="text-[10px] text-slate-500">· {api.ms}ms</span>
             )}
           </div>
         </div>
 
-        {/* Right: Version / Sync Button + Theme Switcher + Kill Switch */}
+        {/* Right: Theme Switcher + Kill Switch + User Profile */}
         <div className="flex items-center space-x-2 sm:space-x-3">
-          {/* Git Branch / Version Sync Button */}
-          <button
-            onClick={() => { checkUpdates(); setShowModal(true); }}
-            className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl border border-slate-700/80 hover:border-indigo-500/50 bg-slate-900/60 hover:bg-slate-800/80 text-xs font-mono transition-all text-slate-300"
-            title="System Version & GitHub Auto-Sync"
-          >
-            <GitBranch className="h-3.5 w-3.5 text-indigo-400" />
-            <span className="hidden sm:inline font-semibold">{updater?.current_commit_short || 'main'}</span>
-            {checking && <RefreshCw className="h-3 w-3 animate-spin text-slate-400" />}
-          </button>
-
           {/* Dual-Theme Switcher (Dark / Light) */}
           <button
             onClick={toggleTheme}
-            className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl border border-slate-700/80 hover:border-indigo-500/50 bg-slate-900/60 hover:bg-slate-800/80 text-xs font-mono transition-all group shadow-sm"
-            title={`Switch to ${theme === 'dark' ? 'Light (Arctic Alabaster)' : 'Dark (Obsidian Velocity)'} theme`}
-            aria-label="Toggle visual theme"
+            className="p-2 rounded-xl border border-slate-800 hover:border-slate-700 bg-slate-900/60 hover:bg-slate-800/80 text-xs transition-all group shadow-sm cursor-pointer"
+            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
+            aria-label="Toggle theme"
           >
             {theme === 'dark' ? (
-              <>
-                <Sun className="h-3.5 w-3.5 text-amber-400 group-hover:rotate-45 transition-transform duration-300" />
-                <span className="hidden sm:inline text-slate-300 text-[11px] font-semibold">Light</span>
-              </>
+              <Sun className="h-4 w-4 text-amber-400 group-hover:rotate-45 transition-transform duration-300" />
             ) : (
-              <>
-                <Moon className="h-3.5 w-3.5 text-indigo-500 group-hover:-rotate-12 transition-transform duration-300" />
-                <span className="hidden sm:inline text-slate-700 text-[11px] font-semibold">Dark</span>
-              </>
+              <Moon className="h-4 w-4 text-indigo-500 group-hover:-rotate-12 transition-transform duration-300" />
             )}
           </button>
 
           {/* Global Kill Switch */}
           <button
             onClick={onToggleHalt}
-            className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
               circuitBreakerTripped
-                ? 'bg-red-500/20 border-red-500/50 text-red-300 shadow-lg shadow-red-500/20 animate-pulse'
-                : 'bg-slate-900 border-slate-700 hover:border-slate-600 text-slate-300'
+                ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 shadow-lg shadow-rose-500/20 animate-pulse'
+                : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white'
             }`}
             title={circuitBreakerTripped ? "Outbound is halted. Click to resume sending." : "Emergency stop: halts every outbound send for this workspace"}
           >
-            <Shield className={`h-3.5 w-3.5 ${circuitBreakerTripped ? 'text-red-400' : 'text-slate-400'}`} />
-            <span className="hidden sm:inline">{circuitBreakerTripped ? 'HALTED' : 'KILL SWITCH'}</span>
+            <Shield className={`h-3.5 w-3.5 ${circuitBreakerTripped ? 'text-rose-400' : 'text-slate-400'}`} />
+            <span className="hidden sm:inline">{circuitBreakerTripped ? 'HALTED' : 'Kill Switch'}</span>
           </button>
 
+          {/* User Profile Pill & Dropdown */}
           {identity && (
-            <div className="flex items-center space-x-2 text-xs font-mono text-slate-400">
-              <span className="hidden lg:inline" title={`${identity.user_id} · ${identity.auth_method}`}>
-                {identity.org_id} · {identity.role}
-              </span>
-              {onSignOut && (
-                <button
-                  onClick={onSignOut}
-                  className="px-2.5 py-1.5 rounded-lg border border-slate-700 hover:border-slate-500 text-slate-300"
-                >
-                  Sign out
-                </button>
+            <div className="relative" ref={profileRef}>
+              <button
+                onClick={() => setProfileOpen(!profileOpen)}
+                className="flex items-center space-x-2 pl-2 pr-2.5 py-1.5 rounded-xl border border-slate-800 hover:border-slate-700 bg-slate-900/60 hover:bg-slate-800/80 transition-all text-xs cursor-pointer group"
+              >
+                <div className="w-5 h-5 rounded-full bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 flex items-center justify-center font-bold text-[10px]">
+                  {identity.role ? identity.role.slice(0, 2).toUpperCase() : 'ME'}
+                </div>
+                <span className="text-slate-300 hidden sm:inline font-medium">
+                  {identity.role}
+                </span>
+                <ChevronDown className={`h-3.5 w-3.5 text-slate-500 transition-transform ${profileOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Profile Dropdown Menu */}
+              {profileOpen && (
+                <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-slate-900/95 border border-slate-800 shadow-2xl p-2 z-50 backdrop-blur-xl animate-scale-in">
+                  <div className="px-3 py-2.5 border-b border-slate-800">
+                    <div className="text-xs font-semibold text-white truncate">{identity.user_id}</div>
+                    <div className="text-[11px] font-mono text-slate-400 mt-0.5 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                      <span>Workspace: {identity.org_id}</span>
+                    </div>
+                  </div>
+
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setProfileOpen(false);
+                        checkUpdates();
+                        setShowModal(true);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-slate-800 transition"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <GitBranch className="h-3.5 w-3.5 text-indigo-400" />
+                        <span>System Updates</span>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-500">
+                        {updater?.current_commit_short || 'main'}
+                      </span>
+                    </button>
+                  </div>
+
+                  {onSignOut && (
+                    <div className="pt-1 border-t border-slate-800">
+                      <button
+                        onClick={() => {
+                          setProfileOpen(false);
+                          onSignOut();
+                        }}
+                        className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 transition"
+                      >
+                        <LogOut className="h-3.5 w-3.5" />
+                        <span>Sign out of workspace</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -316,7 +362,7 @@ export const Header: FC<HeaderProps> = ({
               </div>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -349,7 +395,7 @@ export const Header: FC<HeaderProps> = ({
               <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
                 <span className="text-slate-400">Current Local Commit</span>
                 <span className="text-slate-200 font-bold bg-slate-900 px-2 py-0.5 rounded border border-slate-700">
-                  {updater?.current_commit_short || '7359ad9'}
+                  {updater?.current_commit_short || 'main'}
                 </span>
               </div>
 
@@ -387,7 +433,7 @@ export const Header: FC<HeaderProps> = ({
               <button
                 onClick={checkUpdates}
                 disabled={checking || updating}
-                className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${checking ? 'animate-spin' : ''}`} />
                 <span>Check Remote</span>
