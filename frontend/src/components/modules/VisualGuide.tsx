@@ -74,6 +74,15 @@ export const VisualGuide: FC<VisualGuideProps> = ({ setActiveTab }) => {
           <span className="text-[11px] font-mono text-slate-400">Click any step to navigate</span>
         </div>
 
+        {/* Render High-Resolution Architecture SVG Diagram */}
+        <div className="rounded-2xl overflow-hidden border border-slate-800/80 bg-slate-950/80 shadow-2xl">
+          <img
+            src="/images/pipeline_architecture.svg"
+            alt="Multi-Agent Pipeline Architecture"
+            className="w-full h-auto block"
+          />
+        </div>
+
         {/* 5-Stage Visual Workflow Cards */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3.5 pt-2">
           {/* Step 1 */}
@@ -244,6 +253,14 @@ export const VisualGuide: FC<VisualGuideProps> = ({ setActiveTab }) => {
               <span className="font-mono text-[11px] text-slate-500">Live Agent Handshakes</span>
             </div>
 
+            <div className="rounded-xl overflow-hidden border border-slate-800 shadow-xl">
+              <img
+                src="/images/swarm_simulation.svg"
+                alt="Swarm Execution Preview"
+                className="w-full h-auto block"
+              />
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Terminal Logs Simulation */}
               <div className="lg:col-span-2 bg-slate-900/90 rounded-xl p-4 font-mono text-[12px] space-y-2 border border-slate-800/80 max-h-72 overflow-y-auto">
@@ -291,6 +308,14 @@ export const VisualGuide: FC<VisualGuideProps> = ({ setActiveTab }) => {
               <span className="font-mono text-[11px] text-slate-500">Target: stripe.com</span>
             </div>
 
+            <div className="rounded-xl overflow-hidden border border-slate-800 shadow-xl">
+              <img
+                src="/images/website_doctor_audit.svg"
+                alt="Website Doctor Diagnostic Preview"
+                className="w-full h-auto block"
+              />
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 text-center space-y-1">
                 <div className="text-xs text-slate-400 font-medium">Largest Contentful Paint</div>
@@ -334,6 +359,14 @@ export const VisualGuide: FC<VisualGuideProps> = ({ setActiveTab }) => {
                 <span className="font-mono text-purple-400 font-bold">SIMULATED LOOM SCRIPT: 4-Scene Founder Teardown</span>
               </div>
               <span className="font-mono text-[11px] text-purple-400 font-bold">Total Duration: 60 Seconds</span>
+            </div>
+
+            <div className="rounded-xl overflow-hidden border border-slate-800 shadow-xl">
+              <img
+                src="/images/video_storyboard.svg"
+                alt="Video Storyboard Preview"
+                className="w-full h-auto block"
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -390,6 +423,14 @@ export const VisualGuide: FC<VisualGuideProps> = ({ setActiveTab }) => {
                 <span className="font-mono text-amber-400 font-bold">SIMULATED CRM: Visual Revenue Pipeline</span>
               </div>
               <span className="font-mono text-emerald-400 font-bold">Closed Won Revenue: $42,500</span>
+            </div>
+
+            <div className="rounded-xl overflow-hidden border border-slate-800 shadow-xl">
+              <img
+                src="/images/kanban_crm.svg"
+                alt="Revenue Kanban CRM Preview"
+                className="w-full h-auto block"
+              />
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">

@@ -60,7 +60,7 @@ export function App() {
     setAuthNotice('');
   };
 
-  const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [activeTab, setActiveTab] = useState<TabType>('autopilot');
   const [circuitBreakerTripped, setCircuitBreakerTripped] = useState(false);
 
   // The kill switch lives on the server so it also stops scheduled sends.

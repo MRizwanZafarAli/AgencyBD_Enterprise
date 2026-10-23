@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 480" width="1200" height="480">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#080b12"/>
+      <stop offset="50%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#05070b"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.95"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="480" rx="24" fill="url(#bg)" stroke="#1e293b" stroke-width="2"/>
+
+  <!-- Title Badge -->
+  <rect x="40" y="32" width="280" height="32" rx="16" fill="#6366f1" fill-opacity="0.15" stroke="#6366f1" stroke-opacity="0.4"/>
+  <circle cx="56" cy="48" r="5" fill="#10b981"/>
+  <text x="72" y="53" fill="#c7d2fe" font-family="ui-monospace, monospace" font-size="12" font-weight="bold">END-TO-END AUTONOMOUS LOOP</text>
+
+  <!-- Main Headline -->
+  <text x="40" y="100" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="800">Sovereign Multi-Agent Pipeline Architecture</text>
+  <text x="40" y="126" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="13">Zero Recurring Cost · $0 API Fees · Automated Discovery, Forensics, Creative, &amp; CRM</text>
+
+  <!-- Connecting Line Behind Cards -->
+  <line x1="140" y1="270" x2="1060" y2="270" stroke="#334155" stroke-width="4" stroke-dasharray="6 6"/>
+
+  <!-- 1. Discovery -->
+  <g transform="translate(40, 160)">
+    <rect width="205" height="240" rx="18" fill="url(#card)" stroke="#6366f1" stroke-width="2"/>
+    <circle cx="36" cy="36" r="16" fill="#6366f1" fill-opacity="0.2" stroke="#6366f1"/>
+    <text x="32" y="41" fill="#818cf8" font-family="monospace" font-size="14" font-weight="bold">1</text>
+    <text x="64" y="41" fill="#ffffff" font-family="system-ui, sans-serif" font-size="15" font-weight="bold">Discovery</text>
+    <rect x="18" y="68" width="169" height="2" fill="#334155"/>
+    <text x="20" y="94" fill="#cbd5e1" font-family="system-ui, sans-serif" font-size="12" font-weight="bold">Sourcing Scout</text>
+    <text x="20" y="116" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">• SEC EDGAR Form D</text>
+    <text x="20" y="136" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">• OpenStreetMap Geo</text>
+    <text x="20" y="156" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">• Upwork &amp; Tender Radar</text>
+    <text x="20" y="176" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">• GitHub Bounties</text>
+    <rect x="20" y="198" width="120" height="22" rx="6" fill="#6366f1" fill-opacity="0.2" stroke="#6366f1" stroke-opacity="0.5"/>
+    <text x="28" y="213" fill="#a5b4fc" font-family="monospace" font-size="10" font-weight="bold">Live Ingestion</text>
+  </g>
+
+  <!-- 2. Forensics -->
+  <g transform="translate(270, 160)">
+    <rect width="205" height="240" rx="18" fill="url(#card)" stroke="#10b981" stroke-width="2"/>
+    <circle cx="36" cy="36" r="16" fill="#10b981" fill-opacity="0.2" stroke="#10b981"/>
+    <text x="32" y="41" fill="#34d399" font-family="monospace" font-size="14" font-weight="bold">2</text>
+    <text x="64" y="41" fill="#ffffff" font-family="system-ui, sans-serif" font-size="15" font-weight="bold">Audit Forensics</text>
+    <rect x="18" y="68" width="169" height="2" fill="#334155"/>
+    <text x="20" y="94" fill="#cbd5e1" font-family="system-ui, sans-serif" font-size="12" font-weight="bold">Website Doctor</text>
+    <text x="20" y="116" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">• Core Web Vitals (LCP)</text>
+    <text x="20" y="136" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">• TTFB Server Speed</text>
+    <text x="20" y="156" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">• SSL &amp; Security Headers</text>
+    <text x="20" y="176" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">• Stack Fingerprinting</text>
+    <rect x="20" y="198" width="110" height="22" rx="6" fill="#10b981" fill-opacity="0.2" stroke="#10b981" stroke-opacity="0.5"/>
+    <text x="28" y="213" fill="#6ee7b7" font-family="monospace" font-size="10" font-weight="bold">Speed &amp; SEO</text>
+  </g>
+
+  <!-- 3. Pitch Studio -->
+  <g transform="translate(500, 160)">
+    <rect width="205" height="240" rx="18" fill="url(#card)" stroke="#a855f7" stroke-width="2"/>
+    <circle cx="36" cy="36" r="16" fill="#a855f7" fill-opacity="0.2" stroke="#a855f7"/>
+    <text x="32" y="41" fill="#c084fc" font-family="monospace" font-size="14" font-weight="bold">3</text>
+    <text x="64" y="41" fill="#ffffff" font-family="system-ui, sans-serif" font-size="15" font-weight="bold">Creative Pitch</text>
+    <rect x="18" y="68" width="169" height="2" fill="#334155"/>
+    <text x="20" y="94" fill="#cbd5e1" font-family="system-ui, sans-serif" font-size="12" font-weight="bold">Video &amp; Copy</text>
+    <text x="20" y="116" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">• 4-Scene Loom Script</text>
+    <text x="20" y="136" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">• Lavender 90+ Copy</text>
+    <text x="20" y="156" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">• Zero-Spam Triggering</text>
+    <text x="20" y="176" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">• Verifiable SOW Bids</text>
+    <rect x="20" y="198" width="115" height="22" rx="6" fill="#a855f7" fill-opacity="0.2" stroke="#a855f7" stroke-opacity="0.5"/>
+    <text x="28" y="213" fill="#d8b4fe" font-family="monospace" font-size="10" font-weight="bold">60s Storyboard</text>
+  </g>
+
+  <!-- 4. Deliverability -->
+  <g transform="translate(730, 160)">
+    <rect width="205" height="240" rx="18" fill="url(#card)" stroke="#06b6d4" stroke-width="2"/>
+    <circle cx="36" cy="36" r="16" fill="#06b6d4" fill-opacity="0.2" stroke="#06b6d4"/>
+    <text x="32" y="41" fill="#22d3ee" font-family="monospace" font-size="14" font-weight="bold">4</text>
+    <text x="64" y="41" fill="#ffffff" font-family="system-ui, sans-serif" font-size="15" font-weight="bold">Deliverability</text>
+    <rect x="18" y="68" width="169" height="2" fill="#334155"/>
+    <text x="20" y="94" fill="#cbd5e1" font-family="system-ui, sans-serif" font-size="12" font-weight="bold">Fleet Sentinel</text>
+    <text x="20" y="116" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">• Mailbox ESP Rotation</text>
+    <text x="20" y="136" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">• Spintax Permutations</text>
+    <text x="20" y="156" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">• CAN-SPAM HMAC Vault</text>
+    <text x="20" y="176" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">• Auto-Stop on Reply</text>
+    <rect x="20" y="198" width="125" height="22" rx="6" fill="#06b6d4" fill-opacity="0.2" stroke="#06b6d4" stroke-opacity="0.5"/>
+    <text x="28" y="213" fill="#67e8f9" font-family="monospace" font-size="10" font-weight="bold">Inbox Protected</text>
+  </g>
+
+  <!-- 5. Revenue CRM -->
+  <g transform="translate(960, 160)">
+    <rect width="200" height="240" rx="18" fill="url(#card)" stroke="#f59e0b" stroke-width="2"/>
+    <circle cx="36" cy="36" r="16" fill="#f59e0b" fill-opacity="0.2" stroke="#f59e0b"/>
+    <text x="32" y="41" fill="#fbbf24" font-family="monospace" font-size="14" font-weight="bold">5</text>
+    <text x="64" y="41" fill="#ffffff" font-family="system-ui, sans-serif" font-size="15" font-weight="bold">Revenue CRM</text>
+    <rect x="18" y="68" width="164" height="2" fill="#334155"/>
+    <text x="20" y="94" fill="#cbd5e1" font-family="system-ui, sans-serif" font-size="12" font-weight="bold">Kanban Pipeline</text>
+    <text x="20" y="116" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">• 6 Visual Deal Stages</text>
+    <text x="20" y="136" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">• Weighted Forecasts</text>
+    <text x="20" y="156" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">• 1-Click Closed Won</text>
+    <text x="20" y="176" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="11">• Bayesian Win Loop</text>
+    <rect x="20" y="198" width="110" height="22" rx="6" fill="#f59e0b" fill-opacity="0.2" stroke="#f59e0b" stroke-opacity="0.5"/>
+    <text x="28" y="213" fill="#fde68a" font-family="monospace" font-size="10" font-weight="bold">Closed Won</text>
+  </g>
+</svg>
