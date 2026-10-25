@@ -13,6 +13,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional, Tuple
 
+from auditors.context import detect_block
 from database.db import get_db
 from database.models import CompanyRepository, EvidenceRepository
 from intel.search import candidate_domains as search_candidates, search_configured
@@ -78,6 +79,11 @@ def probe(domain: str, tokens: List[str]) -> Optional[Dict[str, Any]]:
             raise
         except Exception:
             return None
+    refused = detect_block(res.status_code, res.headers, res.text)
+    if refused:                                       # it answered, so it exists; it just will not let a robot read it
+        server = {k.lower(): v for k, v in res.headers.items()}.get("server", "")
+        return {"domain": domain, "final_url": res.final_url, "status_code": res.status_code, "profile": extract_profile("", res.final_url), "score": 0.0,
+                "parked": False, "html": "", "blocked": True, "block_reason": refused, "server": server}
     if res.status_code >= 400:
         return None
     profile = extract_profile(res.text, res.final_url)
@@ -119,11 +125,13 @@ class CompanyResolver:
             result = probe(domain, tokens)
             if result is None:
                 status, chosen, candidates = "domain_unreachable", None, []
+            elif result.get("blocked"):
+                status, chosen, candidates = "resolved", result, []
             elif result["parked"]:
                 status, chosen, candidates = "domain_parked", None, [result]
             else:
                 status, chosen, candidates = "resolved", result, [result]
-            confidence = 0.0 if not chosen else max(0.85, chosen["score"])
+            confidence = 0.0 if not chosen else 0.5 if chosen.get("blocked") else max(0.85, chosen["score"])
         else:
             # ---- name only: generate + (optionally) search candidates, then verify every one
             domains = candidate_domains(name)
@@ -150,11 +158,18 @@ class CompanyResolver:
         evidence_ids: List[int] = []
         if chosen:
             p = chosen["profile"]
-            ev = EvidenceRepository.record_evidence(
-                entity_type="company", entity_id=company["id"], org_id=org_id, method="resolver.homepage",
-                claim=f"{chosen['domain']} identifies itself as '{p['og_site_name'] or p['title'] or p['copyright_holder']}'",
-                value=f"title={p['title']!r}; h1={p['h1']!r}; copyright={p['copyright_holder']!r}; match={chosen['score']}",
-                source_url=chosen["final_url"], confidence=min(1.0, confidence))
+            if chosen.get("blocked"):
+                ev = EvidenceRepository.record_evidence(
+                    entity_type="company", entity_id=company["id"], org_id=org_id, method="resolver.homepage",
+                    claim=f"{chosen['domain']} answered {chosen['block_reason']} and refuses automated access",
+                    value=f"Server: {chosen.get('server') or 'not stated'}; the page was not read, so the name was not matched",
+                    source_url=chosen["final_url"], confidence=0.5)
+            else:
+                ev = EvidenceRepository.record_evidence(
+                    entity_type="company", entity_id=company["id"], org_id=org_id, method="resolver.homepage",
+                    claim=f"{chosen['domain']} identifies itself as '{p['og_site_name'] or p['title'] or p['copyright_holder']}'",
+                    value=f"title={p['title']!r}; h1={p['h1']!r}; copyright={p['copyright_holder']!r}; match={chosen['score']}",
+                    source_url=chosen["final_url"], confidence=min(1.0, confidence))
             evidence_ids.append(ev["id"])
 
         return {
@@ -162,7 +177,9 @@ class CompanyResolver:
             "status": status, "confidence": round(confidence, 3), "evidence_ids": evidence_ids,
             "candidates": [{"domain": c["domain"], "score": c["score"], "title": c["profile"]["title"], "parked": c["parked"]}
                            for c in candidates],
-            "note": None if status == "resolved" else _NOTES[status],
+            "access": "blocked" if chosen and chosen.get("blocked") else "open" if chosen else None,
+            "note": (f"The site answered ({chosen['block_reason']}{', ' + chosen['server'] if chosen.get('server') else ''}) but refuses automated access. "
+                     "We confirmed it exists, could not read it, and do not try to get around that." if chosen and chosen.get("blocked") else None if status == "resolved" else _NOTES[status]),
         }
 
 

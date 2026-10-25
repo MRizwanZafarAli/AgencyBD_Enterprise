@@ -4,7 +4,7 @@ markup). It never probes paths, submits forms or attempts exploitation.
 """
 
 import re
-from typing import List
+from typing import Any, Dict, List
 
 from auditors.base import AuditFinding
 from auditors.context import SiteContext
@@ -13,6 +13,26 @@ from auditors.context import SiteContext
 def _php_version(text: str):
     m = re.search(r"PHP/(\d+)\.(\d+)", text or "", re.IGNORECASE)
     return (int(m.group(1)), int(m.group(2))) if m else None
+
+
+def certificate_findings(tls: Dict[str, Any]) -> List[AuditFinding]:
+    """Findings from a TLS inspection alone. Usable even when the site's pages cannot be read."""
+    f: List[AuditFinding] = []
+    if tls.get("valid") is False:
+        f.append(AuditFinding("security", "tls_certificate_invalid", "critical",
+                              f"The HTTPS certificate fails validation: {tls.get('error')}.",
+                              "Reissue a valid certificate for this hostname and install the full chain.",
+                              "Browsers show a full-page security warning to visitors.", "security_hardening",
+                              f"TLS verification error: {tls.get('error')} (code {tls.get('verify_code')})."))
+    elif tls.get("valid"):
+        days = tls["days_remaining"]
+        if days < 30:
+            f.append(AuditFinding("security", "tls_certificate_expiring", "high" if days < 14 else "medium",
+                                  f"The HTTPS certificate expires in {days} days ({tls['not_after']}).",
+                                  "Renew the certificate and automate renewal (certbot/ACME).",
+                                  "An expired certificate takes the site offline for most visitors.", "security_hardening",
+                                  f"Certificate notAfter: {tls['not_after']}; issuer: {tls.get('issuer')}."))
+    return f
 
 
 class SecurityAuditor:
@@ -32,21 +52,7 @@ class SecurityAuditor:
                 f.append(AuditFinding("security", "no_https_redirect", "medium", "http:// does not redirect to https://.",
                                       "Redirect all HTTP requests to HTTPS with a 301.", "Visitors who type the bare address stay on an insecure connection.",
                                       "security_hardening", "GET http://<domain>/ ended on an http:// URL."))
-            tls = ctx.tls or {}
-            if tls.get("valid") is False:
-                f.append(AuditFinding("security", "tls_certificate_invalid", "critical",
-                                      f"The HTTPS certificate fails validation: {tls.get('error')}.",
-                                      "Reissue a valid certificate for this hostname and install the full chain.",
-                                      "Browsers show a full-page security warning to visitors.", "security_hardening",
-                                      f"TLS verification error: {tls.get('error')} (code {tls.get('verify_code')})."))
-            elif tls.get("valid"):
-                days = tls["days_remaining"]
-                if days < 30:
-                    f.append(AuditFinding("security", "tls_certificate_expiring", "high" if days < 14 else "medium",
-                                          f"The HTTPS certificate expires in {days} days ({tls['not_after']}).",
-                                          "Renew the certificate and automate renewal (certbot/ACME).",
-                                          "An expired certificate takes the site offline for most visitors.", "security_hardening",
-                                          f"Certificate notAfter: {tls['not_after']}; issuer: {tls.get('issuer')}."))
+            f.extend(certificate_findings(ctx.tls or {}))
             if "strict-transport-security" not in h:
                 f.append(AuditFinding("security", "missing_hsts", "medium", "No HSTS header (Strict-Transport-Security).",
                                       "Send Strict-Transport-Security: max-age=31536000; includeSubDomains once HTTPS works everywhere.",

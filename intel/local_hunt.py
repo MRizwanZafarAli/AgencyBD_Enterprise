@@ -95,116 +95,52 @@ def score_candidate(c: Dict[str, Any]) -> Dict[str, Any]:
     return c
 
 
-def generate_pitch_strategy(r: Dict[str, Any], category: str, city: str) -> Dict[str, Any]:
-    """Generates an autonomous, data-grounded BD pitch strategy and teardown for a candidate."""
+HOOKS = {
+    "no_website_listed": "I looked up {name} in {city} and the Google profile doesn't list a website. Is that on purpose?",
+    "no_website_in_osm": "I couldn't find a website listed for {name} in {city}. Do you have one I missed?",
+    "social_only": "The only web link I found for {name} is a {social} page. Would a website you own be useful?",
+    "domain_unreachable": "I tried to open {domain} and the domain doesn't resolve, so visitors can't reach it. Were you aware?",
+    "tls_broken": "{domain} shows a security certificate error in browsers, which warns visitors away. Were you aware?",
+    "domain_parked": "{domain} looks parked rather than a live site. Is a new website on your list?",
+}
+ANGLES = {
+    "no_website_listed": "Build a website customers can find and book from", "no_website_in_osm": "Build a website customers can find and book from",
+    "social_only": "Give the business a website it owns", "domain_unreachable": "Restore the website visitors currently can't reach",
+    "tls_broken": "Fix the website certificate error", "domain_parked": "Replace the parked domain with a live site",
+}
+
+
+def generate_pitch_strategy(r: Dict[str, Any], category: str, city: str, org_id: str = "org_default") -> Dict[str, Any]:
+    """
+    A pitch built ONLY from what was observed, plus your own service catalog. No prices unless you set a price band for the
+    service, no statistics, no promised results.
+    """
+    from intel.services import ServiceCatalog
     cls = r.get("classification", "has_site")
-    name = r.get("name") or "Team"
-    domain = r.get("domain") or r.get("website") or "your business"
-    reviews = r.get("reviews") or 0
-    rating = r.get("rating")
+    name = r.get("name") or "the business"
+    domain = r.get("domain") or r.get("website") or ""
+    issues = r.get("issues") or []
+    service_key = "performance_engineering" if cls == "has_site" else "presence_rescue"
+    svc = ServiceCatalog.get(org_id, service_key)
+    social = "Facebook" if r.get("facebook") else "Instagram" if r.get("instagram") else "social media"
 
-    rev_str = f" with {reviews} positive reviews" if reviews > 10 else ""
-    if rating and rating >= 4.0:
-        rev_str += f" ({rating}★)"
-
-    if cls in ("no_website_listed", "no_website_in_osm"):
-        angle = "Digital Flagship & Local Conversion Asset"
-        value_est = "$3,500 – $7,500"
-        deliverables = [
-            "Ultra-fast Next.js 15 SSR web portal with mobile-first UI",
-            "Direct instant customer booking & inquiry dispatch funnel",
-            "Google Local SEO Schema, OpenGraph, & geo-targeted metadata",
-            "Domain setup, enterprise DNS, & automated SSL encryption",
-        ]
-        cold_hook = (
-            f"Hi {name} team — noticed your strong local reputation in {city}{rev_str}, but no official website "
-            f"linked to capture search demand. We build high-converting digital flagships for local {category} businesses "
-            f"that turn local Google searches into direct clients. Open to a 2-minute video preview?"
-        )
-        teardown = [
-            "Missing digital flagship: High local search volume leaks to competitors with dedicated websites.",
-            "Absence of direct booking: Customers forced to call during business hours instead of booking online 24/7.",
-            "Opportunity: Launching a sub-second web portal instantly captures untapped search traffic.",
-        ]
-
-    elif cls == "social_only":
-        social_type = "social media"
-        if r.get("facebook"):
-            social_type = "Facebook"
-        elif r.get("instagram"):
-            social_type = "Instagram"
-        angle = "Owned Web Funnel & Lead Capture Engine"
-        value_est = "$3,000 – $6,000"
-        deliverables = [
-            "Custom branded domain & independent conversion hub",
-            "Automated calendar booking & SMS confirmation relay",
-            "Zero algorithmic platform dependency or feed distraction",
-            "Dedicated service pricing breakdown & local authority proof",
-        ]
-        cold_hook = (
-            f"Hi {name} team — saw your active {social_type} presence in {city}. While social builds great trust, "
-            f"relying solely on social feeds loses 30-45% of serious prospects who prefer an official booking website. "
-            f"We design dedicated booking hubs for {category} firms. Would you be open to seeing a quick teardown?"
-        )
-        teardown = [
-            f"Relying on {social_type} creates friction: visitors must log in to view services or reach out.",
-            "Algorithm vulnerability: Platform feed changes directly hurt inbound customer volume.",
-            "Opportunity: Channeling social followers into an owned high-converting web funnel.",
-        ]
-
-    elif cls in ("domain_unreachable", "tls_broken", "domain_parked"):
-        issue_name = "dead DNS resolution" if cls == "domain_unreachable" else "security certificate (SSL) error" if cls == "tls_broken" else "parked/empty domain"
-        angle = "Critical Security & Domain Recovery Teardown"
-        value_est = "$2,500 – $5,500"
-        deliverables = [
-            "Emergency DNS record reconfiguration & valid TLS certificate",
-            "Modern, secure single-page web rebuild with zero downtime",
-            "Search engine re-indexing & malware/phishing warning clearance",
-            "Cloudflare CDN edge caching & automated health monitoring",
-        ]
-        cold_hook = (
-            f"Hi {name} team — quick heads-up: your website domain ({domain}) is currently showing a {issue_name}, "
-            f"which blocks visitors with browser security warnings. We specialize in fast domain recovery for {category} "
-            f"businesses in {city}. Mind if I send over the technical fix we identified?"
-        )
-        teardown = [
-            "Browser warning alert: Visitors see 'Dangerous Site' or connection timed out.",
-            "Google penalty: Search algorithms actively down-rank sites with broken SSL or unresolvable DNS.",
-            "Opportunity: Fast-track recovery recovers lost customer traffic and establishes modern security.",
-        ]
-
+    if cls in HOOKS:
+        hook = "Hi, " + HOOKS[cls].format(name=name, city=city, domain=domain, social=social)
+    elif issues:
+        hook = f"Hi, I ran a quick public check of {domain} and noticed: {'; '.join(issues[:2])}. Happy to send the details."
     else:
-        issues = r.get("issues") or []
-        issue_summary = ", ".join(issues[:2]) if issues else "mobile UX and conversion speed"
-        angle = "Performance, UX & AI Intake Automation"
-        value_est = "$4,000 – $9,500"
-        deliverables = [
-            "Core Web Vitals acceleration to 95+ PageSpeed & sub-800ms LCP",
-            "24/7 AI conversational intake assistant for customer inquiries",
-            "Mobile viewport & conversion UX restructuring",
-            "Automated CRM sync & appointment reminder relay",
-        ]
-        cold_hook = (
-            f"Hi {name} team — reviewed your website at {domain}. You have great local authority in {city}, "
-            f"but we spotted a few bottlenecks in {issue_summary} that hold back conversion rates. We put together "
-            f"a 90-second technical teardown of the fix. Worth a quick look?"
-        )
-        teardown = [
-            f"Identified bottlenecks: {issue_summary}.",
-            "Mobile user drop-off: Modern consumers bounce when page loads exceed 2 seconds or lack responsive layout.",
-            "Opportunity: Implementing modern performance and automated AI scheduling lifts booking rates by 25-40%.",
-        ]
-
+        hook = None            # nothing specific and true to say
     return {
-        "angle": angle,
-        "value_estimate": value_est,
-        "deliverables": deliverables,
-        "cold_pitch_hook": cold_hook,
-        "actionable_teardown": teardown,
+        "angle": ANGLES.get(cls, "Fix the measured issues on the current website" if issues else None),
+        "service_key": service_key,
+        "value_estimate": svc["price_band"] if svc and svc.get("price_band") else None,      # your price band, or nothing
+        "deliverables": [x.strip() for x in svc["offer"].split(";") if x.strip()] if svc else [],
+        "cold_pitch_hook": hook,
+        "actionable_teardown": list(r.get("reasons") or []) + [i.capitalize() for i in issues if i.capitalize() not in (r.get("reasons") or [])],
     }
 
 
-def hunt(category: str, city: str, limit: int = 20, provider: Optional[str] = None) -> Dict[str, Any]:
+def hunt(category: str, city: str, limit: int = 20, provider: Optional[str] = None, org_id: str = "org_default") -> Dict[str, Any]:
     category, city = (category or "").strip(), (city or "").strip()
     if len(category) < 2 or len(city) < 2:
         raise ValueError("category and city are required.")
@@ -240,12 +176,14 @@ def hunt(category: str, city: str, limit: int = 20, provider: Optional[str] = No
         r["verified_absence"] = r["classification"] == "no_website_listed"
 
         # Coordinates fallback
+        r["coords_approx"] = False
         if r.get("lat") is None and city_coords:
-            r["lat"] = city_coords["lat"]
+            r["lat"] = city_coords["lat"]            # city centre only: flagged so the map never pins it as the business location
             r["lon"] = city_coords["lon"]
+            r["coords_approx"] = True
 
         # Autonomous BD Pitch Strategy & Teardown
-        r["pitch_strategy"] = generate_pitch_strategy(r, category, city)
+        r["pitch_strategy"] = generate_pitch_strategy(r, category, city, org_id)
         return score_candidate(r)
 
     with ThreadPoolExecutor(max_workers=6) as pool:
@@ -270,51 +208,24 @@ def hunt(category: str, city: str, limit: int = 20, provider: Optional[str] = No
     }
 
 
-def probe_presence_live(name: str, city: str, website: Optional[str] = None) -> Dict[str, Any]:
-    """Live interactive presence probe for any business. Inspects DNS, TLS, HTTP, and web presence in real-time."""
+def probe_presence_live(name: str, city: str, website: Optional[str] = None, org_id: str = "org_default") -> Dict[str, Any]:
+    """
+    Checks one business for real: the website you give is fetched and inspected; with no website, Google Places (if configured)
+    and a verified domain search decide, and an inconclusive search is reported as "not_found", never as proof of absence.
+    """
+    from intel.presence import PresenceRescueEngine
     name, city = (name or "").strip(), (city or "").strip()
     target_site = (website or "").strip()
-
     if target_site:
         signals = _site_signals(target_site, name)
-        pitch = generate_pitch_strategy({
-            "name": name,
-            "classification": signals.get("classification", "has_site"),
-            "website": target_site,
-            "domain": signals.get("domain", target_site),
-            "issues": signals.get("issues", []),
-            "reviews": 10,
-            "rating": 4.5,
-        }, "agency service", city)
-        return {
-            "name": name,
-            "city": city,
-            "website": target_site,
-            "domain": signals.get("domain"),
-            "classification": signals.get("classification"),
-            "issues": signals.get("issues", []),
-            "check_note": signals.get("check_note"),
-            "pitch_strategy": pitch,
-            "status": "probed",
-        }
-    else:
-        pitch = generate_pitch_strategy({
-            "name": name,
-            "classification": "no_website_in_osm",
-            "website": None,
-            "domain": None,
-            "issues": ["No official website recorded on public registries"],
-            "reviews": 10,
-            "rating": 4.5,
-        }, "agency service", city)
-        return {
-            "name": name,
-            "city": city,
-            "website": None,
-            "domain": None,
-            "classification": "no_website_in_osm",
-            "issues": ["No active website recorded on public registries"],
-            "pitch_strategy": pitch,
-            "status": "verified_absent",
-        }
-
+        record = {"name": name, "classification": signals.get("classification", "has_site"), "website": target_site,
+                  "domain": signals.get("domain", target_site), "issues": signals.get("issues", [])}
+        return {"name": name, "city": city, "website": target_site, "domain": signals.get("domain"), "classification": signals.get("classification"),
+                "issues": signals.get("issues", []), "check_note": signals.get("check_note"),
+                "pitch_strategy": generate_pitch_strategy(record, "", city, org_id), "status": "probed"}
+    res = PresenceRescueEngine.evaluate_presence(name, city, None, org_id=org_id)
+    record = {"name": name, "classification": res["classification"], "domain": res.get("domain"), "website": res.get("domain"), "issues": []}
+    return {"name": name, "city": city, "website": res.get("domain"), "domain": res.get("domain"), "classification": res["classification"],
+            "verified": res["verified"], "checks_performed": res["checks_performed"], "limitations": res["limitations"], "issues": [],
+            "pitch_strategy": generate_pitch_strategy(record, "", city, org_id) if res["classification"] in HOOKS or res["classification"] == "has_site" else None,
+            "status": "probed"}

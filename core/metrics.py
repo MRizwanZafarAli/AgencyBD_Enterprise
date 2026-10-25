@@ -81,6 +81,16 @@ PIPELINE_LATENCY = Histogram(
     registry=registry
 )
 
+# 2. Operations: request health, background jobs, safety switches
+HTTP_REQUESTS = Counter("agencybd_http_requests_total", "HTTP requests by route template and status", ["method", "route", "status"], registry=registry)
+HTTP_LATENCY = Histogram("agencybd_http_request_seconds", "HTTP request duration by route template", ["route"], registry=registry,
+                         buckets=(0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 15, 60))
+DISCOVERY_RUNS = Counter("agencybd_discovery_runs_total", "Discovery runs by outcome", ["status"], registry=registry)
+RESCAN_ALERTS = Counter("agencybd_rescan_alerts_total", "New vulnerability matches found by the nightly re-scan", ["kev"], registry=registry)
+BACKGROUND_FAILURES = Counter("agencybd_background_failures_total", "Failures inside background jobs", ["job"], registry=registry)
+SENDING_HALTED = Gauge("agencybd_sending_halted", "1 when the stop-sending switch is on for a tenant", ["org_id"], registry=registry)
+
+
 class MetricsManager:
     @staticmethod
     def record_lead_sourced(channel: str = "google_maps", org_id: str = "org_default"):

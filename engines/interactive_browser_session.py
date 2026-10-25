@@ -1,13 +1,8 @@
 """
-InteractiveBrowserSession: Live Interactive Browser with Human Touch & Agent Takeover.
+InteractiveBrowserSession: a page viewer (rendered DOM summary + screenshot) and a launcher for a normal Chrome window.
 
-Inspired by Claude Computer Use / Browser Use:
-  - Enables seamless Human-in-the-Loop ("Human Touch") interaction for complex web navigation.
-  - When an automated crawl encounters interactive modals, CAPTCHAs, or authentication gates,
-    a human analyst can view live viewport snapshots, click coordinates (x, y), type into inputs,
-    or launch a live headed Google Chrome window on the host.
-  - The autonomous agent immediately ingests the post-interaction DOM state to continue
-    enrichment and technical auditing without losing context.
+It does NOT drive pages: it never clicks, types or scrolls for you. To work a page by hand (log in, fill a form), use
+launch_headed_window, which opens a real Chrome window on THIS machine with its own profile folder.
 """
 
 import base64
@@ -24,10 +19,7 @@ from net.validate import clean_domain
 
 
 class InteractiveBrowserSession:
-    """
-    Manages an active, human-touchable browser viewport session
-    with coordinate clicking, input dispatching, and live DOM synchronization.
-    """
+    """A per-user viewer session: navigate, then read the rendered DOM summary and a screenshot."""
 
     def __init__(self, session_id: str = "default_session", storage_dir: Optional[str] = None):
         self.session_id = session_id
@@ -70,42 +62,17 @@ class InteractiveBrowserSession:
             "emails": dom_data.get("emails", []),
             "phones": dom_data.get("phones", []),
             "viewport_screenshot": self.last_screenshot_uri,
-            "mode": "HUMAN_TOUCH_READY"
-        }
-
-    def dispatch_human_touch_action(self, action_type: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Executes a human touch action on the active session:
-          - 'click': { x: int, y: int }
-          - 'type': { text: str }
-          - 'scroll': { direction: 'down' | 'up', amount: int }
-          - 'refresh': {}
-        """
-        if not self.current_url:
-            return {"status": "error", "message": "No active page navigated in session"}
-
-        # Refresh state after human touch
-        dom_data = self.browser_service.render_spa_dom(self.current_url)
-        shot_data = self.browser_service.capture_screenshot(self.current_url)
-        if shot_data.get("status") == "success":
-            self.last_screenshot_uri = shot_data.get("data_uri")
-
-        return {
-            "status": "success",
-            "action_executed": action_type,
-            "params": params,
-            "session_id": self.session_id,
-            "updated_dom_title": dom_data.get("title", ""),
-            "viewport_screenshot": self.last_screenshot_uri
+            "mode": "viewer"
         }
 
     def launch_headed_window(self, url: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Launches a real, non-headless Google Chrome window on the Mac desktop.
-        Allows the human analyst to interact physically (click checkboxes, bypass puzzles,
-        log into portals) with their own hands.
-        """
+        """Opens a normal (non-headless) Chrome window on the host machine, with its own profile, for manual use."""
         target = url or self.current_url or "https://google.com"
+        # A value starting with "-" would be read by Chrome as a command-line switch (command execution), so only
+        # well-formed public http(s) URLs are accepted.
+        if not target.lower().startswith(("http://", "https://")):
+            return {"status": "error", "message": "Only http(s) URLs can be opened."}
+        self.browser_service._validate_ssrf_for_url(target)
         chrome_binary = self.browser_service.chrome_binary
 
         if not chrome_binary:
@@ -133,7 +100,7 @@ class InteractiveBrowserSession:
 
         return {
             "status": "launched",
-            "message": f"Interactive Google Chrome window launched for '{target}'. You can now interact with human touch.",
+            "message": f"Interactive Google Chrome window launched for '{target}'.",
             "url": target,
             "session_id": self.session_id
         }

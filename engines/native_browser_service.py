@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional, Set
 
 from bs4 import BeautifulSoup
 from net.fetcher import _check_ip, SafeFetcher, SSRFSecurityError
+from net.egress_proxy import EgressProxy
 from net.process_supervisor import ProcessSupervisor
 from net.validate import clean_domain, is_valid_hostname
 
@@ -63,6 +64,18 @@ class NativeBrowserService:
                 if found:
                     return found
         return None
+
+    @staticmethod
+    def _sandbox_flags() -> list:
+        """Chrome's sandbox stays ON. It can only be disabled explicitly (needed when running as root in a container)."""
+        import os as _os
+        root = hasattr(_os, "geteuid") and _os.geteuid() == 0
+        return ["--no-sandbox"] if (root or _os.getenv("AGENCYBD_BROWSER_NO_SANDBOX", "off").lower() in ("on", "true", "1")) else []
+
+    @staticmethod
+    def _proxy_flags(proxy: "EgressProxy") -> list:
+        # All traffic, including redirects and sub-resources, goes through the filtering proxy; loopback is NOT bypassed.
+        return [f"--proxy-server={proxy.url}", "--proxy-bypass-list=<-loopback>"]
 
     def is_browser_available(self) -> bool:
         return self.chrome_binary is not None
@@ -108,32 +121,23 @@ class NativeBrowserService:
         rendered_by = "native_chrome"
 
         if self.chrome_binary:
-            cmd = [
-                self.chrome_binary,
-                "--headless=new",
-                "--disable-gpu",
-                "--no-sandbox",
-                "--disable-dev-shm-usage",
-                "--virtual-time-budget=4000",
-                "--timeout=8000",
-                "--dump-dom",
-                target_url
-            ]
             try:
-                res = ProcessSupervisor.run_confined(cmd, timeout_seconds=timeout_seconds)
+                with EgressProxy() as proxy:
+                    cmd = [self.chrome_binary, "--headless=new", "--disable-gpu", *self._sandbox_flags(), "--disable-dev-shm-usage",
+                           *self._proxy_flags(proxy), "--virtual-time-budget=4000", "--timeout=8000", "--dump-dom", target_url]
+                    res = ProcessSupervisor.run_confined(cmd, timeout_seconds=timeout_seconds)
                 if res.returncode == 0 and len(res.stdout) > 200:
                     html = res.stdout
                 else:
-                    resp = SafeFetcher.safe_fetch(target_url, timeout=5)
-                    html = resp.text
+                    html = SafeFetcher.safe_fetch(target_url, timeout=5).text
                     rendered_by = "safe_fetcher_fallback"
+            except SSRFSecurityError:
+                raise
             except Exception:
-                resp = SafeFetcher.safe_fetch(target_url, timeout=5)
-                html = resp.text
+                html = SafeFetcher.safe_fetch(target_url, timeout=5).text
                 rendered_by = "safe_fetcher_fallback"
         else:
-            resp = SafeFetcher.safe_fetch(target_url, timeout=5)
-            html = resp.text
+            html = SafeFetcher.safe_fetch(target_url, timeout=5).text
             rendered_by = "safe_fetcher_direct"
 
         return self._extract_dom_intelligence(html, clean_host, rendered_by)
@@ -165,19 +169,10 @@ class NativeBrowserService:
                 "data_uri": None
             }
 
-        cmd = [
-            self.chrome_binary,
-            "--headless=new",
-            "--disable-gpu",
-            "--no-sandbox",
-            "--disable-dev-shm-usage",
-            f"--window-size={viewport_dims}",
-            f"--screenshot={out_path}",
-            "--virtual-time-budget=3000",
-            target_url
-        ]
-
-        res = ProcessSupervisor.run_confined(cmd, timeout_seconds=timeout_seconds)
+        with EgressProxy() as proxy:
+            cmd = [self.chrome_binary, "--headless=new", "--disable-gpu", *self._sandbox_flags(), "--disable-dev-shm-usage",
+                   *self._proxy_flags(proxy), f"--window-size={viewport_dims}", f"--screenshot={out_path}", "--virtual-time-budget=3000", target_url]
+            res = ProcessSupervisor.run_confined(cmd, timeout_seconds=timeout_seconds)
         if out_path.exists() and out_path.stat().st_size > 1000:
             with open(out_path, "rb") as f:
                 b64_data = base64.b64encode(f.read()).decode("utf-8")

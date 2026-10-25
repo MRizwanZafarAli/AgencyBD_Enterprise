@@ -107,7 +107,7 @@ class CompanyBriefEngine:
         sections["identity"] = ({"text": _latest(evidence, "profile.copyright")["claim"], "evidence_ids": [_latest(evidence, "profile.copyright")["id"]]}
                                 if _latest(evidence, "profile.copyright") else None)
 
-        out = {**base, "status": "unreachable" if (audit and audit["status"] == "unreachable") else "ok", **sections,
+        out = {**base, "status": audit["status"] if (audit and audit["status"] in ("unreachable", "blocked")) else "ok", **sections,
                "signals": cls._signals(company["name"], org_id)}
         if fetch_error:
             out["fetch_error"] = fetch_error
@@ -137,7 +137,7 @@ class CompanyBriefEngine:
                for f in findings[:5] if f.get("evidence_id")]
         health = {"score": audit["overall_score"], "status": audit["status"], "audit_id": audit["id"], "audited_at": audit["created_at"],
                   "findings_total": len(findings), "findings_by_category": counts, "top_findings": top}
-        if audit["status"] == "unreachable":
+        if audit["status"] in ("unreachable", "blocked"):
             return health, None
 
         weights: Dict[str, int] = {}

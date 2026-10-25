@@ -50,7 +50,8 @@ class PresenceRescueEngine:
                 note("fetch provided domain", f"{domain} is parked or for sale")
             else:
                 classification, verified, confidence = "has_site", True, 0.95
-                note("fetch provided domain", f"{domain} is live ('{result['profile']['title'][:60]}')")
+                note("fetch provided domain", f"{domain} answers but refuses automated access ({result['block_reason']}); the page was not read" if result.get("blocked")
+                     else f"{domain} is live ('{result['profile']['title'][:60]}')")
         else:
             place = None
             if places_configured():

@@ -15,6 +15,36 @@ from auditors.tls import inspect_tls
 from net.fetcher import SafeFetcher, SSRFSecurityError
 
 
+class SiteBlockedError(Exception):
+    """The site answered, but refused our automated request (or served a bot challenge). We never audit that page and never try to get around it."""
+
+    def __init__(self, status_code: int, server: str, reason: str):
+        super().__init__(reason)
+        self.status_code, self.server, self.reason = status_code, server, reason
+
+
+_CHALLENGE_TITLES = ("just a moment", "attention required", "access denied", "pardon our interruption", "are you a robot", "verify you are human", "security check",
+                     "request blocked", "you have been blocked", "checking your browser")
+
+
+def detect_block(status: int, headers: Dict[str, str], text: str) -> Optional[str]:
+    """Why a response is a refusal or a challenge page rather than the real site, or None."""
+    h = {k.lower(): v for k, v in (headers or {}).items()}
+    if h.get("cf-mitigated", "").lower() == "challenge":
+        return "a bot challenge page"
+    if status in (401, 403, 429):
+        return f"HTTP {status}"
+    body = (text or "")
+    if status == 503 and any(w in body[:4000].lower() for w in ("captcha", "just a moment", "cloudflare", "ddos")):
+        return "HTTP 503 with a bot challenge"
+    if status < 400 and len(body) < 6000:
+        low = body.lower()
+        title = low.split("<title", 1)[1].split("</title>", 1)[0] if "<title" in low and "</title>" in low else ""
+        if any(t in title for t in _CHALLENGE_TITLES):
+            return "a bot challenge page"
+    return None
+
+
 @dataclass
 class SiteContext:
     domain: str
@@ -28,6 +58,7 @@ class SiteContext:
     total_ms: int                  # time to download the page body
     robots_txt: Optional[str] = None     # None = unknown, "" = no robots.txt
     llms_txt: Optional[bool] = None
+    security_txt: Optional[bool] = None   # /.well-known/security.txt published (RFC 9116)
     sitemap_found: Optional[bool] = None
     http_to_https: Optional[bool] = None
     tls: Optional[Dict[str, Any]] = None
@@ -71,6 +102,11 @@ def fetch_site(domain: str) -> SiteContext:
         except Exception as second:
             raise ConnectionError(f"{type(first).__name__}: {str(first)[:100]}; http fallback: {str(second)[:100]}")
     total_ms = int((time.time() - started) * 1000)
+    blocked = detect_block(result.status_code, result.headers, result.text)
+    if blocked:
+        raise SiteBlockedError(result.status_code, {k.lower(): v for k, v in result.headers.items()}.get("server", ""), blocked)
+    if result.status_code >= 400:                       # a 404 or 500 page says nothing about the site's own pages
+        raise ConnectionError(f"the homepage answered HTTP {result.status_code}")
     final_scheme = "https" if result.final_url.startswith("https") else "http"
     ctx = SiteContext(domain=domain, url=result.final_url, scheme=final_scheme, status_code=result.status_code,
                       headers=result.headers, html=result.text, soup=BeautifulSoup(result.text, "html.parser"),
@@ -80,6 +116,7 @@ def fetch_site(domain: str) -> SiteContext:
     with ThreadPoolExecutor(max_workers=5) as pool:
         f_robots = pool.submit(_optional, f"{base}/robots.txt")
         f_llms = pool.submit(_optional, f"{base}/llms.txt")
+        f_sec = pool.submit(_optional, f"{base}/.well-known/security.txt")
         f_http = pool.submit(_optional, f"http://{domain}/") if final_scheme == "https" else None
         f_tls = pool.submit(inspect_tls, domain) if final_scheme == "https" else None
 
@@ -94,6 +131,9 @@ def fetch_site(domain: str) -> SiteContext:
         if llms:
             status, text = llms[0], llms[1]
             ctx.llms_txt = status == 200 and bool(text.strip()) and not _looks_like_html(text)
+        sec = f_sec.result()
+        if sec:
+            ctx.security_txt = sec[0] == 200 and "contact:" in sec[1].lower() and not _looks_like_html(sec[1])
         if f_http is not None:
             http = f_http.result()
             if http is not None:

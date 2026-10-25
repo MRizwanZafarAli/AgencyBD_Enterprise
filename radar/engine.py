@@ -54,18 +54,36 @@ class OpportunityRadarEngine:
     def __init__(self, connectors: Optional[List[BaseConnector]] = None):
         self.connectors = connectors if connectors is not None else default_connectors()
 
-    def scan_all_sources(self, limit_per_source: int = 10, org_id: str = "org_default") -> List[Dict[str, Any]]:
+    def scan_all_sources(self, limit_per_source: int = 10, org_id: str = "org_default", progress=None) -> List[Dict[str, Any]]:
+        """Reads every source IN PARALLEL (the slowest one sets the time, not the sum), then scores and stores the results in source order."""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
         profile = agency_profile_terms(org_id)
         collected: List[Dict[str, Any]] = []
 
-        for conn in self.connectors:
+        def read(conn):
             name = getattr(conn, "source_name", type(conn).__name__)
             try:
-                items: List[OpportunityItem] = conn.fetch(limit=getattr(conn, "max_fetch", 100), org_id=org_id)
-            except ConnectorNotConfigured as exc:
+                return name, conn.fetch(limit=getattr(conn, "max_fetch", 100), org_id=org_id), None
+            except Exception as exc:
+                return name, None, exc
+
+        results: Dict[str, Any] = {}
+        with ThreadPoolExecutor(max_workers=min(9, max(1, len(self.connectors)))) as pool:
+            futures = [pool.submit(read, c) for c in self.connectors]
+            for f in as_completed(futures):
+                name, items, exc = f.result()
+                results[name] = (items, exc)
+                if progress:
+                    progress({"log": [{"step": "source", "message": f"{name}: " + (f"{len(items)} read" if exc is None else "problem")}], "processed": len(results),
+                              "total": len(self.connectors)})
+
+        for conn in self.connectors:
+            name = getattr(conn, "source_name", type(conn).__name__)
+            items, exc = results[name]
+            if isinstance(exc, ConnectorNotConfigured):
                 _log_run(org_id, name, "not_connected" if "not connected" in str(exc).lower() or "reconnect" in str(exc).lower() else "not_configured", detail=str(exc))
                 continue
-            except Exception as exc:
+            if exc is not None:
                 logger.warning("Radar connector %s failed: %s", name, str(exc)[:160])
                 _log_run(org_id, name, "error", detail=f"{type(exc).__name__}: {exc}")
                 continue

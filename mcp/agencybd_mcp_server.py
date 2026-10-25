@@ -1,170 +1,54 @@
 """
-AgencyBD MCP Server: Contract-Driven Model Context Protocol Server for AI Agents.
+AgencyBD MCP server: exposes read-mostly AgencyBD tools to local AI clients (Claude Desktop, Cursor) over stdio JSON-RPC 2.0.
 
-Inspired by REA (Reverse Engineer Anything) MCP architecture:
-  - Standard JSON-RPC 2.0 stdio server interface.
-  - Exposes AgencyBD Sovereign Multi-Agent Swarm capabilities as native MCP tools.
-  - Enforces strict 10 MiB Transport Budget Guard: prevents AI agent stdio buffer crashes
-    by storing oversized responses in EvidenceLedger and returning an evidence reference.
+It runs with the local user's privileges against ONE tenant (env AGENCYBD_MCP_ORG, default org_default). It has no network
+listener and no authentication of its own, so never wrap it in a network service. Every tool returns real, evidence-backed
+results or an honest error; responses over 10 MiB are refused rather than truncated silently.
 """
 
 import json
 import os
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from engines.math_pipeline_engine import MathPipelineEngine
-from engines.native_browser_service import NativeBrowserService
-from engines.brain_gateway import BrainGateway
-from engines.differential_audit_engine import DifferentialAuditEngine
-from intel.evidence_ledger import EvidenceLedger
-
+from database.db import init_db
 
 MAX_MCP_TRANSPORT_BYTES = 10 * 1024 * 1024  # 10 MiB ceiling
 
 
 class AgencyBDMcpServer:
-    """
-    Model Context Protocol (MCP) server exposing AgencyBD tools
-    over standard input/output for Claude Desktop, Cursor, and autonomous agents.
-    """
-
     def __init__(self):
-        self.browser = NativeBrowserService()
-        self.brain = BrainGateway()
-        self.diff_engine = DifferentialAuditEngine(browser_service=self.browser)
-        self.ledger = EvidenceLedger()
+        init_db()
+        self.org_id = os.getenv("AGENCYBD_MCP_ORG", "org_default")
 
     def list_tools(self) -> List[Dict[str, Any]]:
+        def tool(name, desc, props, required=()):
+            return {"name": name, "description": desc, "inputSchema": {"type": "object", "properties": props, "required": list(required)}}
+        s = lambda d: {"type": "string", "description": d}
         return [
-            {
-                "name": "agencybd_source_venture_deals",
-                "description": "Sources newly-funded venture startups from SEC EDGAR Form D Atom feeds (100% Sovereign, Zero Paid APIs).",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "limit": {"type": "integer", "description": "Number of prospects to fetch (1-20)", "default": 5}
-                    }
-                }
-            },
-            {
-                "name": "agencybd_audit_website_dom",
-                "description": "Renders virtual DOM of target website via headless Chromium, extracting emails, phones, and tech stack.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "domain": {"type": "string", "description": "Target company domain (e.g. stripe.com)"}
-                    },
-                    "required": ["domain"]
-                }
-            },
-            {
-                "name": "agencybd_calculate_deal_math",
-                "description": "Calculates Bayesian P(Close) win probability, expected deal valuation E[Deal], and monthly financial delay loss.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "lcp_seconds": {"type": "number", "description": "Measured mobile Largest Contentful Paint in seconds", "default": 3.4},
-                        "detected_stack": {"type": "array", "items": {"type": "string"}, "description": "List of detected frameworks"},
-                        "email_confidence": {"type": "integer", "description": "Email deliverability confidence percentage", "default": 90}
-                    }
-                }
-            },
-            {
-                "name": "agencybd_compare_competitors",
-                "description": "Performs side-by-side technical and financial comparison between a prospect and their competitor.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "target_domain": {"type": "string", "description": "Prospect company domain"},
-                        "competitor_domain": {"type": "string", "description": "Key competitor domain"}
-                    },
-                    "required": ["target_domain", "competitor_domain"]
-                }
-            },
-            {
-                "name": "agencybd_triage_objection",
-                "description": "Analyzes inbound prospect objection and builds evidence-based rebuttal with social proof.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "objection_text": {"type": "string", "description": "Exact text of the prospect's objection"},
-                        "prospect_name": {"type": "string", "description": "First name of the lead", "default": "Lead"},
-                        "company": {"type": "string", "description": "Company name", "default": "Target Corp"}
-                    },
-                    "required": ["objection_text"]
-                }
-            },
-            {
-                "name": "agencybd_generate_proposal_artifact",
-                "description": "Generates a Claude-style rich interactive markdown proposal with KaTeX math and sprint milestones.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "company_name": {"type": "string", "description": "Company name"},
-                        "domain": {"type": "string", "description": "Company domain"},
-                        "lcp_seconds": {"type": "number", "description": "Measured LCP latency", "default": 3.6}
-                    },
-                    "required": ["company_name", "domain"]
-                }
-            }
+            tool("agencybd_audit_website", "Runs the Website Doctor on a domain (security headers, TLS, SEO, GEO, accessibility, email DNS). Returns measured findings only.",
+                 {"domain": s("Domain to audit, e.g. example.com")}, ["domain"]),
+            tool("agencybd_hunt_local_businesses", "Finds local businesses in a city and ranks how winnable they are (no website, broken site, etc.). Uses OpenStreetMap unless a Google Places key is set.",
+                 {"category": s("Business type, e.g. dentist"), "city": s("City, e.g. Leeds, UK"), "limit": {"type": "integer", "default": 10}}, ["category", "city"]),
+            tool("agencybd_compare_sites", "Audits two sites with the same checks and lists measured differences.",
+                 {"target_domain": s("Prospect domain"), "competitor_domain": s("Competitor domain")}, ["target_domain", "competitor_domain"]),
+            tool("agencybd_open_work_items", "Lists open work items (things a person needs to do) for the workspace.", {}),
         ]
 
     def call_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Dispatches tool execution with strict budget guarding."""
-        if name == "agencybd_source_venture_deals":
-            from agents.sourcing_agent import SourcingAgent
-            sourcing = SourcingAgent()
-            limit = min(int(arguments.get("limit", 5)), 20)
-            leads = sourcing.source_sec_edgar_venture(limit=limit)
-            return {"status": "success", "count": len(leads), "leads": leads}
-
-        elif name == "agencybd_audit_website_dom":
-            domain = arguments.get("domain", "")
-            return self.browser.render_spa_dom(domain)
-
-        elif name == "agencybd_calculate_deal_math":
-            lcp = float(arguments.get("lcp_seconds", 3.4))
-            stack = arguments.get("detected_stack") or ["Next.js"]
-            conf = int(arguments.get("email_confidence", 90))
-            prob = MathPipelineEngine.predict_close_probability(
-                source_channel="sec_edgar_form_d",
-                title="CTO",
-                lcp_seconds=lcp,
-                detected_stack=stack,
-                email_confidence=conf
-            )
-            deal = MathPipelineEngine.calculate_expected_deal_value(prob["p_close"], detected_stack=stack)
-            delay = MathPipelineEngine.calculate_cost_of_delay(lcp_seconds=lcp)
-            return {
-                "status": "success",
-                "probability": prob,
-                "deal_economics": deal,
-                "cost_of_delay": delay
-            }
-
-        elif name == "agencybd_compare_competitors":
-            target = arguments.get("target_domain", "")
-            competitor = arguments.get("competitor_domain", "")
-            return self.diff_engine.compare_domains(target, competitor)
-
-        elif name == "agencybd_triage_objection":
-            obj_text = arguments.get("objection_text", "")
-            p_name = arguments.get("prospect_name", "Lead")
-            comp = arguments.get("company", "Target Corp")
-            return self.brain.triage_objection(obj_text, prospect_name=p_name, company=comp)
-
-        elif name == "agencybd_generate_proposal_artifact":
-            company = arguments.get("company_name", "Acme Labs")
-            domain = arguments.get("domain", "acmelabs.com")
-            lcp = float(arguments.get("lcp_seconds", 3.6))
-            lead = {"company_name": company, "domain": domain, "contact_name": "Leadership"}
-            audit = {"detected_stack": ["Next.js", "React"], "lcp_seconds": lcp}
-            metrics = {"monthly_financial_loss_usd": 2800.0, "expected_value_usd": 55000.0}
-            return self.brain.generate_proposal_artifact(lead, audit, metrics)
-
-        else:
-            return {"status": "error", "error": f"Unknown tool: {name}"}
+        if name == "agencybd_audit_website":
+            from auditors.engine import WebsiteDoctorEngine
+            return WebsiteDoctorEngine.run_audit(arguments.get("domain", ""), org_id=self.org_id)
+        if name == "agencybd_hunt_local_businesses":
+            from intel import local_hunt
+            return local_hunt.hunt(arguments.get("category", ""), arguments.get("city", ""), min(int(arguments.get("limit", 10)), 40))
+        if name == "agencybd_compare_sites":
+            from intel.comparison import compare_domains
+            return compare_domains(arguments.get("target_domain", ""), arguments.get("competitor_domain", ""), self.org_id)
+        if name == "agencybd_open_work_items":
+            from workflows.inbox import WorkItemRepository
+            return {"items": WorkItemRepository.list_open(self.org_id)}
+        return {"status": "error", "error": f"Unknown tool: {name}"}
 
     def handle_json_rpc(self, request_str: str) -> str:
         """Processes a single JSON-RPC message and applies the 10 MiB budget guard."""
@@ -205,23 +89,9 @@ class AgencyBDMcpServer:
 
         serialized = json.dumps(response)
         
-        # 10 MiB Transport Budget Guard (REA Pattern)
         if len(serialized.encode("utf-8")) > MAX_MCP_TRANSPORT_BYTES:
-            # Seal oversized payload in evidence ledger
-            sealed_record = self.ledger.record_evidence(
-                target_domain="mcp_transport",
-                operation="oversized_payload_quarantine",
-                observations={"raw_length": len(serialized)},
-                derivations={},
-                inferences={},
-                unknowns=[{"facet": "full_response", "reason_code": "RESPONSE_EXCEEDED_MCP_10MIB_BUDGET"}]
-            )
-            response["result"] = {
-                "status": "resource_constraint",
-                "message": "Output payload exceeded 10 MiB MCP transport budget ceiling. Response quarantined safely in EvidenceLedger.",
-                "evidence_reference": sealed_record.evidence_id,
-                "continuation_query": "Use inspect_analysis_view to inspect paged chunks."
-            }
+            response["result"] = {"status": "resource_constraint",
+                                  "message": "The result exceeded the 10 MiB transport limit and was not returned. Narrow the request."}
             serialized = json.dumps(response)
 
         return serialized

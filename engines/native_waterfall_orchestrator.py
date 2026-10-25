@@ -139,7 +139,6 @@ class NativeWaterfallOrchestrator:
         resolved_email = None
         confidence_score = 0
         email_status = "unverified"
-        credits_saved = 0.0
         catch_all_decoded = False
         decoder_evidence = ""
 
@@ -155,12 +154,10 @@ class NativeWaterfallOrchestrator:
                 esp_provider = "Microsoft 365"
             else:
                 esp_provider = "Custom / Private SMTP"
-        credits_saved += 0.25  # Value of DNS & MX lookup
 
         # --- TIER 2: PERMUTATION GENERATOR ---
         steps_executed.append("Tier 2: Algorithmic Email Permutation Matrix")
         permutations = self.generate_email_permutations(first_name, last_name, domain)
-        credits_saved += 0.25
 
         # --- TIER 3: DEEP SMTP SOCKET PROBE & CATCH-ALL DETECTION ---
         steps_executed.append("Tier 3: Native SMTP Verification Handshake")
@@ -186,47 +183,42 @@ class NativeWaterfallOrchestrator:
         if probe_res["is_valid"] and not is_catch_all:
             resolved_email = best_candidate
             confidence_score = probe_res["confidence_score"]
-            email_status = "verified_deliverable"
+            email_status = "smtp_accepted"
         elif matched_gravatar:
             steps_executed.append("Tier 3b: Sovereign Social Identity Decoder Confirmed")
             resolved_email = matched_gravatar
             confidence_score = 94
-            email_status = "verified_deliverable"
+            email_status = "evidence_found"
             catch_all_decoded = is_catch_all
-            decoder_evidence = f"Verified Mailbox via Gravatar Social Identity Footprint ({matched_gravatar})"
-            credits_saved += 1.00
+            decoder_evidence = f"Address exists as an identity (Gravatar Social Identity Footprint ({matched_gravatar})"
         else:
             pgp_found = self.check_openpgp_footprint(best_candidate)
             if pgp_found:
                 steps_executed.append("Tier 3b: OpenPGP Cryptographic Signature Confirmed")
                 resolved_email = best_candidate
                 confidence_score = 94
-                email_status = "verified_deliverable"
+                email_status = "evidence_found"
                 catch_all_decoded = is_catch_all
-                decoder_evidence = f"Verified Mailbox via OpenPGP Cryptographic Signature ({best_candidate})"
-                credits_saved += 1.00
+                decoder_evidence = f"A public OpenPGP key exists for {best_candidate}; this shows the address exists, not that it accepts mail"
             else:
                 github_email = self.resolve_github_commit_author(domain, first_name, last_name)
                 if github_email:
                     steps_executed.append("Tier 3b: Git Commit Tree Metadata Confirmed")
                     resolved_email = github_email
                     confidence_score = 98
-                    email_status = "verified_deliverable"
+                    email_status = "evidence_found"
                     catch_all_decoded = is_catch_all
-                    decoder_evidence = f"Verified Mailbox via Git Commit Tree Metadata ({github_email})"
-                    credits_saved += 1.00
+                    decoder_evidence = f"Address appears as a commit author in a public repository of this domain ({github_email})"
                 elif is_catch_all:
                     steps_executed.append("Tier 3b: Sovereign Catch-All Audit Concluded")
                     resolved_email = best_candidate
                     confidence_score = 65
                     email_status = "catch_all_unverifiable"
                     decoder_evidence = "Domain accepts all inbound probes; no social footprint match detected."
-                    credits_saved += 0.50
                 else:
                     resolved_email = best_candidate
                     confidence_score = 30
                     email_status = "unverified"
-        credits_saved += 0.50
 
         # --- TIER 4: AUTONOMOUS RESEARCH FORMULAS (CLAYGENT EQUIVALENT) ---
         steps_executed.append("Tier 4: Claygent Autonomous Web Research Formula")
@@ -235,13 +227,9 @@ class NativeWaterfallOrchestrator:
         research_dossier = {
             "company_name": company_name,
             "domain": domain,
-            "detected_stack": tech_data.get("detected_technologies", ["Cloudflare", "Modern Web"]),
-            "tech_debt_score": tech_data.get("technical_debt_score", 15),
-            "custom_pitch_angle": tech_data.get("calculated_pitch_angle", "Full-stack capacity augmentation"),
-            "hiring_signal": f"Scaling engineering team for {company_name}",
-            "decision_maker_context": f"{title} managing modern tech architecture"
+            "detected_stack": tech_data.get("detected_technologies") or [],
+            "tech_debt_score": tech_data.get("technical_debt_score"),
         }
-        credits_saved += 1.50  # BuiltWith + Claygent saved
 
         # --- TIER 5: COMMERCIAL API FALLBACK (IF USER CONFIGURED KEYS) ---
         vendor_keys_active = bool(os.getenv("APOLLO_API_KEY") or os.getenv("HUNTER_API_KEY"))
@@ -250,7 +238,13 @@ class NativeWaterfallOrchestrator:
         else:
             steps_executed.append("Tier 5: 100% Autonomous Zero-Cost Mode Active")
 
-        total_value_saved = round(credits_saved, 2)
+        # Only a real verification vendor can mark an address verified. Everything above is evidence that an address exists.
+        verified = False
+        vendor_note = "No email verifier configured (set ZEROBOUNCE_API_KEY or MILLIONVERIFIER_API_KEY); the address is a candidate, not verified."
+        if resolved_email:
+            from outbound.verify import EmailVerificationGate
+            gate = EmailVerificationGate().verify(resolved_email)
+            verified, vendor_note = (gate.status == "verified" and gate.is_deliverable), gate.reason
 
         return {
             "prospect_name": f"{first_name} {last_name}",
@@ -271,7 +265,7 @@ class NativeWaterfallOrchestrator:
             "waterfall_steps_executed": steps_executed,
             "steps_completed": steps_executed,
             "autonomous_research_dossier": research_dossier,
-            "estimated_commercial_dollars_saved": total_value_saved,
-            "verified": email_status == "verified_deliverable",
-            "verdict": "READY_FOR_OUTREACH" if email_status == "verified_deliverable" else "MANUAL_REVIEW_SUGGESTED"
+            "verified": verified,
+            "verification_note": vendor_note,
+            "verdict": "READY_FOR_OUTREACH" if verified else "NEEDS_VERIFICATION"
         }
