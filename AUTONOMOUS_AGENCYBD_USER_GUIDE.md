@@ -149,9 +149,9 @@ Toggled with a single click via the **"Show All 18 Studio Tools"** button in the
 
 ## 5. Security & Sovereign Authentication
 
-- **Master Sovereign Key**: `agy_live_REDACTED_REVOKED`
+- **Sign-in key**: create one with `python scripts/create_admin_key.py` (shown once; store it in a password manager). No key is ever shipped in the app or this guide.
 - **Session Storage Only**: Keys live exclusively in browser `sessionStorage` and are never exposed in localStorage, URLs, or client logs.
-- **Instant Connect**: The sign-in gate includes a **1-Click Sign In** button that verifies identity and launches the dashboard instantly.
+- **Sign-in**: paste your key at the sign-in gate; it is verified against the server.
 - **Revocation & Roles**: Enterprise RBAC allows issuing role-scoped keys (`super_admin`, `admin`, `auditor`, `growth_lead`) with instant HMAC revocation.
 
 ---

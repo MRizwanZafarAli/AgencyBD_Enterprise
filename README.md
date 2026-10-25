@@ -1,75 +1,57 @@
-# ⚡ AgencyBD_Enterprise: Autonomous Multi-Agent BD Swarm
+# AgencyBD
 
-Enterprise-grade autonomous Business Development & Lead Intelligence platform engineered for software and AI development agencies. Completely replaces human SDR/BDR overhead with trigger-led, audit-driven multi-agent intelligence.
+Client and project hunting for a software agency. It finds prospects, checks their websites, scores them, and drafts outreach for
+your approval. It will not invent a contact, a measurement, a result or a price: when something real is missing it creates a task for you.
 
----
-
-## 🏛️ System Architecture
-
-```text
-┌────────────────────────────────────────────────────────────────────────┐
-│                   APEXCORE AUTONOMOUS BD AGENT SWARM                   │
-├────────────────────┬───────────────────────────────────────────────────┤
-│ Micro-Agent        │ Core Functional Responsibility                    │
-├────────────────────┼───────────────────────────────────────────────────┤
-│ 1. SourcingAgent   │ Google Maps local B2B, JobSpy hiring signals,     │
-│                    │ and venture database ingestion.                   │
-│ 2. TechAuditAgent  │ Automated DOM, TTFB, Lighthouse LCP, and tech     │
-│                    │ stack fingerprinting (WordPress, Next.js, etc.).  │
-│ 3. EnrichmentAgent │ CTO / Founder discovery & DNS MX socket SMTP      │
-│                    │ handshake verification (0% bounce rate).          │
-│ 4. DossierAgent    │ Executive pain point mapping & Loom script concept│
-│ 5. CopywriterAgent │ Trigger-based 3-step sequence & LinkedIn pitches  │
-│                    │ with spam friction score guardrails (< 80 words). │
-│ 6. DispatchAgent   │ Secondary sending domain rotation & daily quotas. │
-│ 7. ObjectionAgent  │ Inbound sentiment triage & automated rebuttals.   │
-│ 8. BookingAgent    │ Cal.com meeting booking & founder prep briefing.  │
-└────────────────────┴───────────────────────────────────────────────────┘
-```
-
----
-
-## 🔐 Security Setup (do this first)
-
-There are **no default credentials or secrets**. Authentication is mandatory on every `/api/*` route except the health probes.
-
-```bash
-python3 scripts/generate_secrets.py     # writes strong JWT / webhook / vault secrets into .env (mode 600)
-python3 scripts/create_admin_key.py     # prints your first super_admin API key ONCE
-```
-
-| Setting | Purpose |
+## The app in six screens
+| Screen | Use |
 |---|---|
-| `AGENCYBD_ENV` | `development` / `test` / `production`. Production refuses to start with missing, short, placeholder or leaked secrets. |
-| `AGENCYBD_JWT_SECRET`, `AGENCYBD_WEBHOOK_SECRET`, `AGENCYBD_HMAC_VAULT_KEY` | Required secrets (≥32 chars). |
-| `AGENCYBD_CORS_ORIGINS` | Browser origins allowed to call the API. No wildcard. |
-| `AGENCYBD_WEBHOOK_ORG_ID` | Tenant that inbound webhook replies are attributed to. |
-| `AGENCYBD_DASHBOARD_PASSWORD` | Streamlit login (required in production). |
-| `AGENCYBD_ENABLE_DOCS` | Expose `/docs` in production (off by default). |
+| **Today** | A focus list (top three things), week-over-week numbers, channel follow-ups, recent activity, then your inbox: approvals, tasks from automation, setup gaps. Start a **Discovery Run** here. |
+| **Find** | One smart search box: describe what you want in plain words ("dentst in leeds without a website", "reakt developer remote over 5k"). It corrects spelling, understands business types, skills, places, budgets and filters, and says what it understood. Local businesses (Google Maps or free OpenStreetMap), jobs and projects, tenders. Every search field suggests as you type (typo-tolerant, keyboard friendly), and ⌘K accepts a whole sentence to search or log. |
+| **Clients** | Pipeline board (search, sort, CSV export) and a page per client: audit, what to recommend, contacts, report, first-email draft, plus notes and follow-up tasks with a due date. Tasks due today or earlier appear on Today. |
+| **Channels** | Type one sentence ("applied to react dashboard on upwork $1200 follow up friday") and confirm the draft. LinkedIn, Fiverr, Upwork, Freelancer.com, PeoplePerHour, Contra, Toptal, Guru: daily routine and streak, application pipeline with follow-up dates, message templates (LinkedIn 300-character counter), reply-time log, activity counters, working-hours reminders, profile checklist, saved links and search links. You work on each site in your own browser; this page is your tracker. Each tab also shows your funnel (reply, interview and win rate, cost per reply and per win), LinkedIn invite pacing over a rolling 7 days against your own limit, and a change log that comes due for review after 30 days. Each site tab also lists what the site offers with tips, jumps to its key pages, and shows weekly ratios (click rate, reply rate) from numbers you log. The **Browser dock** (sidebar) opens any of those pages in one window docked beside the app, in your own signed-in browser. It never logs in to, scrapes, refreshes or automates any of them, and stores no site passwords. |
+| **Tools** | **Site Clinic** (paste a website, or a business and place: triage, examine, diagnose, a surgery plan you tick off, change since the last check, teardown, PDF report, save as client), searchable tool cards, and a site carries from one tool to the next. Also: compare two sites, client report, find an email, email draft checker, sequences, call notes, video script. |
+| **Settings** | Setup checklist, services and proof, sending and policy, DNS, unsubscribe list, team and keys. |
 
-- **Callers** send `X-API-Key: <key>` or `Authorization: Bearer <jwt>`. Roles: `super_admin`, `growth_lead`, `sdr_rep`, `auditor`.
-- **Tenancy:** the org comes from the credential. Only `super_admin` can pass `?org_id=` for another tenant.
-- **Inbound webhooks** must send `X-AgencyBD-Timestamp` and `X-AgencyBD-Signature` = `HMAC_SHA256(secret, "<timestamp>.<raw body>")`; requests older than 5 minutes are rejected.
-- **Rotate** with `python3 scripts/generate_secrets.py --rotate` (invalidates existing JWTs).
-- The `.env` file is git-ignored and excluded from Docker images. Keep it that way.
+`Ctrl/⌘ + K` jumps anywhere. Keyboard: `G` then `T/F/C/H/O/S` switches screen, `[` collapses the sidebar, `?` lists every shortcut. **Stop sending** in the header halts every send, including scheduled ones.
 
----
+## What it checks (passively; never intrusively)
+Security headers, TLS, SEO, accessibility, AI-readiness, email DNS, exposure (security.txt, robots.txt leaks, open directory listings, cookie flags) and
+**visible software versions matched against public vulnerability records** (NVD, OSV, CISA KEV). A version match is reported as *potentially affected*;
+outreach about it is hedged and alarming wording is blocked.
 
-## 🚀 Quickstart Guide
+## Keys and integrations
+Add API keys in **Settings > Integrations and keys** (administrator only): Anthropic, Google Places, PageSpeed, Brave, NVD, GitHub, SAM.gov, email verifiers, Slack and more.
+They are encrypted, never shown again, shared by the installation, and active immediately. Each row links to where to get the key and says what it costs. A key saved there overrides `.env`.
 
-### 1. Run Automated Test Suite
+## Finding contacts
+On a client page, **Find on their website** reads the company's own team, about and contact pages and lists the people (name with the job title shown next to it) and emails
+they publish, each with its source page. Nothing is guessed. Saved contacts start unverified; only an email verification service can change that.
+
+## Quick start
 ```bash
-python3 -m pytest tests/ -v
+pip install -r requirements.txt
+python3 scripts/generate_secrets.py          # writes strong secrets to .env
+python3 scripts/create_admin_key.py          # prints your sign-in key once
+cd frontend && npm ci && npm run build && cd ..
+python3 -m uvicorn api:app --port 8001       # app + API at http://localhost:8001
+```
+For development run `npm run dev` in `frontend/` (port 5173, proxies to 8001). Docker: `docker compose up` (see `.env.example` for required variables).
+
+## Configuration
+Copy `.env.example` to `.env`. Nothing works "by default" with invented values: each feature reports **not configured** until its key exists.
+Agency identity (name, sender, booking link, case study) comes from `AGENCYBD_*` variables; the case-study sentence is quoted to prospects verbatim, so keep it only if true.
+
+## Tests
+```bash
+python3 -m pytest -q                         # ~520 backend tests
+cd frontend && npx tsc -b && npx oxlint      # types and lint
+./scripts/e2e.sh                             # Playwright + axe accessibility (uses your Chrome)
+AGENCYBD_SOAK=1 python3 -m pytest tests/test_load_and_soak.py   # bigger load run
+./scripts/release.sh                         # the release gate
 ```
 
-### 2. Launch FastAPI Microservice Engine
-```bash
-uvicorn api:app --reload --port 8000
-```
-Interactive Swagger docs available at: `http://localhost:8000/docs`
-
-### 3. Launch Streamlit Executive Command Center
-```bash
-streamlit run app.py --server.port 8502
-```
-Access the control room in your browser at `http://localhost:8502`.
+## Security model
+API keys are stored hashed; roles and tenant come from the credential, never from the request. All outbound fetches use an SSRF-safe client; headless Chrome runs behind an
+egress filter proxy. Sending passes an ordered guard chain (jurisdiction, suppression, stop-on-reply, email verification, policy, content guard) and first touches wait for approval.
+More in `docs/OPERATIONS.md`, `docs/ENTERPRISE_PLAN.md`, `docs/AUDIT_REPORT.md`.
