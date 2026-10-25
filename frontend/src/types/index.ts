@@ -111,3 +111,7 @@ export interface VideoPitchStoryboard {
     script_audio: string;
   }>;
 }
+
+
+/** The four top-level surfaces. Everything else lives inside one of them. */
+export type Surface = 'today' | 'find' | 'clients' | 'channels' | 'tools' | 'settings';

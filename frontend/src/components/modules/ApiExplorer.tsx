@@ -4,10 +4,10 @@ import { Terminal, Play, RefreshCw, ExternalLink } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 
 const ENDPOINTS = [
-  { method: 'POST', path: '/api/sourcing/run', desc: 'Google Maps Open Scraper (Zero Places API Cost)', sample: '{"channel": "google_maps", "query": "Custom Software Agency", "location": "Austin, TX", "limit": 3}' },
+  { method: 'POST', path: '/api/sourcing/run', desc: 'Business search by type and place', sample: '{"channel": "google_maps", "query": "Custom Software Agency", "location": "Austin, TX", "limit": 3}' },
   { method: 'POST', path: '/api/sourcing/linkedin/people', desc: 'Google X-Ray Dorking for LinkedIn Decision Makers', sample: '{"company_name": "Resend", "titles": ["CTO", "Founder"], "location": "United States", "limit": 2}' },
-  { method: 'POST', path: '/api/native/waterfall_enrich', desc: 'Clay-Free Waterfall Permutation & SMTP RFC 5322 Handshake', sample: '{"first_name": "Jane", "last_name": "Doe", "company_name": "Example Co", "domain": "example.com", "title": "CEO"}' },
-  { method: 'POST', path: '/api/native/score_copy', desc: 'Lavender.ai Flesch-Kincaid & 100+ Spam Word Filter', sample: '{"subject": "quick question", "body": "Hi Jane, I noticed your site takes four seconds to load on mobile."}' },
+  { method: 'POST', path: '/api/native/waterfall_enrich', desc: 'Likely email addresses with evidence they exist (not verification)', sample: '{"first_name": "Jane", "last_name": "Doe", "company_name": "Example Co", "domain": "example.com", "title": "CEO"}' },
+  { method: 'POST', path: '/api/native/score_copy', desc: 'Readability and spam-word check for an email draft', sample: '{"subject": "quick question", "body": "Hi Jane, I noticed your site takes four seconds to load on mobile."}' },
   { method: 'POST', path: '/api/native/route_smartlead', desc: 'Smartlead Google-to-Google & M365-to-M365 Matcher', sample: '{"recipient_mx_host": "aspmx.l.google.com", "available_inboxes": [{"id": 1, "email": "alex@apex.io", "esp": "Google Workspace"}]}' },
   { method: 'POST', path: '/api/native/parse_spintax', desc: 'Recursive Anti-Clustering Spintax Variant Generator', sample: '{"template_text": "{Hi|Hey|Hello} {{first_name}}, {saw|noticed} your work."}' },
   { method: 'GET', path: '/healthz/live', desc: 'Kubernetes & Docker Microservice Liveness Probe', sample: '' }

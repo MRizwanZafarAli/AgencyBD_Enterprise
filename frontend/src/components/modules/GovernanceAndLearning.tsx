@@ -117,7 +117,6 @@ export const GovernanceAndLearning: FC = () => {
           context: {
             email_verification_status: 'verified',
             is_suppressed: false,
-            deal_value: 3500,
             jurisdiction_allowed: true
           }
         })
@@ -496,7 +495,7 @@ export const GovernanceAndLearning: FC = () => {
               <span>Fail-Closed Email Verification Gate</span>
             </h3>
             <p className="text-xs text-slate-400">
-              Only addresses verified as 100% deliverable are allowed to receive outbound messages. Disposable domains and spam traps are hard-blocked.
+              Only addresses confirmed by a verification service are allowed to receive outbound messages. Disposable domains and spam traps are hard-blocked.
             </p>
 
             <div className="flex gap-2">

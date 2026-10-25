@@ -18,7 +18,7 @@
   --color-slate-200: #e2e8f0;
   --color-slate-300: #cbd5e1;
   --color-slate-400: #94a3b8;
-  --color-slate-500: #64748b;
+  --color-slate-500: #8794a8;   /* WCAG AA: 5.8:1 on card surfaces (was 3.8:1) */
   --color-slate-600: #475569;
   --color-slate-700: #334155;
   --color-slate-800: #1e2638;
@@ -115,8 +115,8 @@ html.light {
   --color-slate-100: #1e293b;
   --color-slate-200: #334155;
   --color-slate-300: #475569;
-  --color-slate-400: #64748b;
-  --color-slate-500: #94a3b8;
+  --color-slate-400: #526077;   /* WCAG AA on the light canvas (6.1:1) */
+  --color-slate-500: #55657a;   /* >= 5.3:1 on white and on tinted surfaces (was 2.6:1) */
   --color-slate-600: #cbd5e1;
   --color-slate-700: #e2e8f0;
   --color-slate-800: #f1f5f9;
@@ -516,3 +516,27 @@ html.light textarea::placeholder {
   color: #94a3b8 !important;
 }
 
+
+/* Light-theme contrast fixes (WCAG AA). Solid coloured surfaces always carry white text, whatever the inverted slate scale says. */
+html[data-theme="light"] body .bg-indigo-600, html[data-theme="light"] body .bg-indigo-600 *,
+html[data-theme="light"] body .bg-rose-600, html[data-theme="light"] body .bg-rose-600 * { color: #ffffff !important; }
+html[data-theme="light"] .text-emerald-400 { color: #047857 !important; }
+html[data-theme="light"] .text-emerald-300 { color: #047857 !important; }
+html[data-theme="light"] .text-amber-300 { color: #92400e !important; }
+html[data-theme="light"] .text-amber-400 { color: #92400e !important; }
+html[data-theme="light"] .text-rose-300, html[data-theme="light"] .text-rose-400 { color: #be123c !important; }
+
+/* Dropdowns: one look everywhere (native menu for accessibility, custom chevron), without changing any markup. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 1rem;
+  padding-right: 2rem !important;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+select:disabled { cursor: not-allowed; }
+input[type="search"]::-webkit-search-cancel-button { display: none; }

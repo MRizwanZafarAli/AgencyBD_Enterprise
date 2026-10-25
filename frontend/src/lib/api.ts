@@ -64,3 +64,12 @@ export function apiErrorMessage(status: number, body: any): string {
   if (typeof body?.detail === 'string') return body.detail;
   return `Request failed (HTTP ${status}).`;
 }
+
+/** Opens an authenticated file (report HTML/PDF) in a new tab: plain links cannot carry the API key header. */
+export async function openProtected(path: string): Promise<void> {
+  const res = await apiFetch(path);
+  if (!res.ok) throw new Error(apiErrorMessage(res.status, await res.json().catch(() => ({}))));
+  const url = URL.createObjectURL(await res.blob());
+  window.open(url, '_blank', 'noopener');
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}

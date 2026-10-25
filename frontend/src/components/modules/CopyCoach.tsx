@@ -45,14 +45,14 @@ export const CopyCoach: FC<CopyCoachProps> = ({
 
   const applyTemplate = (type: 'cold' | 'audit' | 'followup') => {
     if (type === 'cold') {
-      setSubject('quick question regarding performance on stripe.com');
-      setBody('Hi Alex,\n\nI noticed the latest checkout flow bundle size causes a 3.4s delay on mobile 4G networks.\n\nWe recently rebuilt a similar pipeline for an enterprise fintech platform, reducing load times by 55%.\n\nOpen to reviewing the breakdown this week?\n\nBest,\nSovereign BD Team');
+      setSubject('[domain]: [one specific finding]');
+      setBody('Hi [first name],\n\nI ran a public check of [domain] and noticed [one specific, measured finding].\n\n[One sentence on how you could help.]\n\nWould it be useful if I sent the details?\n\n[Your name]');
     } else if (type === 'audit') {
-      setSubject('3 observations from your recent DNS & LCP diagnostic');
-      setBody('Hi team,\n\nOur diagnostic crawler ran an audit on your infrastructure and flagged:\n1. Missing DMARC reject enforcement\n2. Render-blocking stylesheets delaying first paint by 1.8s\n3. Zero schema.org microdata for organic search indexing\n\nHappy to send over the full PDF diagnostic if useful.\n\nBest,');
+      setSubject('A few observations about [domain]');
+      setBody('Hi [first name],\n\nI checked [domain] using public information only and noticed:\n1. [finding 1, with the measured value]\n2. [finding 2]\n3. [finding 3]\n\nHappy to send the full report if useful.\n\n[Your name]');
     } else {
-      setSubject('Re: quick question regarding mobile speed');
-      setBody('Hi Alex,\n\nFloating this back up in case it was buried. Did you have 5 minutes to review the mobile performance findings we sent over?\n\nIf not the right person, who on your engineering team leads web speed?\n\nThanks,');
+      setSubject('Re: [original subject]');
+      setBody('Hi [first name],\n\nFollowing up in case my note got buried. Did you get a chance to look at what I sent about [domain]?\n\nIf I have the wrong person, who would be best to ask?\n\nThanks,\n[Your name]');
     }
     setError('');
   };

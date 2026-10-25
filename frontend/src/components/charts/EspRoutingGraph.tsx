@@ -76,7 +76,7 @@ export const EspRoutingGraph: FC<EspRoutingGraphProps> = ({
               <span className="text-cyan-400">Target Provider Detected</span>
             </div>
             <div className="text-[10px] text-slate-500 font-mono">
-              SPF / DKIM / DMARC 100% Aligned
+              Check SPF / DKIM / DMARC in Domain DNS
             </div>
           </div>
         </div>

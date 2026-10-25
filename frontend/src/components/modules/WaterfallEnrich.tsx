@@ -3,7 +3,7 @@ import type { FC } from 'react';
 import {
   Database, Play, RefreshCw, CheckCircle2,
   Sparkles, ArrowRight, ShieldCheck, Mail,
-  AlertTriangle, Copy, Check, DollarSign, Cpu,
+  AlertTriangle, Copy, Check, Cpu,
   BookmarkCheck, Layers, Terminal, UserCheck
 } from 'lucide-react';
 import type { WaterfallResult, TabType } from '../../types';
@@ -135,36 +135,13 @@ export const WaterfallEnrich: FC<WaterfallEnrichProps> = ({
       <ErrorBanner message={error} />
 
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-5">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center space-x-2.5">
-            <span className="bg-gradient-to-r from-indigo-400 via-cyan-400 to-emerald-400 bg-clip-text text-transparent">
-              Native Waterfall Enrichment & Catch-All Decoder
-            </span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold tracking-wider">
-              100% FREE / ZERO CLAY CREDITS
-            </span>
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-3xl leading-relaxed">
-            Multi-tier autonomous intelligence combining DNS MX auditing, statistical corporate permutation matrices,
-            socket-level SMTP verification, and the breakthrough <span className="text-indigo-300 font-semibold">Sovereign Catch-All Decoder</span> using Gravatar & OpenPGP identity footprints.
-          </p>
-        </div>
-
-        {/* Live Savings Counter */}
-        <div className="bento-tile specular-border px-4 py-2.5 rounded-xl border border-emerald-500/30 bg-emerald-950/20 flex items-center space-x-3 shrink-0">
-          <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
-            <DollarSign className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="text-[10px] font-mono text-emerald-400 uppercase tracking-wider font-semibold">
-              Commercial SaaS Saved
-            </div>
-            <div className="text-base font-bold text-white font-mono">
-              ${result?.estimated_commercial_dollars_saved?.toFixed(2) || '4.50'} / lead
-            </div>
-          </div>
-        </div>
+      <div className="border-b border-slate-800/80 pb-5">
+        <h1 className="text-xl font-semibold tracking-tight text-white">Find an email address</h1>
+        <p className="text-sm text-slate-400 mt-1 max-w-3xl leading-relaxed">
+          Builds likely addresses for a person at a company and gathers evidence that one exists (DNS mail records, a mailbox handshake,
+          Gravatar, OpenPGP keys, public Git commits). Evidence that an address exists is not proof it accepts mail: an address only counts as
+          verified after a verification service confirms it (see Settings).
+        </p>
       </div>
 
       {/* Quick Presets Bar */}
@@ -254,7 +231,7 @@ export const WaterfallEnrich: FC<WaterfallEnrichProps> = ({
               <span>Autonomous 5-Tier Verification Stack</span>
             </div>
             <p className="text-[11px] leading-relaxed">
-              1. DNS MX Lookup → 2. Permutation Generator → 3. Deep Socket Handshake → 4. Catch-All Decoder (Gravatar/OpenPGP) → 5. Claygent Tech Stack Fingerprint.
+              1. DNS MX Lookup → 2. Permutation Generator → 3. Deep Socket Handshake → 4. Catch-All Decoder (Gravatar/OpenPGP) → 5. Visible technology check.
             </p>
           </div>
 
@@ -264,7 +241,7 @@ export const WaterfallEnrich: FC<WaterfallEnrichProps> = ({
             className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white font-semibold py-2.5 rounded-lg text-xs flex items-center justify-center space-x-2 transition-all shadow-lg shadow-indigo-600/20 active:scale-[0.99]"
           >
             {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-            <span>{loading ? 'Executing Multi-Tier Handshake...' : 'Execute Sovereign Waterfall Handshake'}</span>
+            <span>{loading ? 'Executing Multi-Tier Handshake...' : 'Find address'}</span>
           </button>
         </div>
 
@@ -412,13 +389,13 @@ export const WaterfallEnrich: FC<WaterfallEnrichProps> = ({
                 </div>
               )}
 
-              {/* Claygent Autonomous Research Dossier */}
+              {/* Site research dossier */}
               {result.autonomous_research_dossier && (
                 <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-indigo-300 flex items-center space-x-1.5">
                       <Cpu className="h-3.5 w-3.5 text-cyan-400" />
-                      <span>Claygent Autonomous Intelligence Dossier</span>
+                      <span>Site research notes</span>
                     </span>
                     <span className="text-[10px] font-mono text-emerald-400 font-semibold">
                       Tech Debt: {result.autonomous_research_dossier.tech_debt_score}/100
@@ -481,7 +458,7 @@ export const WaterfallEnrich: FC<WaterfallEnrichProps> = ({
                 <Database className="h-8 w-8 text-indigo-400/80" />
               </div>
               <div className="space-y-1">
-                <div className="font-semibold text-slate-300 text-sm">Ready for Zero-Cost Waterfall Verification</div>
+                <div className="font-semibold text-slate-300 text-sm">Ready to look up an address</div>
                 <p className="max-w-md text-slate-400 text-[11px] leading-relaxed">
                   Enter prospect parameters on the left or select a 1-click preset to run the DNS audit, permutation matrix, socket probe, and catch-all decoder.
                 </p>

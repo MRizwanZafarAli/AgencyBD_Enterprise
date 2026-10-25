@@ -33,7 +33,7 @@ export const FleetRouter: FC = () => {
       setError('');
       const mbRes = await apiFetch('/api/outbound/mailboxes');
       const boxes = mbRes.ok ? await mbRes.json() : [];
-      if (!boxes.length) throw new Error('Register a sending mailbox first (Governance > Mailbox Fleet). Routing uses your real mailboxes.');
+      if (!boxes.length) throw new Error('Register a sending mailbox first (Settings > Sending and policy). Routing uses your real mailboxes.');
       const providerName = (esp: string | null) => (esp === 'google' ? 'Google Workspace' : esp === 'microsoft' ? 'Microsoft 365' : 'Custom SMTP');
       const res = await apiFetch('/api/native/route_smartlead', {
         method: 'POST',

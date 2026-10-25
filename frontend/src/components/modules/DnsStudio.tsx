@@ -95,7 +95,7 @@ export const DnsStudio: FC = () => {
           <div className="font-semibold text-white text-sm mb-1 flex items-center justify-between">
             <span>Live DNS Status ({audit.checked_at})</span>
             <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono ${audit.ready_for_outreach ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'}`}>
-              {audit.ready_for_outreach ? '100% PRODUCTION READY' : 'RECORDS PENDING PROPAGATION'}
+              {audit.ready_for_outreach ? 'Ready for outreach' : 'RECORDS PENDING PROPAGATION'}
             </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
