@@ -20,6 +20,8 @@ def main() -> int:
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     init_db()
+    from config import integrations
+    integrations.apply_all()                       # keys saved in Settings
     while True:
         outcomes = SequenceScheduler.run_due()
         logging.info("processed %d enrollment(s)", len(outcomes))

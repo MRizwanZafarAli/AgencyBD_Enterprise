@@ -49,7 +49,7 @@ RUN mkdir -p /app/data /app/logs && chown -R appuser:appgroup /app/data /app/log
 
 USER appuser
 
-EXPOSE 8001 8502
+EXPOSE 8001
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8001/healthz/live || exit 1

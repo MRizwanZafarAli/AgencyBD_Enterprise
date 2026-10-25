@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # ApexCore OS / AgencyBD_Enterprise: Master Multi-Service Launcher
-# Starts FastAPI Microservice (:8001), Streamlit (:8502), and Vite React (:5173)
+# Starts FastAPI Microservice (:8001) and Vite React (:5173)
 # ==============================================================================
 
 set -e
@@ -24,9 +24,6 @@ fi
 # 1. Kill any existing instances on the ports
 lsof -ti:8001 | xargs kill -9 2>/dev/null || true
 lsof -ti:5173 | xargs kill -9 2>/dev/null || true
-if [ "$1" == "--with-streamlit" ]; then
-    lsof -ti:8502 | xargs kill -9 2>/dev/null || true
-fi
 
 # 2. Start FastAPI Microservice Core (:8001)
 echo "🚀 [1/2] Launching FastAPI Core REST Engine & Sovereign UI on port 8001..."
@@ -42,14 +39,6 @@ FE_PID=$!
 echo "   -> React Vite PID: $FE_PID"
 cd ..
 
-# Optional legacy Streamlit lab
-if [ "$1" == "--with-streamlit" ]; then
-    echo "🔬 Launching legacy Streamlit Python Lab on port 8502..."
-    PYTHONPATH=. nohup streamlit run app.py --server.port 8502 --server.headless true > logs/streamlit.log 2>&1 &
-    ST_PID=$!
-    echo "   -> Streamlit PID: $ST_PID"
-fi
-
 sleep 3
 
 echo ""
@@ -62,10 +51,5 @@ echo "    + REST APIs at /api/* + Interactive Swagger Docs at /docs)"
 echo ""
 echo "🛠️ Internal Engineering Sidecars:"
 echo "   • React Dev Server (HMR):        http://localhost:5173"
-if [ "$1" == "--with-streamlit" ]; then
-    echo "   • Python Streamlit Lab:          http://localhost:8502"
-else
-    echo "   • Streamlit:                     Disabled (run with --with-streamlit to enable)"
-fi
 echo "======================================================================"
 

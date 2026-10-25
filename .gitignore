@@ -39,3 +39,10 @@ node_modules/
 **/node_modules/
 frontend/dist/
 frontend/.vite/
+
+# Test output
+frontend/test-results/
+frontend/playwright-report/
+RELEASE.json
+data/backups/
+data/reports/
