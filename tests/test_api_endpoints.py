@@ -32,7 +32,6 @@ PROTECTED_ROUTES = [
     ("GET", "/api/geo/states?country=United States"),
     ("GET", "/api/geo/cities?country=United States&state=California"),
     ("GET", "/api/geo/search?query=aus"),
-    ("POST", "/api/intelligence/recommend_markets"),
     ("GET", "/api/analytics/unit_economics"),
     ("GET", "/api/analytics/spintax_cohorts"),
     ("GET", "/api/tasks/dead_letters"),
@@ -87,13 +86,7 @@ PROTECTED_ROUTES = [
     ("POST", "/api/companies/1/brief"),
     ("GET", "/api/companies/1/brief"),
     ("POST", "/api/browser/interactive/navigate"),
-    ("POST", "/api/browser/interactive/action"),
     ("POST", "/api/browser/interactive/headed-window"),
-    ("POST", "/api/swarm/pods/run"),
-    ("POST", "/api/teardown/deck/export"),
-    ("GET", "/api/teardown/deck/view/sample.html"),
-    ("GET", "/api/system/updater/status"),
-    ("POST", "/api/system/updater/apply"),
 ]
 
 
@@ -280,15 +273,6 @@ def test_geo_endpoints(client, growth_headers):
     assert "San Francisco" in res_cities.json()["cities"]
 
 
-def test_market_intelligence_recommend_endpoint(client, growth_headers):
-    res = client.post("/api/intelligence/recommend_markets", headers=growth_headers, json={
-        "project_demand": "We build custom LLM agent swarms for FinTech and Healthcare",
-        "ticket_size": "$50k-$150k"
-    })
-    assert res.status_code == 200
-    data = res.json()
-    assert "primary_target" in data and "operational_search_queries" in data
-    assert len(data["top_recommended_geos"]) > 0
 
 
 def test_native_endpoints_api(client, growth_headers):
@@ -317,7 +301,9 @@ def test_internal_errors_do_not_leak_details(client, growth_headers):
     assert "Traceback" not in res.text
 
 
-def test_probe_presence_endpoint(client, growth_headers):
+def test_probe_presence_endpoint(client, growth_headers, monkeypatch):
+    from intel.resolver import CompanyResolver
+    monkeypatch.setattr(CompanyResolver, "resolve_domain_from_name", staticmethod(lambda n, h, org_id="x": {"status": "unresolved", "domain": None, "confidence": 0.0, "candidates": [], "note": "none"}))
     res = client.post("/api/hunt/local/probe_presence", headers=growth_headers, json={
         "name": "Acme Motors",
         "city": "Dallas",
@@ -326,8 +312,9 @@ def test_probe_presence_endpoint(client, growth_headers):
     assert res.status_code == 200
     data = res.json()
     assert data["name"] == "Acme Motors"
-    assert data["classification"] == "no_website_in_osm"
-    assert "pitch_strategy" in data
+    # Offline here: the search finds nothing, so the result is "not found", never proof of absence.
+    assert data["classification"] == "not_found" and data["verified"] is False and data["limitations"]
+    assert data["status"] == "probed" and data["pitch_strategy"] is None
 
 
 def test_pipeline_deals_crud_and_forecast(client, growth_headers):
@@ -396,107 +383,18 @@ def test_sourcing_xray_people_endpoint(client, growth_headers):
     assert "xray_url" in first or "linkedin_url" in first
 
 
-def test_swarm_math_score_endpoint(client, growth_headers):
-    res = client.post("/api/swarm/math/score", headers=growth_headers, json={
-        "source_channel": "sec_edgar_form_d",
-        "title": "CTO",
-        "lcp_seconds": 3.6,
-        "detected_stack": ["Next.js", "WordPress"],
-        "email_confidence": 92,
-        "catch_all_decoded": True
-    })
-    assert res.status_code == 200
-    data = res.json()
-    assert data["status"] == "success"
-    assert "probability" in data
-    assert data["probability"]["p_close"] >= 0.70
-    assert "deal_economics" in data
-    assert data["deal_economics"]["expected_value_usd"] > 10000
 
 
-def test_swarm_autopilot_run_endpoint(client, growth_headers, monkeypatch):
-    from api import autopilot_engine
-    # Mock source_sec_edgar_venture to return a fast fixture
-    monkeypatch.setattr(
-        autopilot_engine.sourcing,
-        "source_sec_edgar_venture",
-        lambda funding_stage, limit, org_id: [
-            {
-                "id": 999,
-                "company_name": "Apex AI Labs",
-                "domain": "apex-ai.internal",
-                "source_channel": "sec_edgar_form_d"
-            }
-        ]
-    )
-    res = client.post("/api/swarm/autopilot/run", headers=growth_headers, json={
-        "channel": "sec_edgar",
-        "limit": 1
-    })
-    assert res.status_code == 200
-    data = res.json()
-    assert data["status"] == "success"
-    assert "result" in data
-    assert data["result"]["status"] == "completed"
-    assert len(data["result"]["leads"]) == 1
-    assert data["result"]["total_expected_pipeline_usd"] > 0
 
 
-def test_brain_status_endpoint(client, growth_headers):
-    res = client.get("/api/brain/status", headers=growth_headers)
-    assert res.status_code == 200
-    data = res.json()
-    assert data["status"] == "success"
-    assert "brain" in data
-    assert "tier" in data["brain"]
 
 
-def test_brain_plan_endpoint(client, growth_headers):
-    res = client.post("/api/brain/plan", headers=growth_headers, json={
-        "goal": "Acquire 5 Series A fintech companies with slow LCP"
-    })
-    assert res.status_code == 200
-    data = res.json()
-    assert data["status"] == "success"
-    assert "execution_plan" in data
-    assert len(data["execution_plan"]) >= 4
 
 
-def test_brain_chat_endpoint(client, growth_headers):
-    res = client.post("/api/brain/chat", headers=growth_headers, json={
-        "messages": [{"role": "user", "content": "Find 3 high intent accounts"}]
-    })
-    assert res.status_code == 200
-    data = res.json()
-    assert data["status"] == "success"
-    assert data["intent"] == "SOURCING_DISPATCH"
-    assert "reply" in data
 
 
-def test_brain_triage_objection_endpoint(client, growth_headers):
-    res = client.post("/api/brain/triage-objection", headers=growth_headers, json={
-        "objection": "Your squad is too expensive for our seed budget",
-        "prospect_name": "Sarah",
-        "company": "FintechHQ"
-    })
-    assert res.status_code == 200
-    data = res.json()
-    assert data["status"] == "success"
-    assert data["category"] == "BUDGET_PRICING"
-    assert "draft_reply" in data
 
 
-def test_brain_artifact_endpoint(client, growth_headers):
-    res = client.post("/api/brain/artifact", headers=growth_headers, json={
-        "lead": {"company_name": "Novu Labs", "domain": "novulabs.com", "contact_name": "Elena"},
-        "tech_audit": {"detected_stack": ["React", "Next.js"], "lcp_seconds": 3.7},
-        "deal_metrics": {"monthly_financial_loss_usd": 2800.0, "expected_value_usd": 50000.0}
-    })
-    assert res.status_code == 200
-    data = res.json()
-    assert data["status"] == "success"
-    assert "Novu Labs" in data["artifact_markdown"]
-    assert "artifact_title" in data
 
 
 def test_browser_render_endpoint(client, growth_headers, monkeypatch):
@@ -548,42 +446,18 @@ def test_browser_screenshot_endpoint(client, growth_headers, monkeypatch):
     assert "data_uri" in data
 
 
-def test_differential_compare_endpoint(client, growth_headers):
-    res = client.post("/api/differential/compare", headers=growth_headers, json={
-        "target_domain": "novalabs.internal",
-        "competitor_domain": "benchmarks.internal"
-    })
-    assert res.status_code == 200
-    data = res.json()
-    assert data["status"] == "success"
-    assert "target" in data
-    assert "competitor" in data
-    assert "differential" in data
-    assert "competitive_pitch_hook" in data["differential"]
-
-
-def test_evidence_endpoints(client, growth_headers):
-    from api import evidence_ledger
-    rec = evidence_ledger.record_evidence(
-        target_domain="ledgercorp.com",
-        operation="test_ledger_api",
-        observations={"http_status": 200},
-        derivations={"lcp": 2.1},
-        inferences={"p_close": 0.88},
-        unknowns=[{"facet": "phone", "reason_code": "NOT_PUBLIC"}]
-    )
-
-    # 1. Test get by ID
-    res_get = client.get(f"/api/evidence/ledger/{rec.evidence_id}", headers=growth_headers)
-    assert res_get.status_code == 200
-    assert res_get.json()["evidence"]["target_domain"] == "ledgercorp.com"
-
-    # 2. Test get unknowns
-    res_unk = client.get("/api/evidence/unknowns/ledgercorp.com", headers=growth_headers)
-    assert res_unk.status_code == 200
-    assert len(res_unk.json()["unknowns"]) >= 1
 
 
 
 
 
+
+
+
+
+def test_evidence_endpoint_is_tenant_scoped(client, make_key):
+    from database.models import EvidenceRepository
+    ev = EvidenceRepository.record_evidence("company", 1, "Homepage title", "Acme", "profile.title", "https://acme.example", 1.0, "org_ev")
+    assert client.get(f"/api/evidence/{ev['id']}", headers=make_key("auditor", "org_ev")).json()["evidence"]["claim"] == "Homepage title"
+    assert client.get(f"/api/evidence/{ev['id']}", headers=make_key("auditor", "org_other")).status_code == 404
+    assert client.get(f"/api/evidence/{ev['id']}").status_code == 401

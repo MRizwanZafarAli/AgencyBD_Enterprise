@@ -18,6 +18,9 @@ os.environ["AGENCYBD_WEBHOOK_SECRET"] = "test-webhook-secret-" + "y" * 40
 os.environ["AGENCYBD_HMAC_VAULT_KEY"] = "test-vault-key-" + "z" * 40
 os.environ["AGENCYBD_WEBHOOK_ORG_ID"] = "org_default"
 
+import os
+os.environ.setdefault("AGENCYBD_SKIP_DOTENV", "1")   # tests never read the developer's real .env
+
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from database.db import get_db, init_db, create_api_key_record  # noqa: E402
@@ -26,7 +29,7 @@ TABLES_TO_CLEAR = [
     "meeting_bookings", "inbound_replies", "outreach_sequences", "decision_makers",
     "tech_audits", "leads", "suppression_vault", "audit_trail", "api_keys",
     "financial_ledger", "ab_test_cohorts", "task_queue", "portfolio_assets", "proposals", "approvals", "opportunities", "policies", "policy_decisions", "agent_runs", "mailboxes", "outreach_events",
-    "mailbox_credentials", "email_verifications", "outbound_drafts", "sequences", "sequence_enrollments", "webhook_secrets",
+    "work_items", "lead_scores", "channel_records", "client_notes", "integration_keys", "vuln_cache", "job_runs", "org_controls", "discovery_runs", "mailbox_credentials", "email_verifications", "outbound_drafts", "sequences", "sequence_enrollments", "webhook_secrets",
     "audit_runs", "audit_findings", "evidence", "companies", "people", "signals", "services", "tech_audits",
 ]
 

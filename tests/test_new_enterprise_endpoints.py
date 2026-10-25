@@ -1,121 +1,40 @@
-"""
-Integration tests for new Enterprise REST endpoints:
-  - /api/browser/interactive/navigate
-  - /api/browser/interactive/action
-  - /api/browser/interactive/headed-window
-  - /api/swarm/pods/run
-  - /api/teardown/deck/export
-  - /api/teardown/deck/view/{filename}
-"""
+"""Endpoints for the interactive browser viewer (no fake click/type), plus permission and scoping checks."""
 
-from unittest.mock import MagicMock, patch
-import pytest
+from unittest.mock import patch
 
 
-def test_interactive_browser_navigate_endpoint(client, make_key):
-    headers = make_key("super_admin")
-    mock_dom = {
-        "status": "success",
-        "domain": "apexlabs.io",
-        "title": "Apex Labs",
-        "detected_stack": ["Next.js"],
-        "emails": [],
-        "phones": [],
-    }
-    mock_shot = {
-        "status": "success",
-        "data_uri": "data:image/png;base64,fake",
-        "file_path": "/tmp/fake.png",
-    }
-
-    with patch("engines.native_browser_service.NativeBrowserService.render_spa_dom", return_value=mock_dom), \
-         patch("engines.native_browser_service.NativeBrowserService.capture_screenshot", return_value=mock_shot), \
-         patch("engines.native_browser_service.NativeBrowserService._validate_ssrf_for_url", return_value="https://apexlabs.io"):
-        res = client.post(
-            "/api/browser/interactive/navigate",
-            headers=headers,
-            json={"target": "apexlabs.io", "session_id": "test_api_session"}
-        )
-        assert res.status_code == 200
-        data = res.json()
-        assert data["status"] == "success"
-        assert data["title"] == "Apex Labs"
-        assert data["mode"] == "HUMAN_TOUCH_READY"
+def _nav(client, headers, session_id="s1"):
+    with patch("engines.native_browser_service.NativeBrowserService.render_spa_dom", return_value={"title": "Example", "detected_stack": [], "emails": [], "phones": []}), \
+         patch("engines.native_browser_service.NativeBrowserService.capture_screenshot", return_value={"status": "success", "data_uri": "data:image/png;base64,x", "file_path": "/tmp/x.png"}), \
+         patch("engines.native_browser_service.NativeBrowserService._validate_ssrf_for_url", return_value="https://example.com"):
+        return client.post("/api/browser/interactive/navigate", headers=headers, json={"target": "example.com", "session_id": session_id})
 
 
-def test_interactive_browser_action_endpoint(client, make_key):
-    headers = make_key("super_admin")
-    with patch("engines.native_browser_service.NativeBrowserService.render_spa_dom", return_value={"title": "Updated"}), \
-         patch("engines.native_browser_service.NativeBrowserService.capture_screenshot", return_value={"status": "success", "data_uri": "data:image/png;base64,updated"}):
-        res = client.post(
-            "/api/browser/interactive/action",
-            headers=headers,
-            json={
-                "action_type": "click",
-                "params": {"x": 200, "y": 450},
-                "session_id": "test_api_session"
-            }
-        )
-        assert res.status_code == 200
-        data = res.json()
-        assert data["status"] == "success"
-        assert data["action_executed"] == "click"
+def test_interactive_navigate_is_a_viewer_not_a_driver(client, make_key):
+    res = _nav(client, make_key("growth_lead"))
+    assert res.status_code == 200 and res.json()["mode"] == "viewer" and res.json()["title"] == "Example"
+    assert client.post("/api/browser/interactive/action", headers=make_key("super_admin"), json={"action_type": "click", "params": {}}).status_code in (404, 405)
 
 
-def test_interactive_browser_headed_window_endpoint(client, make_key):
-    headers = make_key("super_admin")
-    with patch("subprocess.Popen"):
-        res = client.post(
-            "/api/browser/interactive/headed-window",
-            headers=headers,
-            json={"url": "https://example.com", "session_id": "test_api_session"}
-        )
-        assert res.status_code == 200
-        data = res.json()
-        assert data["status"] in ["launched", "unavailable"]
+def test_interactive_session_id_cannot_escape_the_sessions_folder(client, make_key):
+    res = _nav(client, make_key("growth_lead"), session_id="../../etc")
+    assert res.status_code == 422
 
 
-def test_swarm_pods_run_endpoint(client, make_key):
-    headers = make_key("super_admin")
-    with patch("engines.native_browser_service.NativeBrowserService.render_spa_dom", return_value={"title": "Apex", "detected_stack": ["Next.js"], "emails": []}), \
-         patch("agents.sourcing_agent.SourcingAgent.source_sec_edgar_venture", return_value=[{"company": "Apex", "domain": "apex.io"}]):
-        res = client.post(
-            "/api/swarm/pods/run",
-            headers=headers,
-            json={
-                "domain": "apex.io",
-                "competitor": "stripe.com",
-                "pod_type": "all"
-            }
-        )
-        assert res.status_code == 200
-        data = res.json()
-        assert data["status"] == "completed"
-        assert data["active_pods"] == 5
-        assert "sourcing" in data
-        assert "deal_strategy" in data
+def test_browser_endpoints_need_pipeline_permission(client, make_key):
+    for path, body in (("/api/browser/render", {"domain": "example.com"}), ("/api/browser/screenshot", {"domain": "example.com"}),
+                       ("/api/browser/interactive/navigate", {"target": "example.com"})):
+        assert client.post(path, headers=make_key("auditor"), json=body).status_code == 403
 
 
-def test_teardown_deck_export_and_view_endpoint(client, make_key, tmp_path):
-    headers = make_key("super_admin")
-    from api import teardown_deck_exporter
-    teardown_deck_exporter.storage_dir = tmp_path
+def test_headed_window_refuses_non_http_targets(client, make_key):
+    res = client.post("/api/browser/interactive/headed-window", headers=make_key("growth_lead"), json={"url": "--renderer-cmd-prefix=x"})
+    assert res.status_code == 200 and res.json()["status"] == "error"
 
-    res = client.post(
-        "/api/teardown/deck/export",
-        headers=headers,
-        json={
-            "target_domain": "apexlabs.internal",
-            "competitor_domain": "stripe.com",
-            "output_format": "html"
-        }
-    )
-    assert res.status_code == 200
-    data = res.json()
-    assert data["status"] == "success"
-    html_name = data["html_filename"]
 
-    # Now view the exported HTML
-    view_res = client.get(f"/api/teardown/deck/view/{html_name}", headers=headers)
-    assert view_res.status_code == 200
-    assert "Executive Teardown Deck" in view_res.text
+def test_removed_fabricating_or_dangerous_endpoints_are_gone(client, make_key):
+    h = make_key("super_admin")
+    for path in ("/api/swarm/autopilot/run", "/api/swarm/math/score", "/api/swarm/pods/run", "/api/brain/plan", "/api/brain/chat",
+                 "/api/brain/artifact", "/api/teardown/deck/export", "/api/differential/compare", "/api/system/updater/apply",
+                 "/api/intelligence/recommend_markets"):
+        assert client.post(path, headers=h, json={}).status_code in (404, 405), path

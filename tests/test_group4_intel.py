@@ -306,3 +306,78 @@ def test_services_api(client, make_key):
     assert client.post("/api/services", headers=make_key("sdr_rep", org_id="org_s"), json=body).status_code == 403
     assert client.delete("/api/services/seo_optimization", headers=lead).status_code == 200
     assert client.delete("/api/services/seo_optimization", headers=lead).status_code == 404
+
+
+# ============================ site clinic ============================
+
+def test_clinic_history_change_and_teardown_use_only_measured_data(web, client, make_key):
+    from auditors.engine import WebsiteDoctorEngine
+    web["acmeplumbing.com"] = GOOD_SITE
+    c = CompanyResolver.resolve_domain_from_name("Acme Plumbing", org_id="org_a")
+    k, other = make_key("growth_lead", "org_a"), make_key("growth_lead", "org_b")
+    cid = c["company_id"]
+    assert client.get(f"/api/companies/{cid}/teardown", headers=k).status_code == 422                      # nothing examined yet: nothing written
+    assert client.get(f"/api/companies/{cid}/audit_history", headers=k).json() == {"audits": [], "change": None}
+    first = WebsiteDoctorEngine.run_audit("acmeplumbing.com", cid, org_id="org_a")
+    assert client.get(f"/api/companies/{cid}/audit_history", headers=k).json()["change"] is None               # one check: nothing to compare
+    web["acmeplumbing.com"] = GOOD_SITE.replace("</head>", '<meta name="viewport" content="width=device-width, initial-scale=1"></head>') if "</head>" in GOOD_SITE else GOOD_SITE
+    second = WebsiteDoctorEngine.run_audit("acmeplumbing.com", cid, org_id="org_a")
+    h = client.get(f"/api/companies/{cid}/audit_history", headers=k).json()
+    assert [a["audit_id"] for a in h["audits"]] == [second["audit_id"], first["audit_id"]]
+    assert h["change"]["previous_audit_id"] == first["audit_id"] and h["change"]["latest_audit_id"] == second["audit_id"]
+    t = client.get(f"/api/companies/{cid}/teardown", headers=k).json()
+    md = t["markdown"]
+    assert "Acme Plumbing" in md and "## Findings" in md and "## Not measured" in md and t["filename"] == "Teardown_Acme_Plumbing.md"
+    assert "$" not in md and "ROI" not in md and "weeks" not in md.lower()                                     # no invented price, result or timeline
+    assert client.get(f"/api/companies/{cid}/teardown", headers=other).status_code == 404                      # another tenant's company
+    assert client.get(f"/api/companies/{cid}/audit_history", headers=other).json() == {"audits": [], "change": None}
+
+
+# ============================ a site that refuses robots is not graded on its block page ============================
+
+AKAMAI_BLOCK = {"status": 403, "html": "<HTML><HEAD><TITLE>Access Denied</TITLE></HEAD><BODY>Reference #18.abc</BODY></HTML>", "headers": {"Server": "AkamaiGHost", "Content-Type": "text/html"}}
+
+
+def test_a_blocked_site_is_never_graded_on_its_block_page(web):
+    from auditors.engine import WebsiteDoctorEngine
+    web["blocked.example"] = AKAMAI_BLOCK
+    out = WebsiteDoctorEngine.run_audit("blocked.example", org_id="org_blk")
+    assert out["status"] == "blocked" and out["overall_score"] is None and out["blocked"]["status_code"] == 403 and out["blocked"]["server"] == "AkamaiGHost"
+    ids = {f["check_id"] for f in out["findings"]}
+    assert "access_blocked" in ids
+    assert not ids & {"missing_meta_description", "missing_viewport_tag", "thin_content", "missing_open_graph", "missing_csp"}      # nothing about the block page's own markup
+    assert "tls" in out["checks_run"] and any("refused automated access" in s for s in out["checks_skipped"])
+
+
+@pytest.mark.parametrize("entry", [
+    {"status": 200, "html": "<html><head><title>Just a moment...</title></head><body>Checking your browser</body></html>"},
+    {"status": 200, "html": "<html><body>ok</body></html>", "headers": {"cf-mitigated": "challenge"}},
+    {"status": 429, "html": "slow down"},
+])
+def test_challenge_pages_and_rate_limits_count_as_blocked(web, entry):
+    from auditors.engine import WebsiteDoctorEngine
+    web["challenge.example"] = entry
+    assert WebsiteDoctorEngine.run_audit("challenge.example", org_id="o")["status"] == "blocked"
+
+
+def test_an_error_page_is_not_audited_as_if_it_were_the_site(web):
+    from auditors.engine import WebsiteDoctorEngine
+    web["broken.example"] = {"status": 500, "html": "<html><body>Internal error</body></html>"}
+    out = WebsiteDoctorEngine.run_audit("broken.example", org_id="o")
+    assert out["status"] == "unreachable" and out["overall_score"] is None and "HTTP 500" in out["findings"][0]["evidence_value"]
+
+
+def test_a_domain_you_give_that_blocks_us_resolves_as_existing_but_unread(web):
+    web["blocked.example"] = AKAMAI_BLOCK
+    r = CompanyResolver.resolve_domain_from_name("blocked.example", org_id="org_blk")
+    assert r["status"] == "resolved" and r["access"] == "blocked" and r["domain"] == "blocked.example" and r["confidence"] == 0.5
+    assert "refuses automated access" in r["note"] and "do not try to get around" in r["note"]
+    ev = EvidenceRepository.get_by_ids(r["evidence_ids"], "org_blk")
+    assert "refuses automated access" in next(iter(ev.values()))["claim"] and "not matched" in next(iter(ev.values()))["value"]
+    brief_status = CompanyBriefEngine.generate_brief(r["company_id"], "org_blk", refresh=True)
+    assert brief_status["status"] == "blocked" and brief_status["pitch_kit"] is None and brief_status["digital_health"]["score"] is None
+
+
+def test_a_normal_404_homepage_probe_is_still_unreachable_not_blocked(web):
+    web["gone.example"] = {"status": 404, "html": "nope"}
+    assert CompanyResolver.resolve_domain_from_name("Acme", hint_domain="gone.example", org_id="o")["status"] == "domain_unreachable"

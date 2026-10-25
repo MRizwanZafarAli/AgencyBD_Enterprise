@@ -150,7 +150,7 @@ def test_security_audit_is_passive_only(web):
     fetch_site("acme.example")
     for url in web.seen:
         path = "/" + url.split("://")[1].partition("/")[2]
-        assert path in ("/", "/robots.txt", "/llms.txt", "/sitemap.xml"), f"unexpected probe: {url}"
+        assert path in ("/", "/robots.txt", "/llms.txt", "/sitemap.xml", "/.well-known/security.txt"), f"unexpected probe: {url}"
 
 
 # ============================ seo ============================

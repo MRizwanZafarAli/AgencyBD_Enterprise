@@ -164,7 +164,7 @@ def test_waterfall_candidates_are_not_marked_ready_without_verification(monkeypa
     monkeypatch.setattr(orch.smtp_verifier, "verify_email", lambda e: {"is_valid": False, "confidence_score": 0, "status": "unverified"})
     monkeypatch.setattr(orch.tech_fingerprinter, "analyze_domain", lambda d: {})
     out = orch.run_waterfall_enrichment("Ada", "Lovelace", "Example", "example.org", "CTO")
-    assert out["verdict"] == "MANUAL_REVIEW_SUGGESTED" and out["verified"] is False
+    assert out["verdict"] == "NEEDS_VERIFICATION" and out["verified"] is False
     assert out["email_status"] == "unverified"
 
 

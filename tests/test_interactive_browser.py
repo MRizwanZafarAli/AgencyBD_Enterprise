@@ -21,7 +21,7 @@ def test_interactive_browser_ssrf_blocked(tmp_path):
         session.navigate("http://127.0.0.1:8000/internal")
 
 
-def test_interactive_browser_navigate_and_actions(tmp_path):
+def test_interactive_browser_navigate_is_a_viewer(tmp_path):
     session = InteractiveBrowserSession(session_id="test_sess_03", storage_dir=str(tmp_path))
 
     # Mock DOM rendering and screenshot capture
@@ -46,19 +46,9 @@ def test_interactive_browser_navigate_and_actions(tmp_path):
         assert res["status"] == "success"
         assert res["session_id"] == "test_sess_03"
         assert res["title"] == "Example Domain"
-        assert res["mode"] == "HUMAN_TOUCH_READY"
+        assert res["mode"] == "viewer"
         assert "founders@example.com" in res["emails"]
-
-        # Test dispatching human touch action
-        click_res = session.dispatch_human_touch_action("click", {"x": 120, "y": 340})
-        assert click_res["status"] == "success"
-        assert click_res["action_executed"] == "click"
-        assert click_res["params"]["x"] == 120
-
-        # Type action
-        type_res = session.dispatch_human_touch_action("type", {"text": "hello@agency.com"})
-        assert type_res["status"] == "success"
-        assert type_res["action_executed"] == "type"
+        assert not hasattr(session, "dispatch_human_touch_action")  # the viewer never pretends to click or type
 
 
 def test_interactive_browser_headed_window_launch(tmp_path):

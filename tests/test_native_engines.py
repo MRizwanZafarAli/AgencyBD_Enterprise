@@ -130,22 +130,22 @@ Worth exploring a brief look at the teardown?"""
     assert len(audit["detected_spam_words"]) == 0
     assert "suggested_refactor" in audit
 
-def test_native_waterfall_orchestrator():
+def test_native_waterfall_orchestrator_reports_evidence_not_verification(monkeypatch):
+    """Offline: SMTP, Gravatar, PGP and Git probes are stubbed. Without a vendor the address is a candidate, never 'verified'."""
     orchestrator = NativeWaterfallOrchestrator()
-    res = orchestrator.run_waterfall_enrichment(
-        first_name="Alex",
-        last_name="Bouaziz",
-        company_name="Deel",
-        domain="deel.com",
-        title="CEO"
-    )
-    assert res["prospect_name"] == "Alex Bouaziz"
-    assert res["domain"] == "deel.com"
-    assert "@deel.com" in res["resolved_email"]
-    assert res["confidence_score"] >= 60
-    assert len(res["waterfall_steps_executed"]) >= 4
-    assert res["estimated_commercial_dollars_saved"] >= 1.0
-    assert "detected_stack" in res["autonomous_research_dossier"]
+    monkeypatch.setattr(orchestrator.smtp_verifier, "resolve_mx_records", lambda d: ["mx.example.net"])
+    monkeypatch.setattr(orchestrator.smtp_verifier, "is_catch_all_domain", lambda d: False)
+    monkeypatch.setattr(orchestrator.smtp_verifier, "verify_email", lambda e: {"is_valid": True, "confidence_score": 80})
+    monkeypatch.setattr(orchestrator, "check_gravatar_footprint", lambda e: False)
+    monkeypatch.setattr(orchestrator.tech_fingerprinter, "analyze_domain", lambda d: {})
+    res = orchestrator.run_waterfall_enrichment("Jane", "Doe", "Example Co", "example.com", "CEO")
+    assert "@example.com" in res["resolved_email"] and res["email_status"] == "smtp_accepted"
+    assert res["verified"] is False and res["verdict"] == "NEEDS_VERIFICATION"
+    assert res["verification_note"]
+    assert "estimated_commercial_dollars_saved" not in res
+    dossier = res["autonomous_research_dossier"]
+    assert dossier["detected_stack"] == [] and "hiring_signal" not in dossier
+
 
 def test_native_smartlead_router():
     # 1. Spintax parsing

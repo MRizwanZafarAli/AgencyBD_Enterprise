@@ -209,8 +209,9 @@ def test_hunt_generates_pitch_strategy_and_coordinates(fake_places, client, grow
     assert "pitch_strategy" in top
     ps = top["pitch_strategy"]
     assert "angle" in ps and "value_estimate" in ps and "deliverables" in ps and "cold_pitch_hook" in ps
-    assert "Digital Flagship" in ps["angle"]
-    assert len(ps["deliverables"]) >= 3
+    assert ps["angle"] == "Build a website customers can find and book from"
+    assert ps["value_estimate"] is None and ps["deliverables"] == []        # no price or deliverables unless YOUR catalog defines them
+    assert "doesn't list a website" in ps["cold_pitch_hook"] and not any(ch.isdigit() and "%" in ps["cold_pitch_hook"] for ch in ps["cold_pitch_hook"])
 
     # Batch save
     batch_res = client.post("/api/hunt/local/batch_save", headers=growth_headers, json=[
@@ -219,3 +220,12 @@ def test_hunt_generates_pitch_strategy_and_coordinates(fake_places, client, grow
     assert batch_res.status_code == 200
     assert batch_res.json()["saved_count"] == 1
 
+
+def test_pitch_strategy_uses_the_catalog_price_band_and_never_invents_statistics():
+    from intel.local_hunt import generate_pitch_strategy
+    from intel.services import ServiceCatalog
+    ServiceCatalog.upsert("org_pitch", "presence_rescue", "Website build", "Design; Build; Launch", price_band="GBP 2,000-3,500")
+    ps = generate_pitch_strategy({"name": "Smile", "classification": "social_only", "facebook": "https://facebook.com/x", "reasons": ["Phone number available"]}, "dentist", "Leeds", "org_pitch")
+    assert ps["value_estimate"] == "GBP 2,000-3,500" and ps["deliverables"] == ["Design", "Build", "Launch"]
+    blob = " ".join([ps["cold_pitch_hook"]] + ps["actionable_teardown"])
+    assert "Facebook" in ps["cold_pitch_hook"] and "%" not in blob and "$" not in blob
