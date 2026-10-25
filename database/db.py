@@ -5,6 +5,7 @@ foreign key cascades, and cryptographic audit logging for unhackable data integr
 """
 
 import sqlite3
+import threading
 import json
 from typing import Optional
 from contextlib import contextmanager
@@ -72,9 +73,9 @@ def init_db():
         linkedin_url TEXT,
         email TEXT NOT NULL UNIQUE,
         email_source TEXT,
-        verification_status TEXT DEFAULT 'valid',
-        mx_verified BOOLEAN DEFAULT 1,
-        smtp_handshake_status TEXT DEFAULT '250_OK',
+        verification_status TEXT DEFAULT 'unverified',
+        mx_verified BOOLEAN DEFAULT 0,
+        smtp_handshake_status TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (lead_id) REFERENCES leads (id) ON DELETE CASCADE
     );
@@ -233,7 +234,7 @@ def init_db():
         name TEXT NOT NULL,
         place_id TEXT,
         size_band TEXT,
-        country TEXT DEFAULT 'US',
+        country TEXT,
         industry TEXT,
         status TEXT DEFAULT 'active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -631,6 +632,90 @@ def init_db():
         secret_enc TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS work_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL,
+        kind TEXT NOT NULL,              -- find_contact | review_lead | fix_setup | new_cve | reply | custom
+        title TEXT NOT NULL,
+        detail TEXT,
+        entity_type TEXT,
+        entity_id INTEGER,
+        priority INTEGER NOT NULL DEFAULT 50,
+        status TEXT NOT NULL DEFAULT 'open',   -- open | done | dismissed
+        dedupe_key TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        resolved_at TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_work_items_open ON work_items(org_id, status, priority DESC);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_work_items_dedupe ON work_items(org_id, dedupe_key) WHERE dedupe_key IS NOT NULL AND status = 'open';
+    CREATE TABLE IF NOT EXISTS lead_scores (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL,
+        lead_id INTEGER NOT NULL,
+        score INTEGER NOT NULL,
+        band TEXT NOT NULL,
+        components_json TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_lead_scores_lead ON lead_scores(org_id, lead_id, id DESC);
+    CREATE TABLE IF NOT EXISTS org_controls (
+        org_id TEXT PRIMARY KEY,
+        outbound_halted INTEGER NOT NULL DEFAULT 0,
+        reason TEXT,
+        changed_by TEXT,
+        changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS integration_keys (
+        name TEXT PRIMARY KEY,
+        value_enc TEXT NOT NULL,
+        set_by TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS channel_records (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL,
+        platform TEXT NOT NULL,
+        type TEXT NOT NULL,              -- link | pipeline | template | routine | done | activity | message | setting
+        data_json TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_channel_records ON channel_records(org_id, platform, type);
+    CREATE TABLE IF NOT EXISTS client_notes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL,
+        lead_id INTEGER NOT NULL,
+        kind TEXT NOT NULL,              -- note | task
+        body TEXT NOT NULL,
+        due_date TEXT,                   -- YYYY-MM-DD, tasks only
+        done_at TIMESTAMP,
+        created_by TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_client_notes ON client_notes(org_id, lead_id);
+    CREATE TABLE IF NOT EXISTS vuln_cache (
+        cache_key TEXT PRIMARY KEY,
+        payload_json TEXT NOT NULL,
+        fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS discovery_runs (
+        id TEXT PRIMARY KEY,
+        org_id TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'running',   -- running | done | failed
+        params_json TEXT,
+        progress_json TEXT,
+        result_json TEXT,
+        error TEXT,
+        started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        finished_at TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS job_runs (
+        job TEXT NOT NULL,
+        org_id TEXT NOT NULL DEFAULT '*',
+        last_run_at TIMESTAMP,
+        detail TEXT,
+        PRIMARY KEY (job, org_id)
+    );
     """)
     cursor.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS idx_opp_org_source_ext
@@ -640,34 +725,61 @@ def init_db():
     conn.commit()
     conn.close()
 
-@contextmanager
-def get_db():
-    """Context manager for SQLite connections with dictionary cursor and busy timeout."""
+_thread_state = threading.local()
+
+
+def _connect() -> sqlite3.Connection:
     conn = sqlite3.connect(str(DB_PATH), timeout=15.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA busy_timeout = 15000;")
     conn.execute("PRAGMA foreign_keys = ON;")
+    return conn
+
+
+@contextmanager
+def get_db():
+    """
+    Context manager yielding this thread's SQLite connection (created once, reused). Opening and closing a connection per call made
+    concurrent writers crawl in WAL mode (shared-memory setup and a checkpoint on every last close). Semantics are unchanged: a
+    transaction that was not committed is rolled back when the block ends, exactly as closing the connection used to do.
+    """
+    path = str(DB_PATH)
+    pool = getattr(_thread_state, "pool", None)
+    if pool is None:
+        pool = _thread_state.pool = {}
+    conn = pool.get(path)
+    if conn is None:
+        conn = pool[path] = _connect()
+    depth = getattr(_thread_state, "depth", 0)
+    _thread_state.depth = depth + 1
     try:
         yield conn
+    except BaseException:
+        if conn.in_transaction:
+            conn.rollback()
+        raise
     finally:
-        conn.close()
+        _thread_state.depth = depth
+        if depth == 0 and conn.in_transaction:        # outermost block: discard anything that was not committed
+            conn.rollback()
+
 
 def log_audit_trail(lead_id: Optional[int], actor: str, action: str, metadata: dict, conn: Optional[sqlite3.Connection] = None) -> None:
     """Appends an immutable audit event for security and compliance monitoring."""
     if conn is not None:
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO audit_trail (lead_id, actor, action, metadata_json)
-            VALUES (?, ?, ?, ?)
-        """, (lead_id, actor, action, json.dumps(metadata, default=str)))
+            INSERT INTO audit_trail (lead_id, actor, action, metadata_json, org_id)
+            VALUES (?, ?, ?, ?, COALESCE((SELECT org_id FROM leads WHERE id = ?), 'org_default'))
+        """, (lead_id, actor, action, json.dumps(metadata, default=str), lead_id))
         return
 
     with get_db() as c:
         cursor = c.cursor()
         cursor.execute("""
-            INSERT INTO audit_trail (lead_id, actor, action, metadata_json)
-            VALUES (?, ?, ?, ?)
-        """, (lead_id, actor, action, json.dumps(metadata, default=str)))
+            INSERT INTO audit_trail (lead_id, actor, action, metadata_json, org_id)
+            VALUES (?, ?, ?, ?, COALESCE((SELECT org_id FROM leads WHERE id = ?), 'org_default'))
+        """, (lead_id, actor, action, json.dumps(metadata, default=str), lead_id))
         c.commit()
 
 def is_entity_suppressed(email_or_domain: str, conn: Optional[sqlite3.Connection] = None) -> bool:

@@ -15,10 +15,12 @@ re-running guards 1-5, so an address that was suppressed or bounced after approv
 """
 
 import json
+import threading
 from workflows import controls
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
+from compliance.content_guard import check_outreach_text
 from compliance.country_policy import CountryComplianceEngine
 from compliance.footer import ComplianceFooterBuilder
 from compliance.suppression import KeyedSuppressionVault
@@ -56,6 +58,7 @@ class SequenceExecutionResult:
 
 class OutreachSequenceWorkflow:
     def __init__(self, provider: Optional[SendProvider] = None, verification_gate: Optional[EmailVerificationGate] = None):
+        self._tl = threading.local()      # per-thread message state: one workflow instance may serve several threads
         self.provider = provider or SmtpProvider()
         self.verifier = verification_gate or EmailVerificationGate()
 
@@ -87,7 +90,7 @@ class OutreachSequenceWorkflow:
 
     def _guards(self, org_id: str, email: str, country_code: Optional[str], step_number: int,
                 deal_value: Optional[float]) -> Optional[SequenceExecutionResult]:
-        """Runs guards 1-5. Returns a terminal result, or None. Sets self._last_decision for the caller."""
+        """Runs guards 1-5. Returns a terminal result, or None. Sets this thread's decision for the caller."""
         def stop(status: str, reason: str) -> SequenceExecutionResult:
             return SequenceExecutionResult(status=status, step_number=step_number, recipient_email=email, reason=reason)
 
@@ -96,7 +99,7 @@ class OutreachSequenceWorkflow:
         jurisdiction = CountryComplianceEngine.evaluate(country_code)
         if not jurisdiction.allowed:
             return stop("blocked_by_policy", jurisdiction.reason)
-        self._jurisdiction = jurisdiction
+        self._tl.jurisdiction = jurisdiction
         if KeyedSuppressionVault.is_suppressed(email, org_id):
             return stop("suppressed", "Recipient is in the suppression vault.")
         reason = self.stop_reason(org_id, email)
@@ -109,7 +112,7 @@ class OutreachSequenceWorkflow:
         if deal_value is not None:
             ctx["deal_value"] = deal_value
         decision = PolicyEngine.evaluate(org_id, "outbound_first_touch" if step_number == 1 else "outbound_followup", ctx)
-        self._last_decision = decision
+        self._tl.decision = decision
         if not decision.allowed:
             return stop("blocked_by_policy", decision.reason)
         return None
@@ -161,10 +164,13 @@ class OutreachSequenceWorkflow:
         created_by: str = "api",
     ) -> SequenceExecutionResult:
         email = recipient_email.strip().lower()
+        bad_content = check_outreach_text(step.subject, step.body)
+        if bad_content:
+            return SequenceExecutionResult(status="blocked_by_policy", step_number=step.step_number, recipient_email=email, reason=bad_content)
         blocked = self._guards(org_id, email, country_code, step.step_number, deal_value)
         if blocked:
             return blocked
-        decision = self._last_decision
+        decision = self._tl.decision
 
         draft_id = self._create_draft(org_id, email, step, country_code or "", lead_id, recipient_name, company_name,
                                       deal_value, enrollment_id, decision.rule_name, created_by)
@@ -184,6 +190,10 @@ class OutreachSequenceWorkflow:
             return SequenceExecutionResult(status="blocked_by_policy", step_number=draft["step_number"],
                                            recipient_email=draft["recipient_email"], draft_id=draft_id,
                                            reason=f"Draft is '{draft['status']}', not approved.")
+        bad_content = check_outreach_text(draft["subject"], draft["body"])
+        if bad_content:
+            return SequenceExecutionResult(status="blocked_by_policy", step_number=draft["step_number"], recipient_email=draft["recipient_email"],
+                                           draft_id=draft_id, reason=bad_content)
         # Re-check the world as it is NOW, not as it was at approval time.
         blocked = self._guards(org_id, draft["recipient_email"], draft["country_code"], draft["step_number"], draft["deal_value"])
         if blocked:
@@ -206,7 +216,7 @@ class OutreachSequenceWorkflow:
             return finish("no_mailbox", reason="No mailbox with credentials and remaining capacity (daily cap or warm-up ramp).")
 
         plain_footer, html_footer, headers = ComplianceFooterBuilder.build_footer(
-            recipient_email=email, org_id=org_id, include_lia=self._jurisdiction.requires_lia)
+            recipient_email=email, org_id=org_id, include_lia=self._tl.jurisdiction.requires_lia)
         message = OutboundMessage(
             to_email=email, from_email=mailbox["email"], subject=draft["subject"], body_text=draft["body"] + plain_footer,
             body_html=f"<div style='font-family: sans-serif; font-size: 14px; line-height: 1.6;'>{draft['body'].replace(chr(10), '<br/>')}</div>" + html_footer,

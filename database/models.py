@@ -118,14 +118,17 @@ class LeadRepository:
         total_pipeline_value = 0.0
         weighted_projected_revenue = 0.0
         active_deals = 0
+        unvalued_deals = 0
         won_deals = 0
+        lost_deals = 0
 
         for r in rows:
             st = (r.get("status") or "sourced").lower().replace(" ", "_")
             if st not in stages:
                 st = "sourced"
 
-            deal_val = 4500.0
+            # A deal has a value only when a person entered one ("EST VALUE: $N" in the notes). Nothing is assumed.
+            deal_val = None
             notes = r.get("notes") or ""
             val_match = re.search(r"EST VALUE:\s*\$([0-9,]+)", notes)
             if val_match:
@@ -134,7 +137,7 @@ class LeadRepository:
                 except Exception:
                     pass
 
-            pitch_angle = "Web Presence & Performance Rescue"
+            pitch_angle = None
             angle_match = re.search(r"PITCH ANGLE:\s*([^|]+)", notes)
             if angle_match:
                 pitch_angle = angle_match.group(1).strip()
@@ -158,17 +161,23 @@ class LeadRepository:
             stages[st].append(deal_item)
 
             if st != "lost":
-                total_pipeline_value += deal_val
-                weighted_projected_revenue += deal_val * stage_weights.get(st, 0.1)
                 active_deals += 1
+                if deal_val is None:
+                    unvalued_deals += 1
+                else:
+                    total_pipeline_value += deal_val
+                    weighted_projected_revenue += deal_val * stage_weights.get(st, 0.1)
             if st == "won":
                 won_deals += 1
+            if st == "lost":
+                lost_deals += 1
 
-        win_rate = (won_deals / max(active_deals, 1)) * 100
+        closed = won_deals + lost_deals
+        win_rate = round(won_deals / closed * 100, 1) if closed else None   # won / (won + lost); None until something has closed
 
         formatted_stages = {}
         for s_key, s_leads in stages.items():
-            s_val = round(sum(d["deal_value"] for d in s_leads), 2)
+            s_val = round(sum(d["deal_value"] or 0 for d in s_leads), 2)
             s_info = {
                 "count": len(s_leads),
                 "value": s_val,
@@ -189,7 +198,12 @@ class LeadRepository:
             "active_deals_count": active_deals,
             "total_deals": active_deals,
             "won_deals_count": won_deals,
-            "win_rate_percent": round(win_rate, 1),
+            "win_rate_percent": win_rate,
+            "unvalued_deals_count": unvalued_deals,
+            "lost_deals_count": lost_deals,
+            "stage_probabilities": stage_weights,
+            "projection_note": ("Totals include only deals where you entered a value. The weighted figure multiplies each by the stage "
+                                "probability shown (adjustable defaults, not measured); it is a planning aid, not a forecast."),
             "stages": formatted_stages
         }
 
@@ -288,11 +302,12 @@ class ContactRepository:
         email: str,
         linkedin_url: Optional[str] = None,
         email_source: str = "waterfall_enrichment",
-        verification_status: str = "valid",
-        mx_verified: bool = True,
-        smtp_handshake_status: str = "250_OK",
+        verification_status: str = "unverified",
+        mx_verified: bool = False,
+        smtp_handshake_status: Optional[str] = None,
         org_id: str = "org_default"
     ) -> Dict[str, Any]:
+        """Stores a contact. Verification is whatever the caller actually established; the default is 'unverified'."""
         email = email.lower().strip()
         # Enforce CAN-SPAM suppression check
         if is_entity_suppressed(email):
@@ -458,7 +473,7 @@ class CompanyRepository:
         domain: Optional[str] = None,
         place_id: Optional[str] = None,
         size_band: Optional[str] = None,
-        country: str = "US",
+        country: Optional[str] = None,        # unknown unless a person or a verified source says so
         industry: Optional[str] = None,
         org_id: str = "org_default"
     ) -> Dict[str, Any]:

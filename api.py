@@ -7,6 +7,8 @@ Prometheus observability, inbound webhooks, and global AI market intelligence.
 
 import logging
 import os
+import hashlib
+import re
 from contextlib import asynccontextmanager
 from typing import Optional, List, Dict, Any
 
@@ -25,7 +27,6 @@ from schemas.lead import SourcingQueryRequest
 from schemas.audit import AuditRequest
 from schemas.outreach import ObjectionTriageRequest, BookingRequest
 from data.geo_database import GeoDatabase
-from agents.market_intelligence_agent import MarketIntelligenceAgent
 from agents.inbound_webhook_router import InboundWebhookRouter
 from security.webhook_verifier import WebhookSecurity, WebhookSecrets
 from security.auth import (
@@ -34,6 +35,7 @@ from security.auth import (
     DEFAULT_ORG_ID,
     get_current_principal,
     require_permission,
+    require_role,
     scoped_org,
 )
 from core.metrics import MetricsManager
@@ -50,6 +52,11 @@ _docs_enabled = (not is_production()) or os.getenv("AGENCYBD_ENABLE_DOCS", "").l
 async def lifespan(_app: FastAPI):
     """Starts the sequence scheduler in-process when AGENCYBD_SCHEDULER=on (otherwise run scripts/run_scheduler.py)."""
     runner = None
+    try:
+        from config import integrations as _integrations
+        _integrations.apply_all()                       # keys saved in Settings take effect after a restart too
+    except Exception:
+        logger.exception("could not apply saved integration keys")
     if os.getenv("AGENCYBD_SCHEDULER", "off").lower() in ("on", "true", "1"):
         from workflows.scheduler import SchedulerThread
         runner = SchedulerThread(int(os.getenv("AGENCYBD_SCHEDULER_INTERVAL", "60")))
@@ -82,7 +89,28 @@ app.add_middleware(
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
-    response = await call_next(request)
+    """Adds security headers, a request id, a structured access log line and request metrics (route templates, so labels stay bounded)."""
+    import time
+    import uuid
+    from core import metrics as m
+    request_id = request.headers.get("X-Request-ID", "")[:64] or uuid.uuid4().hex[:16]
+    started = time.perf_counter()
+    status = 500
+    try:
+        response = await call_next(request)
+        status = response.status_code
+    except Exception:
+        logger.exception("unhandled error", extra={"event": "http_error", "trace_id": request_id})
+        raise
+    finally:
+        elapsed = time.perf_counter() - started
+        route = getattr(request.scope.get("route"), "path", None) or "unmatched"
+        if not route.startswith("/healthz"):
+            m.HTTP_REQUESTS.labels(request.method, route, str(status)).inc()
+            m.HTTP_LATENCY.labels(route).observe(elapsed)
+            logger.info("request", extra={"event": "http_request", "trace_id": request_id,
+                                          "extra_data": {"method": request.method, "route": route, "status": status, "ms": int(elapsed * 1000)}})
+    response.headers.setdefault("X-Request-ID", request_id)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     response.headers.setdefault("Referrer-Policy", "no-referrer")
@@ -120,7 +148,6 @@ async def value_error_handler(request: Request, exc: ValueError):
 
 
 engine = SwarmEngine()
-market_intel = MarketIntelligenceAgent()
 webhook_router = InboundWebhookRouter()
 
 MAX_WEBHOOK_BYTES = 1_000_000
@@ -128,6 +155,8 @@ MAX_WEBHOOK_BYTES = 1_000_000
 
 def _fail(exc: Exception) -> HTTPException:
     """Maps domain errors to 400 and hides internal failures behind a generic 500."""
+    if isinstance(exc, HTTPException):
+        return exc
     if isinstance(exc, (NotConfiguredError, PreconditionFailedError, HostUnreachableError, SSRFSecurityError)):
         return exc  # handled by the dedicated exception handlers (503 / 422 / 502 / 400)
     if isinstance(exc, ValueError):
@@ -283,8 +312,8 @@ def discover_xray_people(req: XRayPeopleRequest, principal: Principal = Depends(
 def get_sec_edgar_venture_leads(limit: int = 15, principal: Principal = Depends(require_permission("leads:read"))):
     """Sovereign real-time venture capital filings stream directly from SEC EDGAR Form D."""
     try:
-        leads = engine.sourcing_agent.source_sec_edgar_venture(limit=min(limit, 50), org_id=principal.org_id)
-        return {"status": "success", "count": len(leads), "leads": leads}
+        out = engine.sourcing_agent.source_sec_edgar_venture(limit=min(limit, 50), org_id=principal.org_id)
+        return {"status": "success", "count": len(out["leads"]), "leads": out["leads"], "skipped": out["skipped"]}
     except Exception as e:
         raise _fail(e)
 
@@ -292,8 +321,8 @@ def get_sec_edgar_venture_leads(limit: int = 15, principal: Principal = Depends(
 def get_hiring_signals_leads(query: str = "Engineer", limit: int = 15, principal: Principal = Depends(require_permission("leads:read"))):
     """Sovereign live hiring bottlenecks stream from Hacker News and RemoteOK."""
     try:
-        leads = engine.sourcing_agent.source_hn_hiring_signals(role_keyword=query, limit=min(limit, 50), org_id=principal.org_id)
-        return {"status": "success", "count": len(leads), "leads": leads}
+        out = engine.sourcing_agent.source_hn_hiring_signals(role_keyword=query, limit=min(limit, 50), org_id=principal.org_id)
+        return {"status": "success", "count": len(out["leads"]), "leads": out["leads"], "skipped": out["skipped"], "errors": out["errors"]}
     except Exception as e:
         raise _fail(e)
 
@@ -384,18 +413,7 @@ def get_cities(country: str = Query(...), state: str = Query(...), principal: Pr
 def search_cities(query: str = Query(..., max_length=100), principal: Principal = Depends(require_permission("leads:read"))):
     return {"query": query, "results": GeoDatabase.search_cities_globally(query)}
 
-class MarketDemandRequest(BaseModel):
-    project_demand: str
-    ticket_size: Optional[str] = "$25k-$75k"
-    target_countries: Optional[List[str]] = None
 
-@app.post("/api/intelligence/recommend_markets")
-def recommend_markets_endpoint(req: MarketDemandRequest, principal: Principal = Depends(require_permission("leads:read"))):
-    return market_intel.analyze_demand(
-        project_demand=req.project_demand,
-        ticket_size=req.ticket_size or "$25k-$75k",
-        target_countries=req.target_countries
-    )
 
 # ==================== Live Inbound Webhook Ingress ====================
 
@@ -634,90 +652,19 @@ def native_simulate_objection_endpoint(req: ObjectionSimulateRequest, principal:
 def native_objection_battlecards_endpoint(principal: Principal = Depends(require_permission("leads:read"))):
     return NativeSalesIntelligence().list_battlecards()
 
-from orchestrator.autonomous_autopilot import AutonomousAutopilot
-from engines.math_pipeline_engine import MathPipelineEngine
 
-autopilot_engine = AutonomousAutopilot()
 
-class AutopilotRunRequest(BaseModel):
-    channel: Optional[str] = "sec_edgar"
-    query: Optional[str] = "Form D"
-    location: Optional[str] = "United States"
-    limit: Optional[int] = 5
-    auto_enroll: Optional[bool] = True
 
-class MathScoreRequest(BaseModel):
-    source_channel: Optional[str] = "sec_edgar_form_d"
-    title: Optional[str] = "CTO"
-    lcp_seconds: Optional[float] = 3.2
-    detected_stack: Optional[List[str]] = None
-    email_confidence: Optional[int] = 90
-    catch_all_decoded: Optional[bool] = False
 
-@app.post("/api/swarm/autopilot/run")
-def run_swarm_autopilot(req: AutopilotRunRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
-    """Executes a fully autonomous multi-agent swarm cycle with Bayesian scoring and cadence dispatch."""
-    try:
-        result = autopilot_engine.run_autopilot_cycle(
-            channel=req.channel or "sec_edgar",
-            query=req.query or "Form D",
-            location=req.location or "United States",
-            limit=min(req.limit or 5, 20),
-            auto_enroll=req.auto_enroll if req.auto_enroll is not None else True,
-            org_id=principal.org_id
-        )
-        return {"status": "success", "result": result}
-    except Exception as e:
-        raise _fail(e)
 
-@app.post("/api/swarm/math/score")
-def calculate_lead_math_score(req: MathScoreRequest, principal: Principal = Depends(require_permission("leads:read"))):
-    """Calculates Bayesian P(Close), Expected Deal Value, and Cost of Delay."""
-    prob = MathPipelineEngine.predict_close_probability(
-        source_channel=req.source_channel or "sec_edgar_form_d",
-        title=req.title or "CTO",
-        lcp_seconds=req.lcp_seconds or 3.2,
-        detected_stack=req.detected_stack or ["Next.js"],
-        email_confidence=req.email_confidence or 90,
-        catch_all_decoded=req.catch_all_decoded or False
-    )
-    deal = MathPipelineEngine.calculate_expected_deal_value(
-        p_close=prob["p_close"],
-        source_channel=req.source_channel or "sec_edgar_form_d",
-        detected_stack=req.detected_stack or ["Next.js"]
-    )
-    delay = MathPipelineEngine.calculate_cost_of_delay(lcp_seconds=req.lcp_seconds or 3.2)
-    return {
-        "status": "success",
-        "probability": prob,
-        "deal_economics": deal,
-        "cost_of_delay": delay
-    }
 
 from engines.native_browser_service import NativeBrowserService
-from engines.brain_gateway import BrainGateway
 
 browser_service = NativeBrowserService()
-brain_gateway = BrainGateway()
 
-class BrainPlanRequest(BaseModel):
-    goal: str
-    context: Optional[Dict[str, Any]] = None
 
-class BrainChatRequest(BaseModel):
-    messages: List[Dict[str, str]]
-    context: Optional[Dict[str, Any]] = None
 
-class BrainObjectionRequest(BaseModel):
-    objection: str
-    prospect_name: Optional[str] = "Lead"
-    company: Optional[str] = "Target Corp"
-    context: Optional[Dict[str, Any]] = None
 
-class BrainArtifactRequest(BaseModel):
-    lead: Dict[str, Any]
-    tech_audit: Optional[Dict[str, Any]] = None
-    deal_metrics: Optional[Dict[str, Any]] = None
 
 class BrowserRenderRequest(BaseModel):
     domain: str
@@ -726,33 +673,13 @@ class BrowserScreenshotRequest(BaseModel):
     domain: str
     viewport: Optional[str] = "desktop"
 
-@app.get("/api/brain/status")
-def get_brain_status_endpoint(principal: Principal = Depends(require_permission("leads:read"))):
-    """Returns real-time status of active cognitive brain (Ollama, Free Cloud, Claude BYOK, Native)."""
-    return {"status": "success", "brain": brain_gateway.detect_active_brain()}
 
-@app.post("/api/brain/plan")
-def get_brain_plan_endpoint(req: BrainPlanRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
-    """Generates Claude-style ReAct execution plan with tool calling sequence and chain-of-thought."""
-    return brain_gateway.think_and_plan(req.goal, req.context)
 
-@app.post("/api/brain/chat")
-def get_brain_chat_endpoint(req: BrainChatRequest, principal: Principal = Depends(require_permission("leads:read"))):
-    """Conversational Big Brain Co-Pilot for autonomous swarm guidance."""
-    return brain_gateway.chat_copilot(req.messages, req.context)
 
-@app.post("/api/brain/triage-objection")
-def get_brain_objection_endpoint(req: BrainObjectionRequest, principal: Principal = Depends(require_permission("leads:read"))):
-    """Categorizes inbound objection and generates evidence-based rebuttal battlecard."""
-    return brain_gateway.triage_objection(req.objection, req.prospect_name or "Lead", req.company or "Target Corp", req.context)
 
-@app.post("/api/brain/artifact")
-def get_brain_artifact_endpoint(req: BrainArtifactRequest, principal: Principal = Depends(require_permission("leads:read"))):
-    """Generates Claude-style rich interactive markdown proposal with KaTeX math and sprint milestones."""
-    return brain_gateway.generate_proposal_artifact(req.lead, req.tech_audit, req.deal_metrics)
 
 @app.post("/api/browser/render")
-def browser_render_endpoint(req: BrowserRenderRequest, principal: Principal = Depends(require_permission("leads:read"))):
+def browser_render_endpoint(req: BrowserRenderRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
     """Renders virtual DOM of target website using sovereign headless Chromium and extracts contacts."""
     try:
         return browser_service.render_spa_dom(req.domain)
@@ -760,222 +687,82 @@ def browser_render_endpoint(req: BrowserRenderRequest, principal: Principal = De
         raise _fail(e)
 
 @app.post("/api/browser/screenshot")
-def browser_screenshot_endpoint(req: BrowserScreenshotRequest, principal: Principal = Depends(require_permission("leads:read"))):
+def browser_screenshot_endpoint(req: BrowserScreenshotRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
     """Captures high-resolution desktop or mobile screenshot using sovereign headless Chromium."""
     try:
         return browser_service.capture_screenshot(req.domain, viewport=req.viewport or "desktop")
     except Exception as e:
         raise _fail(e)
 
-from engines.differential_audit_engine import DifferentialAuditEngine
-from intel.evidence_ledger import EvidenceLedger
+from database.models import EvidenceRepository
 
-evidence_ledger = EvidenceLedger()
-differential_engine = DifferentialAuditEngine(browser_service=browser_service, evidence_ledger=evidence_ledger)
 
-class DifferentialCompareRequest(BaseModel):
-    target_domain: str
-    competitor_domain: str
-    monthly_visitors: Optional[int] = 40000
-    average_order_value_usd: Optional[float] = 120.0
-
-@app.post("/api/differential/compare")
-def differential_compare_endpoint(req: DifferentialCompareRequest, principal: Principal = Depends(require_permission("leads:read"))):
-    """Generates side-by-side technical & financial comparison between prospect and competitor."""
-    try:
-        return differential_engine.compare_domains(
-            target_domain=req.target_domain,
-            competitor_domain=req.competitor_domain,
-            monthly_visitors=req.monthly_visitors or 40000,
-            average_order_value_usd=req.average_order_value_usd or 120.0
-        )
-    except Exception as e:
-        raise _fail(e)
-
-@app.get("/api/evidence/ledger/{evidence_id}")
-def get_evidence_record_endpoint(evidence_id: str, principal: Principal = Depends(require_permission("leads:read"))):
-    """Retrieves an immutable evidence record by ID."""
-    rec = evidence_ledger.get_evidence(evidence_id)
+@app.get("/api/evidence/{evidence_id}")
+def get_evidence_record_endpoint(evidence_id: int, principal: Principal = Depends(require_permission("leads:read"))):
+    """One stored evidence row (claim, measured value, source, method, time). Tenant-scoped."""
+    rec = EvidenceRepository.get_by_ids([evidence_id], principal.org_id).get(evidence_id)
     if not rec:
         raise HTTPException(status_code=404, detail="Evidence record not found")
-    return {"status": "success", "evidence": rec.to_dict()}
+    return {"status": "success", "evidence": rec}
 
-@app.get("/api/evidence/unknowns/{domain}")
-def get_domain_unknowns_endpoint(domain: str, principal: Principal = Depends(require_permission("leads:read"))):
-    """Lists explicit unknown facets and missing fields for a domain."""
-    unknowns = evidence_ledger.list_unknowns_for_domain(domain)
-    return {"status": "success", "domain": domain, "unknowns": unknowns}
 
-# ==================== Interactive Browser, Swarm Pods & Teardown Deck ====================
+# ==================== Interactive browser viewer ====================
 from engines.interactive_browser_session import InteractiveBrowserSession
-from agents.swarm_pods import (
-    SwarmPodController,
-    SourcingScoutPod,
-    ForensicsEngineerPod,
-    DealStrategistPod,
-    DeliverabilitySentinelPod,
-    ObjectionNegotiatorPod,
-)
-from engines.teardown_deck_exporter import TeardownDeckExporter
 
 _interactive_sessions: Dict[str, InteractiveBrowserSession] = {}
+MAX_INTERACTIVE_SESSIONS = 20
+_SESSION_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
 
-def _get_interactive_session(session_id: str = "default_session") -> InteractiveBrowserSession:
-    if session_id not in _interactive_sessions:
-        _interactive_sessions[session_id] = InteractiveBrowserSession(session_id=session_id)
-    return _interactive_sessions[session_id]
+def _get_interactive_session(session_id: str, principal: Principal) -> InteractiveBrowserSession:
+    """Sessions are private to the tenant and user that opened them; the id never reaches the filesystem unvalidated."""
+    if not _SESSION_ID_RE.match(session_id or ""):
+        raise HTTPException(status_code=422, detail="session_id must be 1-40 letters, digits, '-' or '_'.")
+    key = hashlib.sha256(f"{principal.org_id}:{principal.user_id}:{session_id}".encode()).hexdigest()[:24]
+    if key not in _interactive_sessions:
+        if len(_interactive_sessions) >= MAX_INTERACTIVE_SESSIONS:
+            _interactive_sessions.pop(next(iter(_interactive_sessions)))
+        _interactive_sessions[key] = InteractiveBrowserSession(session_id=key)
+    return _interactive_sessions[key]
 
-swarm_pod_controller = SwarmPodController()
-teardown_deck_exporter = TeardownDeckExporter(browser_service=browser_service, diff_engine=differential_engine)
 
 class InteractiveNavigateRequest(BaseModel):
     target: str
-    session_id: Optional[str] = "default_session"
+    session_id: Optional[str] = "default"
     viewport: Optional[str] = "desktop"
 
-class InteractiveActionRequest(BaseModel):
-    action_type: str = Field(..., description="Action type: click, type, scroll, or refresh")
-    params: Dict[str, Any] = Field(default_factory=dict)
-    session_id: Optional[str] = "default_session"
 
 class InteractiveHeadedRequest(BaseModel):
     url: Optional[str] = None
-    session_id: Optional[str] = "default_session"
+    session_id: Optional[str] = "default"
 
-class SwarmPodsRunRequest(BaseModel):
-    domain: Optional[str] = "apexlabs.internal"
-    competitor: Optional[str] = "stripe.com"
-    pod_type: Optional[str] = "all"
-    params: Optional[Dict[str, Any]] = None
 
-class TeardownDeckExportRequest(BaseModel):
-    target_domain: str
-    competitor_domain: Optional[str] = "stripe.com"
-    monthly_visitors: Optional[int] = 50000
-    aov_usd: Optional[float] = 125.0
-    output_format: Optional[str] = "both"
 
 @app.post("/api/browser/interactive/navigate")
-def interactive_browser_navigate(req: InteractiveNavigateRequest, principal: Principal = Depends(require_permission("leads:read"))):
+def interactive_browser_navigate(req: InteractiveNavigateRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
     """Navigates the interactive browser session with Human Touch support and returns viewport screenshot."""
     try:
-        session = _get_interactive_session(req.session_id or "default_session")
+        session = _get_interactive_session(req.session_id or "default", principal)
         return session.navigate(req.target, viewport=req.viewport or "desktop")
     except Exception as e:
         raise _fail(e)
 
-@app.post("/api/browser/interactive/action")
-def interactive_browser_action(req: InteractiveActionRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
-    """Dispatches a human touch coordinate click, keystroke input, or scroll action."""
-    try:
-        session = _get_interactive_session(req.session_id or "default_session")
-        return session.dispatch_human_touch_action(req.action_type, req.params)
-    except Exception as e:
-        raise _fail(e)
 
 @app.post("/api/browser/interactive/headed-window")
 def interactive_browser_launch_headed(req: InteractiveHeadedRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
     """Launches a live headed Chrome window on host system for direct physical human takeover."""
     try:
-        session = _get_interactive_session(req.session_id or "default_session")
+        session = _get_interactive_session(req.session_id or "default", principal)
         return session.launch_headed_window(url=req.url)
     except Exception as e:
         raise _fail(e)
 
-@app.post("/api/swarm/pods/run")
-def swarm_pods_run_endpoint(req: SwarmPodsRunRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
-    """Runs specialized autonomous multi-agent swarm pods."""
-    try:
-        ptype = (req.pod_type or "all").lower()
-        domain = req.domain or "apexlabs.internal"
-        comp = req.competitor or "stripe.com"
-        params = req.params or {}
 
-        if ptype == "all":
-            return swarm_pod_controller.run_full_pod_cycle(domain=domain, competitor=comp)
-        elif ptype == "scout":
-            scout = SourcingScoutPod()
-            return scout.run(limit=params.get("limit", 5))
-        elif ptype == "forensics":
-            forensics = ForensicsEngineerPod(browser_service=browser_service)
-            return forensics.run(domain=domain)
-        elif ptype == "strategist":
-            strategist = DealStrategistPod(diff_engine=differential_engine)
-            return strategist.run(target_domain=domain, competitor_domain=comp)
-        elif ptype == "sentinel":
-            sentinel = DeliverabilitySentinelPod()
-            return sentinel.run(day_number=params.get("day_number", 14), max_capacity=params.get("max_capacity", 50))
-        elif ptype == "negotiator":
-            negotiator = ObjectionNegotiatorPod(brain=brain_gateway)
-            return negotiator.run(
-                objection_text=params.get("objection_text", "We already have an in-house team."),
-                prospect_name=params.get("prospect_name", "Lead"),
-                company=params.get("company", domain)
-            )
-        else:
-            raise HTTPException(status_code=400, detail=f"Unknown pod_type: {ptype}")
-    except Exception as e:
-        raise _fail(e)
 
-@app.post("/api/teardown/deck/export")
-def teardown_deck_export_endpoint(req: TeardownDeckExportRequest, principal: Principal = Depends(require_permission("leads:read"))):
-    """Generates and exports an executive 3-page printable HTML & PDF teardown deck."""
-    try:
-        return teardown_deck_exporter.export_deck(
-            target_domain=req.target_domain,
-            competitor_domain=req.competitor_domain or "stripe.com",
-            monthly_visitors=req.monthly_visitors or 50000,
-            aov_usd=req.aov_usd or 125.0,
-            output_format=req.output_format or "both"
-        )
-    except Exception as e:
-        raise _fail(e)
 
-@app.get("/api/teardown/deck/view/{filename}")
-def teardown_deck_view_endpoint(filename: str, principal: Principal = Depends(require_permission("leads:read"))):
-    """Streams the rendered HTML or PDF teardown deck file."""
-    # Sanitize filename against directory traversal
-    clean_name = os.path.basename(filename)
-    deck_path = teardown_deck_exporter.storage_dir / clean_name
-    if not deck_path.exists() or not deck_path.is_file():
-        raise HTTPException(status_code=404, detail="Teardown deck file not found")
 
-    if clean_name.endswith(".html"):
-        return HTMLResponse(content=deck_path.read_text(encoding="utf-8"))
-    elif clean_name.endswith(".pdf"):
-        return FileResponse(path=str(deck_path), media_type="application/pdf", filename=clean_name)
-    else:
-        return FileResponse(path=str(deck_path))
 
-# ==================== Automated System Updater & Git Sync ====================
-from engines.system_updater import SystemUpdater
 
-system_updater = SystemUpdater()
 
-class SystemUpdaterApplyRequest(BaseModel):
-    remote: Optional[str] = "origin"
-    branch: Optional[str] = "main"
-    auto_push: Optional[bool] = True
-
-@app.get("/api/system/updater/status")
-def system_updater_status_endpoint(principal: Principal = Depends(require_permission("leads:read"))):
-    """Checks remote repository for new updates, returning commit delta and changelog."""
-    try:
-        return system_updater.check_for_updates()
-    except Exception as e:
-        raise _fail(e)
-
-@app.post("/api/system/updater/apply")
-def system_updater_apply_endpoint(req: SystemUpdaterApplyRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
-    """Pulls new updates, replaces workspace files, commits/pushes to GitHub, and triggers server reload."""
-    try:
-        return system_updater.apply_update(
-            remote=req.remote or "origin",
-            branch=req.branch or "main",
-            auto_push=True if req.auto_push is None else req.auto_push
-        )
-    except Exception as e:
-        raise _fail(e)
 
 # ==================== Phase 1: Website Doctor, Briefing & Presence Rescue ====================
 from intel.resolver import CompanyResolver
@@ -1052,7 +839,7 @@ def local_hunt_providers(principal: Principal = Depends(require_permission("lead
 @app.post("/api/hunt/local")
 def local_hunt_search(req: LocalHuntRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
     """Finds local businesses and ranks how winnable they are. Results are not stored until you save one."""
-    return local_hunt.hunt(req.category, req.city, req.limit, req.provider)
+    return local_hunt.hunt(req.category, req.city, req.limit, req.provider, org_id=principal.org_id)
 
 @app.post("/api/hunt/local/save")
 def local_hunt_save(req: LocalHuntSaveRequest, principal: Principal = Depends(require_permission("leads:create"))):
@@ -1112,7 +899,7 @@ class DealCreateRequest(BaseModel):
     company_name: str
     domain: str
     stage: str = "sourced"
-    deal_value: float = 4500.0
+    deal_value: Optional[float] = Field(None, ge=0)     # optional: a value exists only if a person enters one
     phone: Optional[str] = None
     address: Optional[str] = None
     notes: Optional[str] = None
@@ -1121,7 +908,7 @@ class DealCreateRequest(BaseModel):
 @app.post("/api/hunt/local/probe_presence")
 def local_hunt_probe_presence(req: LocalHuntProbeRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
     """Probes web presence and DNS/SSL reachability for a specific business."""
-    return local_hunt.probe_presence_live(req.name, req.city, req.website)
+    return local_hunt.probe_presence_live(req.name, req.city, req.website, org_id=principal.org_id)
 
 
 @app.get("/api/pipeline/deals")
@@ -1142,7 +929,7 @@ def update_pipeline_deal_stage(req: DealStageUpdateRequest, principal: Principal
 @app.post("/api/pipeline/deals/create")
 def create_pipeline_deal(req: DealCreateRequest, principal: Principal = Depends(require_permission("leads:create"))):
     """Creates a deal in the CRM pipeline."""
-    note_parts = [f"EST VALUE: ${req.deal_value:,.0f}"]
+    note_parts = [f"EST VALUE: ${req.deal_value:,.0f}"] if req.deal_value else []
     if req.notes:
         note_parts.append(req.notes)
     lead = LeadRepository.create_or_get_lead(
@@ -1349,6 +1136,14 @@ def decide_approval_endpoint(approval_id: int, req: DecideApprovalRequest, princ
 # ==================== Phase 4 & 5 Modular Routers ====================
 from routers import outbound_router, compliance_router, policy_router, analytics_router, replies_router, sequences_router, connectors_router, system_router
 
+from routers.integrations import router as integrations_router
+app.include_router(integrations_router)
+from routers.channels import router as channels_router
+from routers.today import router as today_router
+app.include_router(channels_router)
+app.include_router(today_router)
+from routers.client_notes import router as client_notes_router
+app.include_router(client_notes_router)
 app.include_router(outbound_router)
 app.include_router(compliance_router)
 app.include_router(policy_router)
@@ -1357,6 +1152,314 @@ app.include_router(replies_router)
 app.include_router(sequences_router)
 app.include_router(connectors_router)
 app.include_router(system_router)
+
+# ==================== Autopilot, priority, inbox, reports, assistant ====================
+from orchestrator.autopilot import DiscoveryRun
+from orchestrator import jobs as discovery_jobs
+from intel import lead_priority
+from intel.comparison import compare_domains
+from reports.client_report import ClientReport
+from routers.system import build_checks
+from workflows.inbox import WorkItemRepository
+from llm.client import LLMGateway
+from outbound.verify import EmailVerificationGate
+
+client_report = ClientReport()
+
+
+class DiscoveryRunRequest(BaseModel):
+    channel: str = "hiring"          # hiring | sec_edgar | local
+    query: str = ""                  # role keyword, or business type for "local"
+    location: str = ""               # city, for "local"
+    limit: int = 5
+
+
+@app.post("/api/autopilot/run")
+def run_discovery(req: DiscoveryRunRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
+    """Starts a Discovery Run in the background and returns its id. Poll GET /api/autopilot/runs/{id}. Never invents data."""
+    try:
+        return discovery_jobs.start(principal.org_id, req.model_dump(), principal.user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+
+@app.post("/api/radar/scan/start")
+def start_radar_scan(principal: Principal = Depends(require_permission("pipeline:run"))):
+    """Starts a source scan in the background (sources are read in parallel). Poll GET /api/autopilot/runs/{id}."""
+    return discovery_jobs.start(principal.org_id, {"channel": "radar_scan"}, principal.user_id)
+
+
+@app.get("/api/autopilot/runs/{run_id}")
+def get_discovery_run(run_id: str, principal: Principal = Depends(require_permission("leads:read"))):
+    out = discovery_jobs.get(principal.org_id, run_id)
+    if not out:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return out
+
+
+@app.get("/api/leads/{lead_id}/priority")
+def get_lead_priority(lead_id: int, principal: Principal = Depends(require_permission("leads:read"))):
+    try:
+        return lead_priority.score_lead(lead_id, principal.org_id, persist=False)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+
+@app.post("/api/leads/{lead_id}/priority")
+def recompute_lead_priority(lead_id: int, principal: Principal = Depends(require_permission("leads:write"))):
+    try:
+        return lead_priority.score_lead(lead_id, principal.org_id, persist=True)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+
+@app.get("/api/analytics/priority_calibration")
+def priority_calibration(principal: Principal = Depends(require_permission("metrics:read"))):
+    return lead_priority.calibration(principal.org_id)
+
+
+@app.get("/api/inbox")
+def today_inbox(principal: Principal = Depends(require_permission("leads:read"))):
+    """One ranked list of what needs a person: approvals, work items opened by automation, and blocking setup gaps."""
+    org = principal.org_id
+    items: List[Dict[str, Any]] = []
+    for a in ApprovalRepository.list_pending(org):
+        items.append({"type": "approval", "priority": 90, "id": a["id"], "title": a.get("draft_subject") or f"Approve {a['subject_type']}",
+                      "detail": a.get("draft_recipient") or a.get("reason") or "", "data": a})
+    for w in WorkItemRepository.list_open(org, 100):
+        items.append({"type": "work_item", "priority": w["priority"], "id": w["id"], "kind": w["kind"], "title": w["title"],
+                      "detail": w["detail"], "entity_type": w["entity_type"], "entity_id": w["entity_id"]})
+    for c in build_checks(org):
+        if c["status"] == "missing" and c["required"]:
+            items.append({"type": "setup", "priority": 60, "id": c["key"], "title": c["label"], "detail": c.get("fix") or ""})
+    items.sort(key=lambda i: -i["priority"])
+    return {"count": len(items), "items": items}
+
+
+class ResolveWorkItemRequest(BaseModel):
+    status: str = "done"             # done | dismissed
+
+
+@app.post("/api/inbox/work_items/{item_id}/resolve")
+def resolve_work_item(item_id: int, req: ResolveWorkItemRequest, principal: Principal = Depends(require_permission("leads:write"))):
+    if not WorkItemRepository.resolve(principal.org_id, item_id, req.status):
+        raise HTTPException(status_code=404, detail="Open work item not found")
+    return {"resolved": item_id, "status": req.status}
+
+
+from intel import advisor
+
+
+@app.get("/api/companies/{company_id}/advice")
+def company_advice(company_id: int, principal: Principal = Depends(require_permission("leads:read"))):
+    """Recommendations from stored audit findings, mapped to your services. No AI key needed."""
+    return advisor.recommendations(company_id, principal.org_id)
+
+
+@app.get("/api/companies/{company_id}/audit_history")
+def company_audit_history(company_id: int, principal: Principal = Depends(require_permission("leads:read"))):
+    """Past checks of this site and what changed between the last two."""
+    from intel import clinic
+    return {"audits": clinic.history(principal.org_id, company_id), "change": clinic.change(principal.org_id, company_id)}
+
+
+@app.get("/api/companies/{company_id}/teardown")
+def company_teardown(company_id: int, principal: Principal = Depends(require_permission("leads:read"))):
+    """A written teardown (Markdown) built only from the latest completed audit. 422 if the site has not been examined."""
+    from intel import clinic
+    try:
+        out = clinic.teardown(principal.org_id, company_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Company not found")
+    if out is None:
+        raise HTTPException(status_code=422, detail="Examine the site first; there is no completed audit to write about.")
+    return out
+
+
+@app.post("/api/companies/{company_id}/advice/ai")
+def company_advice_ai(company_id: int, principal: Principal = Depends(require_permission("outreach:draft"))):
+    """Plain-language recommendations written by the model; uncited or off-catalog items are dropped. 503 without a model."""
+    return advisor.advise(company_id, principal.org_id)
+
+
+from workflows import rescan as rescan_mod
+
+
+@app.post("/api/rescan/run")
+def run_rescan_now(principal: Principal = Depends(require_permission("pipeline:run"))):
+    """Re-audits this tenant's tracked clients now and opens a work item for every NEWLY matching CVE."""
+    try:
+        return rescan_mod.rescan_org(principal.org_id, limit=15, delay=1.0)
+    except Exception as e:
+        raise _fail(e)
+
+
+@app.get("/api/clients/{lead_id}")
+def client_detail(lead_id: int, principal: Principal = Depends(require_permission("leads:read"))):
+    """Everything the client page needs in one call: lead, company, priority, contacts, latest audit headline, open work items."""
+    from database.models import CompanyRepository
+    lead = _owned_lead(lead_id, principal)
+    org = lead.get("org_id") or principal.org_id
+    with get_db() as conn:
+        crow = conn.execute("SELECT id FROM companies WHERE org_id = ? AND LOWER(domain) = LOWER(?) ORDER BY id LIMIT 1", (org, lead["domain"])).fetchone()
+        items = [dict(r) for r in conn.execute("SELECT * FROM work_items WHERE org_id = ? AND entity_type = 'lead' AND entity_id = ? AND status = 'open' ORDER BY priority DESC", (org, lead_id)).fetchall()]
+    company_id = crow["id"] if crow else CompanyRepository.create_or_get(name=lead["company_name"], domain=lead["domain"] if not lead["domain"].endswith(".invalid") else None, org_id=org)["id"]
+    audit = AuditRunRepository.latest_for_company(company_id, org)
+    return {"lead": lead, "company_id": company_id, "priority": lead_priority.score_lead(lead_id, org, persist=False),
+            "contacts": ContactRepository.get_contacts_by_lead(lead_id, org),
+            "audit": ({"id": audit["id"], "status": audit["status"], "overall_score": audit["overall_score"], "created_at": audit["created_at"]} if audit else None),
+            "work_items": items, "has_website": not lead["domain"].endswith(".invalid")}
+
+
+class ContactRequest(BaseModel):
+    first_name: str
+    last_name: str = ""
+    title: str = ""
+    email: str
+    linkedin_url: Optional[str] = None
+
+
+@app.post("/api/clients/{lead_id}/contacts")
+def add_client_contact(lead_id: int, req: ContactRequest, principal: Principal = Depends(require_permission("leads:write"))):
+    """Adds a contact a person found. It is stored UNVERIFIED; only the email verifier can change that."""
+    lead = _owned_lead(lead_id, principal)
+    if not EmailVerificationGate.is_valid_syntax(req.email.strip().lower()):
+        raise HTTPException(status_code=422, detail="That does not look like a valid email address.")
+    return ContactRepository.add_decision_maker(lead_id, req.first_name.strip(), req.last_name.strip() or "-", req.title.strip() or "Contact",
+                                                req.email, linkedin_url=req.linkedin_url, email_source="entered by a person", org_id=lead.get("org_id") or principal.org_id)
+
+
+@app.post("/api/clients/{lead_id}/contacts/{contact_id}/verify")
+def verify_client_contact(lead_id: int, contact_id: int, principal: Principal = Depends(require_permission("pipeline:run"))):
+    """Runs the real email verifier (vendor, MX, syntax). Without a vendor key the contact stays unverified and you are told why."""
+    lead = _owned_lead(lead_id, principal)
+    org = lead.get("org_id") or principal.org_id
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM decision_makers WHERE id = ? AND lead_id = ? AND org_id = ?", (contact_id, lead_id, org)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Contact not found")
+        result = EmailVerificationGate().verify(row["email"])
+        verified = result.status == "verified" and result.is_deliverable
+        conn.execute("UPDATE decision_makers SET verification_status = ?, mx_verified = ? WHERE id = ?",
+                     ("verified" if verified else ("invalid" if result.status in ("invalid", "disposable", "spamtrap") else "unverified"), int(verified), contact_id))
+        conn.commit()
+    return {"verified": verified, "status": result.status, "reason": result.reason, "provider": result.provider}
+
+
+@app.post("/api/clients/{lead_id}/find_contacts")
+def find_client_contacts(lead_id: int, principal: Principal = Depends(require_permission("pipeline:run"))):
+    """Reads the company's own team/about/contact pages and reports the people and emails they publish (nothing guessed)."""
+    from intel import contacts as contact_finder
+    lead = _owned_lead(lead_id, principal)
+    if lead["domain"].endswith(".invalid"):
+        raise HTTPException(status_code=422, detail="This business has no website to read. Ask by phone, or find the owner on a map listing or LinkedIn.")
+    try:
+        return contact_finder.find_contacts(lead["domain"])
+    except Exception as e:
+        raise _fail(e)
+
+
+class PrepareRequest(BaseModel):
+    country_code: Optional[str] = None
+
+
+@app.post("/api/clients/{lead_id}/prepare")
+def prepare_client(lead_id: int, req: PrepareRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
+    """Audit, score, check for a verified contact, and draft a first email for approval (never sends)."""
+    lead = _owned_lead(lead_id, principal)
+    try:
+        return DiscoveryRun().prepare_lead(lead, lead.get("org_id") or principal.org_id, principal.user_id, (req.country_code or "").upper() or None)
+    except Exception as e:
+        raise _fail(e)
+
+
+from intel.nlp import parser as nlp_search
+
+
+class ParseRequest(BaseModel):
+    q: str = Field(..., max_length=300)
+
+
+@app.post("/api/search/parse")
+def parse_search(req: ParseRequest, principal: Principal = Depends(require_permission("leads:read"))):
+    """Understands a natural-language search (typos, skills, places, budgets, filters) and says what it understood."""
+    return nlp_search.parse(req.q)
+
+
+@app.get("/api/search/catalog")
+def search_catalog(principal: Principal = Depends(require_permission("leads:read"))):
+    """Everything the smart search knows, grouped, for the Browse lists."""
+    from intel.nlp import taxonomy
+    return {"business": sorted(taxonomy.BUSINESS), "skills": sorted(taxonomy.SKILLS), "cities": [c.title() for c in taxonomy.CITIES]}
+
+
+@app.get("/api/search/suggest")
+def suggest_search(q: str = "", kinds: str = "", principal: Principal = Depends(require_permission("leads:read"))):
+    """Typo-tolerant suggestions while typing: business types, skills and cities."""
+    return {"suggestions": nlp_search.suggest(q[:80], kinds=[k for k in kinds.split(",") if k] or None)}
+
+
+class CompareRequest(BaseModel):
+    target_domain: str
+    competitor_domain: str
+
+
+@app.post("/api/compare")
+def compare_sites(req: CompareRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
+    """Same real audit on both sites; reports measured differences only (no revenue estimates)."""
+    try:
+        return compare_domains(req.target_domain, req.competitor_domain, principal.org_id)
+    except Exception as e:
+        raise _fail(e)
+
+
+class ClientReportRequest(BaseModel):
+    domain: str
+    competitor_domain: Optional[str] = None
+    output_format: str = "both"      # html | pdf | both
+
+
+@app.post("/api/reports/client")
+def export_client_report(req: ClientReportRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
+    try:
+        return client_report.export(principal.org_id, req.domain, req.competitor_domain, req.output_format)
+    except Exception as e:
+        raise _fail(e)
+
+
+@app.get("/api/reports/view/{filename}")
+def view_client_report(filename: str, principal: Principal = Depends(require_permission("leads:read"))):
+    name = os.path.basename(filename)
+    if not name.startswith(f"report_{principal.org_id}_"):      # tenants only see their own reports
+        raise HTTPException(status_code=404, detail="Report not found")
+    path = client_report.storage_dir / name
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Report not found")
+    if name.endswith(".html"):
+        return HTMLResponse(content=path.read_text(encoding="utf-8"))
+    return FileResponse(path=str(path), media_type="application/pdf", filename=name)
+
+
+class AssistantChatRequest(BaseModel):
+    messages: List[Dict[str, str]]
+
+
+@app.post("/api/assistant/chat")
+def assistant_chat(req: AssistantChatRequest, principal: Principal = Depends(require_permission("leads:read"))):
+    """Workspace assistant on the single LLM gateway (503 when no model is configured). It sees a small workspace summary only."""
+    org = principal.org_id
+    with get_db() as conn:
+        hot = [dict(r) for r in conn.execute(
+            "SELECT l.company_name, s.score, s.band FROM lead_scores s JOIN leads l ON l.id = s.lead_id WHERE s.org_id = ? "
+            "AND s.id IN (SELECT MAX(id) FROM lead_scores WHERE org_id = ? GROUP BY lead_id) ORDER BY s.score DESC LIMIT 5", (org, org)).fetchall()]
+    context = "WORKSPACE SUMMARY\n" + f"Open work items: {len(WorkItemRepository.list_open(org))}\nTop leads by priority: " + \
+        ("; ".join(f"{r['company_name']} ({r['score']}, {r['band']})" for r in hot) or "none scored yet")
+    history = "\n".join(f"{m.get('role', 'user').upper()}: {str(m.get('content', ''))[:1500]}" for m in req.messages[-8:])
+    system = ("You assist a business-development team at a software agency. Answer only from the workspace summary and the "
+              "conversation. If you do not know something, say so. Never invent companies, people, metrics or results.")
+    out = LLMGateway.complete(f"{context}\n\n{history}\n\nASSISTANT:", system=system, agent_name="Assistant", org_id=org, max_tokens=700)
+    return {"reply": out["text"], "model": out.get("model")}
+
 
 # ==================== Unified Sovereign Frontend Mount ====================
 frontend_dist = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend", "dist")

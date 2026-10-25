@@ -33,7 +33,7 @@ class EnrollRequest(BaseModel):
 class EnrollLeadDirectRequest(BaseModel):
     lead_id: int
     recipient_email: Optional[str] = None
-    country_code: str = Field("US", min_length=2, max_length=3)
+    country_code: str = Field(..., min_length=2, max_length=3)   # required: an unknown jurisdiction must never default to a permissive one
     sequence_id: Optional[int] = None
     deal_value: Optional[float] = Field(None, ge=0)
 

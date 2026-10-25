@@ -12,6 +12,7 @@ import os
 import random
 import re
 import threading
+from core import metrics
 from workflows import controls
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -272,3 +273,12 @@ class SchedulerThread:
                     logger.info("scheduler processed %d enrollment(s)", len(outcomes))
             except Exception:
                 logger.exception("scheduler tick failed")
+                metrics.BACKGROUND_FAILURES.labels("scheduler").inc()
+            try:
+                from workflows import rescan
+                done = rescan.run_if_due()
+                if done is not None:
+                    logger.info("nightly re-scan finished for %d tenant(s)", len(done))
+            except Exception:
+                logger.exception("nightly re-scan failed")
+                metrics.BACKGROUND_FAILURES.labels("rescan").inc()
