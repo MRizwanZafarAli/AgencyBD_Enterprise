@@ -32,23 +32,23 @@ def build_checks(org_id: str) -> List[Dict[str, Any]]:
                 "required": required, "detail": detail, "fix": None if ok else fix}
 
     return [
-        check("llm", "Language model (proposals)", _set("ANTHROPIC_API_KEY", "OLLAMA_HOST"), "Set ANTHROPIC_API_KEY in .env."),
+        check("llm", "Language model (proposals)", _set("ANTHROPIC_API_KEY", "OLLAMA_HOST"), "Add an Anthropic key in Settings > Integrations and keys (or set ANTHROPIC_API_KEY in .env)."),
         check("portfolio", "Portfolio case studies", assets > 0, "Add at least one real case study in Settings > Services and proof.", detail=f"{assets} case studies"),
         check("services", "Service price bands", priced > 0, "Add price bands in Settings > Services and proof so reports can quote them.", detail=f"{priced} priced services"),
-        check("verifier", "Email verifier", configured_vendor() is not None, "Set ZEROBOUNCE_API_KEY or MILLIONVERIFIER_API_KEY. Without one, nothing can be emailed."),
+        check("verifier", "Email verifier", configured_vendor() is not None, "Add a ZeroBounce or MillionVerifier key in Settings > Integrations and keys. Without one, nothing can be emailed."),
         check("mailbox", "Sending mailbox with credentials", sendable > 0, "Register a mailbox with SMTP credentials in Settings > Sending and policy.",
               detail=f"{boxes} mailboxes, {sendable} with credentials"),
         check("sender_identity", "Sender identity for the email footer (legal requirement)",
               _set("AGENCYBD_SENDER_ADDRESS") and _set("AGENCYBD_PUBLIC_BASE_URL"),
-              "Set AGENCYBD_SENDER_COMPANY, AGENCYBD_SENDER_ADDRESS and AGENCYBD_PUBLIC_BASE_URL."),
+              "Add your postal address and public app address in Settings > Agency profile."),
         check("scheduler", "Sequence scheduler", _set("AGENCYBD_SCHEDULER") and os.getenv("AGENCYBD_SCHEDULER", "").lower() in ("on", "true", "1"),
               "Set AGENCYBD_SCHEDULER=on or run `python scripts/run_scheduler.py` as a worker (a separate worker cannot be detected from here).", required=False),
         check("webhook_secret", "Inbound reply webhook secret", WebhookSecrets.get(org_id) is not None, "POST /api/security/webhook_secret and configure your mail provider.", required=False),
-        check("pagespeed", "PageSpeed API (Core Web Vitals, accessibility audit)", _set("PAGESPEED_API_KEY"), "Set PAGESPEED_API_KEY (free from Google Cloud).", required=False),
-        check("places", "Google Places API (local-business presence check)", _set("GOOGLE_PLACES_API_KEY"), "Set GOOGLE_PLACES_API_KEY.", required=False),
-        check("search", "Web search for company resolution", _set("BRAVE_SEARCH_API_KEY"), "Optional: set BRAVE_SEARCH_API_KEY to improve company-name lookup.", required=False),
+        check("pagespeed", "PageSpeed API (Core Web Vitals, accessibility audit)", _set("PAGESPEED_API_KEY"), "Add a PageSpeed key in Settings > Integrations and keys (free from Google Cloud).", required=False),
+        check("places", "Google Places API (local-business presence check)", _set("GOOGLE_PLACES_API_KEY"), "Add a Google Places key in Settings > Integrations and keys.", required=False),
+        check("search", "Web search for company resolution", _set("BRAVE_SEARCH_API_KEY"), "Optional: add a Brave Search key in Settings > Integrations and keys to improve company-name lookup.", required=False),
         check("upwork", "Upwork connected", TokenStore.load(org_id, "upwork") is not None, "Apply for Upwork API access, set the UPWORK_* variables, then use Connect Upwork under Find > Jobs and projects.", required=False),
-        check("sam_gov", "SAM.gov key (US federal tenders)", _set("SAM_GOV_API_KEY"), "Set SAM_GOV_API_KEY.", required=False),
+        check("sam_gov", "SAM.gov key (US federal tenders)", _set("SAM_GOV_API_KEY"), "Add a SAM.gov key in Settings > Integrations and keys.", required=False),
     ]
 
 
@@ -71,7 +71,7 @@ def list_roles(principal: Principal = Depends(get_current_principal)):
 
 @router.get("/identity")
 def agency_identity(principal: Principal = Depends(require_permission("leads:read"))):
-    """The agency identity used in outreach and reports, as configured in the environment. Read-only: change it in .env."""
+    """The agency identity as currently effective. Edit it in Settings > Agency profile (see /api/workspace/profile)."""
     from config.settings import settings
     a = settings.agency
     unset = lambda v: not v or v in ("Our Agency", "The team")

@@ -29,7 +29,7 @@ TABLES_TO_CLEAR = [
     "meeting_bookings", "inbound_replies", "outreach_sequences", "decision_makers",
     "tech_audits", "leads", "suppression_vault", "audit_trail", "api_keys",
     "financial_ledger", "ab_test_cohorts", "task_queue", "portfolio_assets", "proposals", "approvals", "opportunities", "policies", "policy_decisions", "agent_runs", "mailboxes", "outreach_events",
-    "work_items", "lead_scores", "channel_records", "client_notes", "integration_keys", "vuln_cache", "job_runs", "org_controls", "discovery_runs", "mailbox_credentials", "email_verifications", "outbound_drafts", "sequences", "sequence_enrollments", "webhook_secrets",
+    "work_items", "lead_scores", "channel_records", "client_notes", "agency_profile", "integration_keys", "vuln_cache", "job_runs", "org_controls", "discovery_runs", "mailbox_credentials", "email_verifications", "outbound_drafts", "sequences", "sequence_enrollments", "webhook_secrets",
     "audit_runs", "audit_findings", "evidence", "companies", "people", "signals", "services", "tech_audits",
 ]
 

@@ -316,7 +316,7 @@ input:focus, textarea:focus, select:focus {
   border-color: var(--color-indigo-500);
   box-shadow: 0 0 0 3px rgba(245, 179, 1, 0.28);
 }
-input::placeholder, textarea::placeholder { color: var(--color-slate-500); opacity: 1; }
+input::placeholder, textarea::placeholder { color: var(--color-slate-500); opacity: 0.55; }     /* clearly an example, never mistaken for a saved value */
 input[type="checkbox"], input[type="radio"] { accent-color: #d99a00; box-shadow: none; }
 input[type="search"]::-webkit-search-cancel-button { display: none; }
 

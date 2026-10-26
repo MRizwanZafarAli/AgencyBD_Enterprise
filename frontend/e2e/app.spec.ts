@@ -657,3 +657,96 @@ for (const theme of ['light', 'dark'] as const) {
     await check('command palette');
   });
 }
+
+async function openSettings(page: Page, section?: string) {
+  await signIn(page);
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /^Settings/ }).click();
+  if (section) await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: section }).click();
+}
+
+test('settings: sections are grouped, searchable, and Enter opens the best match', async ({ page }) => {
+  await openSettings(page);
+  const nav = page.getByRole('navigation', { name: 'Settings sections' });
+  for (const s of ['Setup', 'Agency profile', 'Services and proof', 'Integrations and keys', 'Sending and policy', 'Domain DNS', 'Unsubscribe list', 'Team and keys', 'Security and session', 'Data and export', 'Appearance and shortcuts', 'Developer', 'How it works'])
+    await expect(nav.getByRole('button', { name: s })).toBeVisible();
+  await expect(nav.getByText('Connections')).toBeVisible();
+  const search = page.getByRole('searchbox', { name: 'Find a setting' });
+  await search.fill('spf');
+  await expect(nav.getByRole('button')).toHaveCount(1);                           // matched on what the section contains, not just its title
+  await search.press('Enter');
+  await expect(page.getByRole('heading', { level: 2, name: 'Domain DNS' })).toBeVisible();
+  await search.fill('zzzz');
+  await expect(page.getByText(/No setting matches/)).toBeVisible();
+});
+
+test('settings: every unfinished setup item has a button that goes to where it is fixed', async ({ page }) => {
+  await openSettings(page);
+  await expect(page.getByRole('img', { name: /percent of setup done/ })).toBeVisible();
+  await page.getByRole('button', { name: /Fill the footer/ }).click();
+  await expect(page.getByRole('heading', { level: 2, name: 'Agency profile' })).toBeVisible();
+  await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Setup' }).click();
+  await page.getByRole('button', { name: /Add a case study/ }).click();
+  await expect(page.getByRole('heading', { level: 2, name: 'Services and proof' })).toBeVisible();
+});
+
+test('settings: the agency profile validates, applies at once, gates the quoted result on proof, and resets', async ({ page }) => {
+  await openSettings(page, 'Agency profile');
+  await page.getByLabel('Postal address').fill('Main Street');
+  await page.getByRole('button', { name: 'Save' }).nth(0).waitFor();
+  const row = (label: string) => page.locator('li', { has: page.getByLabel(label, { exact: true }) });
+  await row('Postal address').getByRole('button', { name: 'Save' }).click();
+  await expect(row('Postal address').getByRole('alert')).toContainText(/street number|short|required/i);          // not saved: a real address is required
+
+  await row('Postal address').getByLabel('Postal address').fill('12 High Street, Leeds LS1 4AB, UK');
+  await row('Postal address').getByRole('button', { name: 'Save' }).click();
+  await expect(row('Postal address').getByText('Saved and active now.')).toBeVisible();
+  await row('Public address of this app').getByLabel('Public address of this app').fill('http://bd.example.com');
+  await row('Public address of this app').getByRole('button', { name: 'Save' }).click();
+  await expect(row('Public address of this app').getByRole('alert')).toContainText('https://');
+  await row('Public address of this app').getByLabel('Public address of this app').fill('https://bd.example.com');
+  await row('Public address of this app').getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('Legal footer complete')).toBeVisible();
+  await expect(page.getByLabel('Email preview')).toContainText('12 High Street, Leeds LS1 4AB, UK');             // the preview is the real saved value
+
+  await row('Result you quote').getByLabel('Result you quote').fill('Cut load time from 4s to 1s');
+  await row('Result you quote').getByRole('button', { name: 'Save' }).click();
+  await expect(row('Result you quote').getByRole('alert')).toContainText(/proven/i);                              // no quoted result without proof
+
+  await row('Postal address').getByRole('button', { name: 'Reset to .env' }).click();
+  await expect(page.getByText('Footer incomplete')).toBeVisible();
+});
+
+test('settings: data can be exported as CSV and shows what is stored', async ({ page }) => {
+  await openSettings(page, 'Data and export');
+  await expect(page.getByText('Clients', { exact: true }).first()).toBeVisible();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download Clients as CSV' }).click();
+  expect((await download).suggestedFilename()).toMatch(/^agencybd-clients-\d{8}\.csv$/);
+  await expect(page.getByText('python3 scripts/backup_db.py')).toBeVisible();
+});
+
+test('settings: the theme can be chosen here, and security shows who you are and signs you out', async ({ page }) => {
+  await openSettings(page, 'Appearance and shortcuts');
+  await page.getByRole('radio', { name: /Dark/ }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.getByText('Open the command palette')).toBeVisible();
+  await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Security and session' }).click();
+  await expect(page.getByText(/super admin · workspace/)).toBeVisible();
+  await expect(page.getByText('Everything.', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page.getByRole('button', { name: 'Connect' })).toBeVisible();
+});
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`accessibility (${theme}): the new settings sections have no serious violations`, async ({ page }) => {
+    await page.addInitScript((t) => localStorage.setItem('agencybd_theme', t), theme);
+    await openSettings(page);
+    for (const s of ['Setup', 'Agency profile', 'Integrations and keys', 'Security and session', 'Data and export', 'Appearance and shortcuts']) {
+      await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: s }).click();
+      await page.waitForTimeout(700);
+      const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+      const bad = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+      expect(bad.map((v) => `${theme} ${s}: ${v.id} (${v.nodes.length}) ${v.nodes[0]?.html.slice(0, 100)}`)).toEqual([]);
+    }
+  });
+}

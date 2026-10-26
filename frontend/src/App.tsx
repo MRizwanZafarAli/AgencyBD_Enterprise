@@ -12,6 +12,7 @@ import { Clients } from './surfaces/Clients';
 import { Settings } from './surfaces/Settings';
 import { Tools } from './surfaces/Tools';
 import { Channels } from './surfaces/Channels';
+import { SECTION_LABEL } from './components/settings/sections';
 import { BrowserDock } from './components/channels/BrowserDock';
 import { apiFetch, getApiKey, clearApiKey, verifyKey, UNAUTHORIZED_EVENT } from './lib/api';
 import type { Me } from './lib/api';
@@ -74,7 +75,6 @@ export function App() {
   if (!me) return <AuthGate onAuthenticated={setMe} notice={authNotice} />;
 
   const SURFACE_LABEL: Record<Surface, string> = { today: 'Today', find: 'Find', clients: 'Clients', channels: 'Channels', tools: 'Tools', settings: 'Settings' };
-  const SECTION_LABEL: Record<string, string> = { setup: 'Setup', keys: 'Integrations and keys', services: 'Services and proof', sending: 'Sending and policy', dns: 'Domain DNS', unsub: 'Unsubscribe list', team: 'Team and keys', api: 'Developer', tour: 'How it works' };
   const crumbs = surface === 'settings' ? ['Settings', SECTION_LABEL[settingsSection] ?? 'Setup'] : [SURFACE_LABEL[surface]];
 
   return (
@@ -92,7 +92,7 @@ export function App() {
             {surface === 'clients' && <Clients openLead={openLead} setOpenLead={setOpenLead} />}
             {surface === 'channels' && <Channels active={channel} onActive={setChannel} quick={seed.quicklog ? { text: seed.quicklog, n: seed.n } : null} />}
             {surface === 'tools' && <Tools onOpenClient={openClient} />}
-            {surface === 'settings' && <Settings orgId={me.org_id} section={settingsSection} setSection={setSettingsSection} />}
+            {surface === 'settings' && <Settings me={me} section={settingsSection} setSection={setSettingsSection} onSignOut={() => { clearApiKey(); setMe(null); setAuthNotice(''); }} />}
           </div>
         </main>
       </div>

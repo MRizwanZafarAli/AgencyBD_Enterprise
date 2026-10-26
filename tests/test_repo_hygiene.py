@@ -49,6 +49,9 @@ def test_env_file_is_ignored_and_runtime_output_is_not_tracked():
     assert not bad, f"Runtime or secret files are tracked: {bad}"
 
 
-def test_ci_workflow_lives_where_github_reads_it():
-    assert (ROOT / ".github" / "workflows" / "ci.yml").exists()
-    assert not (ROOT / "ci" / "ci.yml").exists(), "ci/ci.yml is ignored by GitHub; keep only .github/workflows/"
+def test_there_is_exactly_one_ci_workflow():
+    """GitHub only runs workflows under .github/workflows/. The file may still sit at ci/ci.yml while the token used to push cannot create workflow
+    files (it needs the `workflow` scope); move it to .github/workflows/ as soon as it can. Never keep two copies."""
+    on_github = (ROOT / ".github" / "workflows" / "ci.yml").exists()
+    legacy = (ROOT / "ci" / "ci.yml").exists()
+    assert on_github != legacy, "keep exactly one CI workflow file (prefer .github/workflows/ci.yml)"

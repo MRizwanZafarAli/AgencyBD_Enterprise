@@ -665,6 +665,12 @@ def init_db():
         changed_by TEXT,
         changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS agency_profile (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,             -- '' is an explicit clear that overrides .env; deleting the row restores .env
+        set_by TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE TABLE IF NOT EXISTS integration_keys (
         name TEXT PRIMARY KEY,
         value_enc TEXT NOT NULL,

@@ -57,6 +57,11 @@ async def lifespan(_app: FastAPI):
         _integrations.apply_all()                       # keys saved in Settings take effect after a restart too
     except Exception:
         logger.exception("could not apply saved integration keys")
+    try:
+        from config import agency_profile as _profile
+        _profile.apply_all()                            # the agency identity saved in Settings survives a restart
+    except Exception:
+        logger.exception("could not apply the saved agency profile")
     if os.getenv("AGENCYBD_SCHEDULER", "off").lower() in ("on", "true", "1"):
         from workflows.scheduler import SchedulerThread
         runner = SchedulerThread(int(os.getenv("AGENCYBD_SCHEDULER_INTERVAL", "60")))
@@ -1144,6 +1149,8 @@ app.include_router(channels_router)
 app.include_router(today_router)
 from routers.client_notes import router as client_notes_router
 app.include_router(client_notes_router)
+from routers.workspace import router as workspace_router
+app.include_router(workspace_router)
 app.include_router(outbound_router)
 app.include_router(compliance_router)
 app.include_router(policy_router)
