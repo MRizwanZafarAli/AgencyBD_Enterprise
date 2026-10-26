@@ -25,7 +25,7 @@ export const Badge: FC<{ tone?: Tone; children: ReactNode; title?: string }> = (
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 const VARIANTS: Record<Variant, string> = {
   primary: 'bg-indigo-600 hover:bg-indigo-500 text-white',
-  secondary: 'border border-slate-700 hover:border-slate-500 text-slate-200',
+  secondary: 'glass-btn text-slate-200',
   ghost: 'text-slate-300 hover:text-white hover:bg-slate-800/60',
   danger: 'bg-rose-600 hover:bg-rose-500 text-white',
 };
@@ -126,9 +126,9 @@ export const Drawer: FC<{ open: boolean; title: string; onClose: () => void; chi
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={onClose} />
-      <div ref={panel} tabIndex={-1} className={`relative h-full w-full ${wide ? 'max-w-3xl' : 'max-w-xl'} bg-slate-950 border-l border-slate-800 overflow-y-auto animate-fade-up focus:outline-none`}>
-        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
+      <div className="absolute inset-0 scrim" onClick={onClose} />
+      <div ref={panel} tabIndex={-1} className={`relative h-full w-full ${wide ? 'max-w-3xl' : 'max-w-xl'} glass-sheet border-l border-slate-800 overflow-y-auto animate-fade-up focus:outline-none`}>
+        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-slate-800 glass-sheet-head">
           <h2 className="text-sm font-semibold text-white truncate">{title}</h2>
           <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/60"><X className="h-4 w-4" /></button>
         </div>

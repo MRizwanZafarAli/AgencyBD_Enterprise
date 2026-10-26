@@ -68,8 +68,8 @@ export const LavenderRadarChart: FC<LavenderRadarProps> = ({
           <svg width={size} height={size} className="overflow-visible select-none">
             <defs>
               <linearGradient id="radarGrad" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#a855f7" stopOpacity="0.45" />
-                <stop offset="100%" stopColor="#6366f1" stopOpacity="0.15" />
+                <stop offset="0%" stopColor="#f5b301" stopOpacity="0.45" />
+                <stop offset="100%" stopColor="#b07a00" stopOpacity="0.15" />
               </linearGradient>
             </defs>
 
@@ -112,7 +112,7 @@ export const LavenderRadarChart: FC<LavenderRadarProps> = ({
             <polygon
               points={scorePoints}
               fill="url(#radarGrad)"
-              stroke="#a855f7"
+              stroke="#f5b301"
               strokeWidth="2"
               className="transition-all duration-500"
             />
@@ -129,7 +129,7 @@ export const LavenderRadarChart: FC<LavenderRadarProps> = ({
                     cx={pt.x}
                     cy={pt.y}
                     r="3.5"
-                    fill="#a855f7"
+                    fill="#f5b301"
                     stroke="#ffffff"
                     strokeWidth="1.5"
                   />

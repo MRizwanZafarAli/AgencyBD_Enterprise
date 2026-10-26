@@ -611,3 +611,49 @@ test('site clinic: a site that refuses robots is explained, not graded, and noth
   await expect(page.getByRole('button', { name: 'Teardown' })).toBeDisabled();                  // no teardown of a page we never read
   await expect(page.getByText(/\/100/)).toHaveCount(0);                                         // no score of any kind
 });
+
+test('gilded glass: light is the default, gold primary buttons carry dark ink, glass surfaces are translucent and frosted', async ({ page }) => {
+  await signIn(page);
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /^Clients/ }).click();
+  const add = page.getByRole('button', { name: 'Add client' });
+  const style = await add.evaluate((el) => { const s = getComputedStyle(el); return { bg: s.backgroundImage, color: s.color }; });
+  expect(style.bg).toContain('linear-gradient');                                  // lit gold, not flat
+  expect(style.color).toBe('rgb(26, 20, 5)');                                      // ink on gold, never white on yellow
+  const tile = await page.locator('.bento-tile').first().evaluate((el) => { const s = getComputedStyle(el); return { blur: s.backdropFilter || (s as any).webkitBackdropFilter, bg: s.backgroundColor }; });
+  expect(tile.blur).toContain('blur');
+  expect(tile.bg).toMatch(/rgba\(.*0\.\d+\)/);                                    // a translucent fill
+  const bodyBg = await page.evaluate(() => getComputedStyle(document.body).backgroundImage);
+  expect(bodyBg).toContain('radial-gradient');                                    // the gold light the glass sits on
+});
+
+test('gilded glass: the theme toggle switches to warm graphite and keeps gold', async ({ page }) => {
+  await signIn(page);
+  await page.getByRole('button', { name: /dark|light/i }).first().click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  const accent = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--color-indigo-500').trim());
+  expect(accent.toLowerCase()).toBe('#f5b301');
+  await page.reload();                                                             // the choice is remembered
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+});
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`accessibility (${theme} glass): no serious contrast or other violations on every surface, the drawer and the palette`, async ({ page }) => {
+    await page.addInitScript((t) => localStorage.setItem('agencybd_theme', t), theme);
+    await signIn(page);
+    const nav = page.getByRole('navigation', { name: 'Main' });
+    const check = async (label: string) => {
+      await page.waitForTimeout(600);
+      const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+      const bad = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+      expect(bad.map((v) => `${theme} ${label}: ${v.id} (${v.nodes.length}) ${v.nodes[0]?.html.slice(0, 90)}`), `axe on ${label}`).toEqual([]);
+    };
+    for (const s of SURFACES) { await nav.getByRole('button', { name: new RegExp(`^${s}`) }).click(); await check(s); }
+    await page.getByRole('button', { name: 'Browser dock' }).click();
+    await check('browser dock');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Control+k');
+    await page.getByLabel('Go to').fill('dentists in leeds');
+    await check('command palette');
+  });
+}

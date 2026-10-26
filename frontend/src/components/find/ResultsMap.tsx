@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css';
 
 export interface MapPoint { id: string; name: string; lat: number; lon: number; score: number; label: string }
 
-const colour = (score: number) => (score >= 60 ? '#10b981' : score >= 35 ? '#6366f1' : '#64748b');
+const colour = (score: number) => (score >= 60 ? '#10b981' : score >= 35 ? '#f5b301' : '#8a7a55');
 
 /** Pins only businesses with real coordinates (never the city centre). OpenStreetMap tiles; click a pin to open the business. */
 export const ResultsMap: FC<{ points: MapPoint[]; onPick: (id: string) => void }> = ({ points, onPick }) => {
@@ -26,7 +26,7 @@ export const ResultsMap: FC<{ points: MapPoint[]; onPick: (id: string) => void }
     layer.current.clearLayers();
     const bounds: L.LatLngTuple[] = [];
     for (const p of points) {
-      const marker = L.circleMarker([p.lat, p.lon], { radius: 8, color: '#0b0d12', weight: 1.5, fillColor: colour(p.score), fillOpacity: 0.9 })
+      const marker = L.circleMarker([p.lat, p.lon], { radius: 8, color: '#3a2f14', weight: 1.5, fillColor: colour(p.score), fillOpacity: 0.9 })
         .bindTooltip(`${p.name} · ${Math.round(p.score)} · ${p.label}`).on('click', () => onPick(p.id));
       marker.addTo(layer.current);
       bounds.push([p.lat, p.lon]);

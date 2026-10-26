@@ -13,6 +13,8 @@ your approval. It will not invent a contact, a measurement, a result or a price:
 | **Tools** | **Site Clinic** (paste a website, or a business and place: triage, examine, diagnose, a surgery plan you tick off, change since the last check, teardown, PDF report, save as client), searchable tool cards, and a site carries from one tool to the next. Also: compare two sites, client report, find an email, email draft checker, sequences, call notes, video script. |
 | **Settings** | Setup checklist, services and proof, sending and policy, DNS, unsubscribe list, team and keys. |
 
+**Look:** "Gilded Glass", golden yellow and white with Apple-style frosted glass, light by default with a warm graphite dark theme (toggle in the header). Colours are design tokens in `frontend/src/index.css`; contrast is checked by the accessibility e2e suite in both themes, and reduced-transparency settings get solid surfaces.
+
 `Ctrl/⌘ + K` jumps anywhere. Keyboard: `G` then `T/F/C/H/O/S` switches screen, `[` collapses the sidebar, `?` lists every shortcut. **Stop sending** in the header halts every send, including scheduled ones.
 
 ## What it checks (passively; never intrusively)

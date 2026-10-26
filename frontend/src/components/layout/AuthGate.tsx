@@ -35,11 +35,11 @@ export const AuthGate: FC<AuthGateProps> = ({ onAuthenticated, notice }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#07090e] text-slate-100 flex items-center justify-center p-4">
-      <form onSubmit={submit} className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950/80 p-8 space-y-5">
+    <div className="min-h-screen text-slate-100 flex items-center justify-center p-4">
+      <form onSubmit={submit} className="bento-tile w-full max-w-md p-8 space-y-5">
         <div className="flex items-center space-x-3">
-          <div className="h-10 w-10 rounded-lg bg-gradient-to-tr from-indigo-600 to-cyan-400 flex items-center justify-center">
-            <Cpu className="h-6 w-6 text-white" />
+          <div className="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center">
+            <Cpu className="h-6 w-6" />
           </div>
           <div>
             <div className="font-bold tracking-tight">AgencyBD</div>
@@ -56,14 +56,14 @@ export const AuthGate: FC<AuthGateProps> = ({ onAuthenticated, notice }) => {
             value={key}
             onChange={(e) => setKey(e.target.value)}
             placeholder="agy_live_…"
-            className="w-full rounded-lg bg-slate-900 border border-slate-800 px-3 py-2 font-mono text-sm focus:outline-none focus:border-indigo-500"
+            className="w-full rounded-xl bg-slate-900 border border-slate-800 px-3 py-2 font-mono text-sm focus:outline-none focus:border-indigo-500"
           />
         </label>
         {error && <div className="text-xs text-rose-300" role="alert">{error}</div>}
         <button
           type="submit"
           disabled={busy || key.trim().length < 12}
-          className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 py-2 text-sm font-semibold text-white transition shadow-md shadow-indigo-600/20"
+          className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 py-2 text-sm font-semibold transition"
         >
           {busy ? 'Verifying…' : 'Connect'}
         </button>

@@ -36,7 +36,7 @@ export const CommandPalette: FC<{ onNavigate: (c: Command) => void; onText: (kin
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[15vh] px-4" role="dialog" aria-modal="true" aria-label="Command palette">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
+      <div className="absolute inset-0 scrim" onClick={() => setOpen(false)} />
       <div className="relative w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden animate-pop">
         <div className="flex items-center gap-2 px-4 border-b border-slate-800">
           <Search className="h-4 w-4 text-slate-500" />

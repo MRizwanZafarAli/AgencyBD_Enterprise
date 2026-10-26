@@ -126,8 +126,8 @@ export const Sidebar: FC<SidebarProps> = (p) => (
     </aside>
     {p.mobileMenuOpen && (
       <div className="lg:hidden fixed inset-0 z-50 flex">
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm animate-pop" onClick={() => p.setMobileMenuOpen(false)} />
-        <div className="relative w-[18rem] max-w-[85vw] bg-slate-950 border-r border-slate-800 h-full z-10 animate-fade-up" role="dialog" aria-modal="true" aria-label="Menu">
+        <div className="fixed inset-0 scrim animate-pop" onClick={() => p.setMobileMenuOpen(false)} />
+        <div className="relative w-[18rem] max-w-[85vw] glass-sheet border-r border-slate-800 h-full z-10 animate-fade-up" role="dialog" aria-modal="true" aria-label="Menu">
           <button onClick={() => p.setMobileMenuOpen(false)} aria-label="Close menu" className="absolute top-3 right-3 z-10 p-1.5 rounded-lg text-slate-400 hover:text-white"><X className="h-5 w-5" /></button>
           <SidebarBody {...p} collapsed={false} inDrawer />
         </div>

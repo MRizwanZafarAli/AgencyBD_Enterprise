@@ -70,7 +70,7 @@ export function App() {
 
   useShortcuts({ enabled: !!me, onNavigate: setSurface, onToggleSidebar: toggleCollapsed, onHelp: () => setHelpOpen((v) => !v) });
 
-  if (checking) return <div className="min-h-screen bg-slate-950" />;
+  if (checking) return <div className="min-h-screen" />;
   if (!me) return <AuthGate onAuthenticated={setMe} notice={authNotice} />;
 
   const SURFACE_LABEL: Record<Surface, string> = { today: 'Today', find: 'Find', clients: 'Clients', channels: 'Channels', tools: 'Tools', settings: 'Settings' };
@@ -78,7 +78,7 @@ export function App() {
   const crumbs = surface === 'settings' ? ['Settings', SECTION_LABEL[settingsSection] ?? 'Setup'] : [SURFACE_LABEL[surface]];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex font-sans antialiased selection:bg-indigo-500/30">
+    <div className="min-h-screen text-slate-100 flex font-sans antialiased">
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:z-[70] focus:top-2 focus:left-2 focus:bg-indigo-600 focus:text-white focus:px-3 focus:py-2 focus:rounded-lg">Skip to content</a>
       <Sidebar active={surface} onNavigate={navigate} badge={inbox.data?.count} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen} identity={me} onSignOut={() => { clearApiKey(); setMe(null); setAuthNotice(''); }} onPalette={() => setPaletteSignal((n) => n + 1)} onHelp={() => setHelpOpen(true)} onDock={() => setDockOpen(true)} halted={halted} />
