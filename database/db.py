@@ -722,6 +722,31 @@ def init_db():
         detail TEXT,
         PRIMARY KEY (job, org_id)
     );
+    CREATE TABLE IF NOT EXISTS visitor_intent_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        ip_address TEXT NOT NULL,
+        hostname TEXT,
+        company_name TEXT,
+        domain TEXT,
+        page_url TEXT NOT NULL,
+        referrer TEXT,
+        intent_score INTEGER DEFAULT 50,
+        converted_lead_id INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS outbound_webhooks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        url TEXT NOT NULL,
+        secret TEXT NOT NULL,
+        events_json TEXT NOT NULL DEFAULT '["deal.won","client.created"]',
+        active BOOLEAN NOT NULL DEFAULT 1,
+        last_delivered_at TIMESTAMP,
+        last_status_code INTEGER,
+        last_error TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
     """)
     cursor.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS idx_opp_org_source_ext

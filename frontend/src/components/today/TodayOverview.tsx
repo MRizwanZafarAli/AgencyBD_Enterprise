@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FC } from 'react';
-import { ArrowDownRight, ArrowRight, ArrowUpRight, Minus } from 'lucide-react';
+import { ArrowDownRight, ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronUp, Copy, Minus, Sparkles } from 'lucide-react';
 import { Badge, Card, Skeletons } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { useApi } from '../../lib/hooks';
@@ -9,11 +9,22 @@ import type { Surface } from '../../types';
 interface Pair { now: number; before: number }
 interface Focus { priority: number; title: string; detail: string; target: { surface: Surface; lead_id?: number; section?: string; anchor?: string } }
 export interface TodaySummary {
-  kpis: { new_leads: Pair; audits: Pair; emails_sent: Pair; replies: Pair; pending_approvals: number; open_tasks: number; hot_leads: number; pipeline_value: number | null; win_rate_percent: number | null; unvalued_deals: number };
+  kpis: { new_leads: Pair; audits: Pair; emails_sent: Pair; replies: Pair; pending_approvals: number; open_tasks: number; hot_leads: number; pipeline_value: number | null; win_rate_percent: number | null; unvalued_deals: number; client_followups_due?: number };
   focus: Focus[];
   activity: Array<{ at: string; what: string; actor: string; lead_id: number | null; company: string | null }>;
   channels: Array<{ platform: string; label: string; open: number; followups_due: number; unanswered: number; routine: { total: number; done_today: number; streak_days: number } }>;
   note?: string;
+}
+
+interface BriefingData {
+  headline: string;
+  date: string;
+  pipeline_value_str: string;
+  followups_due: number;
+  pending_approvals: number;
+  overnight_visitors: number;
+  focus_items: Focus[];
+  markdown: string;
 }
 
 const greeting = (now: Date) => { const h = now.getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; };
@@ -40,6 +51,18 @@ const Kpi: FC<{ label: string; p: Pair }> = ({ label, p }) => (
 export const TodayOverview: FC<{ onGo: (s: Surface, opts?: { leadId?: number; section?: string }) => void }> = ({ onGo }) => {
   const [now] = useState(() => new Date());
   const sum = useApi<TodaySummary>('/api/today/summary');
+  const briefing = useApi<BriefingData>('/api/today/briefing');
+  const [showBriefingMarkdown, setShowBriefingMarkdown] = useState(false);
+  const [copiedBriefing, setCopiedBriefing] = useState(false);
+
+  const copyBriefing = () => {
+    if (briefing.data?.markdown) {
+      navigator.clipboard.writeText(briefing.data.markdown);
+      setCopiedBriefing(true);
+      setTimeout(() => setCopiedBriefing(false), 2000);
+    }
+  };
+
   const d = sum.data;
   const go = (t: Focus['target']) => onGo(t.surface, { leadId: t.lead_id, section: t.section });
   const attention = d?.channels.filter((c) => c.followups_due || c.unanswered) ?? [];
@@ -50,6 +73,49 @@ export const TodayOverview: FC<{ onGo: (s: Surface, opts?: { leadId?: number; se
       <Card>
         <div className="text-xs text-slate-400">{now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</div>
         <h2 className="text-lg font-semibold text-white mt-0.5">{greeting(now)}. {d && d.focus.length === 0 ? 'Nothing is urgent.' : 'Here is what matters most.'}</h2>
+
+        {briefing.data && (
+          <div className="mt-3.5 mb-1 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-200/90 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 shrink-0">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="font-semibold text-white text-xs sm:text-sm flex items-center gap-2 flex-wrap">
+                  Executive Morning Briefing
+                  <Badge tone="accent">Live Radar</Badge>
+                </div>
+                <p className="text-slate-400 text-xs mt-0.5">
+                  <span className="text-slate-200 font-medium">{briefing.data.pipeline_value_str}</span> active pipeline · <span className="text-slate-200 font-medium">{briefing.data.followups_due}</span> client follow-ups due · <span className="text-slate-200 font-medium">{briefing.data.overnight_visitors}</span> corporate visits detected
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setShowBriefingMarkdown(!showBriefingMarkdown)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs transition-colors"
+              >
+                {showBriefingMarkdown ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                {showBriefingMarkdown ? 'Hide full text' : 'Read full text'}
+              </button>
+              <button
+                onClick={copyBriefing}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs transition-colors font-medium"
+                title="Copy complete briefing markdown for team Slack or notes"
+              >
+                {copiedBriefing ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                {copiedBriefing ? 'Copied!' : 'Copy Briefing'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showBriefingMarkdown && briefing.data && (
+          <div className="mt-2 mb-3 p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-300 text-xs font-mono whitespace-pre-wrap max-h-64 overflow-y-auto">
+            {briefing.data.markdown}
+          </div>
+        )}
+
         {sum.loading && !d ? <div className="mt-3"><Skeletons rows={2} /></div> : d && d.focus.length > 0 && (
           <ol className="mt-3 grid gap-2 md:grid-cols-3">
             {d.focus.map((f, i) => (

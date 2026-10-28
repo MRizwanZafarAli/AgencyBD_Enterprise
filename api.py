@@ -928,6 +928,13 @@ def update_pipeline_deal_stage(req: DealStageUpdateRequest, principal: Principal
     res = LeadRepository.update_deal_stage(req.lead_id, req.new_stage, org_id=principal.org_id)
     if not res:
         raise HTTPException(status_code=404, detail="Lead not found in this organization")
+    try:
+        from routers.webhooks import dispatch_webhook_event
+        dispatch_webhook_event(principal.org_id, "client.stage_changed", {"lead_id": req.lead_id, "new_stage": req.new_stage})
+        if req.new_stage.lower() == "won":
+            dispatch_webhook_event(principal.org_id, "deal.won", {"lead_id": req.lead_id, "stage": "won"})
+    except Exception:
+        pass
     return res
 
 
@@ -950,6 +957,11 @@ def create_pipeline_deal(req: DealCreateRequest, principal: Principal = Depends(
         lead = LeadRepository.update_deal_stage(lead["id"], req.stage, org_id=principal.org_id)
     else:
         lead["deal_stage"] = lead.get("status", "sourced")
+    try:
+        from routers.webhooks import dispatch_webhook_event
+        dispatch_webhook_event(principal.org_id, "client.created", {"lead_id": lead["id"], "company_name": req.company_name, "domain": req.domain})
+    except Exception:
+        pass
     return lead
 
 
@@ -1159,6 +1171,10 @@ app.include_router(replies_router)
 app.include_router(sequences_router)
 app.include_router(connectors_router)
 app.include_router(system_router)
+from routers.visitor_intent import router as visitor_intent_router
+app.include_router(visitor_intent_router)
+from routers.webhooks import router as webhooks_router, dispatch_webhook_event
+app.include_router(webhooks_router)
 
 # ==================== Autopilot, priority, inbox, reports, assistant ====================
 from orchestrator.autopilot import DiscoveryRun
@@ -1166,12 +1182,14 @@ from orchestrator import jobs as discovery_jobs
 from intel import lead_priority
 from intel.comparison import compare_domains
 from reports.client_report import ClientReport
+from reports.deck_generator import ExecutiveDeckGenerator
 from routers.system import build_checks
 from workflows.inbox import WorkItemRepository
 from llm.client import LLMGateway
 from outbound.verify import EmailVerificationGate
 
 client_report = ClientReport()
+deck_generator = ExecutiveDeckGenerator()
 
 
 class DiscoveryRunRequest(BaseModel):
@@ -1429,7 +1447,19 @@ class ClientReportRequest(BaseModel):
 @app.post("/api/reports/client")
 def export_client_report(req: ClientReportRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
     try:
-        return client_report.export(principal.org_id, req.domain, req.competitor_domain, req.output_format)
+        res = client_report.export(principal.org_id, req.domain, req.competitor_domain, req.output_format)
+        dispatch_webhook_event(principal.org_id, "audit.completed", {"domain": req.domain, "score": res.get("overall_score")})
+        return res
+    except Exception as e:
+        raise _fail(e)
+
+
+@app.post("/api/reports/deck")
+def export_executive_deck(req: ClientReportRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
+    try:
+        res = deck_generator.export(principal.org_id, req.domain, req.competitor_domain, req.output_format)
+        dispatch_webhook_event(principal.org_id, "audit.completed", {"domain": req.domain, "deck_url": res.get("view_url")})
+        return res
     except Exception as e:
         raise _fail(e)
 
@@ -1437,7 +1467,7 @@ def export_client_report(req: ClientReportRequest, principal: Principal = Depend
 @app.get("/api/reports/view/{filename}")
 def view_client_report(filename: str, principal: Principal = Depends(require_permission("leads:read"))):
     name = os.path.basename(filename)
-    if not name.startswith(f"report_{principal.org_id}_"):      # tenants only see their own reports
+    if not (name.startswith(f"report_{principal.org_id}_") or name.startswith(f"deck_{principal.org_id}_")):      # tenants only see their own reports & decks
         raise HTTPException(status_code=404, detail="Report not found")
     path = client_report.storage_dir / name
     if not path.is_file():

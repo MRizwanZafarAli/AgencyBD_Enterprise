@@ -69,10 +69,13 @@ class SourcingAgent:
 
     def fetch_sec_form_d_filings(self, limit: int = 15) -> List[Dict[str, Any]]:
         """Reads the official SEC EDGAR Form D feed (free, no key). Pure fetch and parse: nothing is stored or guessed here."""
-        status, text, _ = SafeFetcher.safe_get(self.SEC_FORM_D_FEED_URL, headers={"User-Agent": self.SEC_EDGAR_USER_AGENT}, timeout=10)
-        if status != 200:
-            raise RuntimeError(f"SEC EDGAR returned HTTP {status}")
-        root = ET.fromstring(text)
+        try:
+            status, text, _ = SafeFetcher.safe_get(self.SEC_FORM_D_FEED_URL, headers={"User-Agent": self.SEC_EDGAR_USER_AGENT}, timeout=10)
+            if status != 200:
+                return []
+            root = ET.fromstring(text)
+        except Exception:
+            return []
         ns = "{http://www.w3.org/2005/Atom}"
         filings: List[Dict[str, Any]] = []
         for entry in root.findall(f"{ns}entry"):

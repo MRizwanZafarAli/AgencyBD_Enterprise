@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { ExternalLink, FileText, Search, ShieldCheck, Sparkles, UserPlus } from 'lucide-react';
+import { ExternalLink, FileText, Presentation, Search, ShieldCheck, Sparkles, UserPlus } from 'lucide-react';
 import { Badge, Button, Card, Drawer, EmptyState, ScoreBar, Skeletons, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { openProtected } from '../../lib/api';
@@ -51,6 +51,7 @@ export const ClientPage: FC<{ leadId: number | null; onClose: () => void }> = ({
     detail.reload();
   });
   const report = () => run('report', async () => { const r = await send<{ html_filename: string; pdf_filename: string | null }>('/api/reports/client', 'POST', { domain: d!.lead.domain, output_format: 'both' }); await openProtected(`/api/reports/view/${r.pdf_filename ?? r.html_filename}`); });
+  const deck = () => run('deck', async () => { const r = await send<{ html_filename: string; pdf_filename: string | null; view_url: string }>('/api/reports/deck', 'POST', { domain: d!.lead.domain, output_format: 'both' }); await openProtected(r.view_url); });
   const addContact = (e: FormEvent) => { e.preventDefault(); run('contact', async () => { await send(`/api/clients/${leadId}/contacts`, 'POST', contact); setContact({ first_name: '', last_name: '', title: '', email: '' }); setAdding(false); detail.reload(); }); };
   const verify = (cid: number) => run('verify', async () => { const r = await send<{ verified: boolean; reason: string }>(`/api/clients/${leadId}/contacts/${cid}/verify`, 'POST'); setNote(r.verified ? 'Verified.' : `Not verified: ${r.reason}`); detail.reload(); });
   const findContacts = () => run('find', async () => setFound(await send<Found>(`/api/clients/${leadId}/find_contacts`, 'POST')));
@@ -86,6 +87,7 @@ export const ClientPage: FC<{ leadId: number | null; onClose: () => void }> = ({
               <div className="flex gap-2">
                 {d.has_website && <Button small variant="primary" disabled={busy !== ''} onClick={audit}>{busy === 'audit' ? 'Checking…' : d.audit ? 'Re-run audit' : 'Run audit'}</Button>}
                 {d.audit?.status === 'completed' && <Button small disabled={busy !== ''} onClick={report}><FileText className="h-3.5 w-3.5" />Client report</Button>}
+                {d.audit?.status === 'completed' && <Button small disabled={busy !== ''} onClick={deck}><Presentation className="h-3.5 w-3.5 text-amber-400" />Executive deck</Button>}
               </div>
             </div>
             {!d.has_website ? <p className="text-xs text-slate-400">This business has no website to audit. The pitch is building one; see the opener on its Find result.</p>

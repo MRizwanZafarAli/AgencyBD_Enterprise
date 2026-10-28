@@ -72,3 +72,57 @@ def today_summary(principal: Principal = Depends(require_permission("leads:read"
                      "pipeline_value": pipe["total_pipeline_value"], "win_rate_percent": pipe["win_rate_percent"], "unvalued_deals": pipe["unvalued_deals_count"], "client_followups_due": len(tasks)},
             "focus": focus[:3], "activity": activity, "channels": channels,
             "note": "Weekly numbers compare the last 7 days with the 7 days before. Pipeline value counts only values you entered."}
+
+
+@router.get("/briefing")
+def today_briefing(principal: Principal = Depends(require_permission("leads:read"))) -> Dict[str, Any]:
+    """Automated Daily BD Executive Briefing: synthesizes pipeline, tasks, intent and top actions."""
+    org = principal.org_id
+    summary = today_summary(principal)
+    kpis = summary["kpis"]
+    focus = summary["focus"]
+    channels = summary["channels"]
+
+    from datetime import datetime, timezone
+    today_str = datetime.now(timezone.utc).strftime("%A, %B %d, %Y")
+
+    with get_db() as db:
+        # Check recent corporate visitor signals
+        visitor_count = _count(db, "SELECT COUNT(*) FROM visitor_intent_events WHERE org_id = ? AND created_at >= datetime('now', '-24 hours')", (org,))
+
+    pipe_val = kpis["pipeline_value"] or 0
+    val_str = f"${int(pipe_val):,}" if pipe_val else "$0"
+    win_rate = f"{kpis['win_rate_percent']}%" if kpis['win_rate_percent'] is not None else "N/A"
+
+    lines = [
+        f"# ⚡ AgencyBD Executive Morning Briefing",
+        f"**Date:** {today_str} | **Workspace:** {org}",
+        "",
+        f"### 📊 Pipeline & Revenue Velocity",
+        f"- **Active Pipeline Value:** {val_str} ({kpis.get('unvalued_deals', 0)} unvalued in play)",
+        f"- **Historical Win Rate:** {win_rate}",
+        f"- **Overdue Follow-ups:** {kpis.get('client_followups_due', 0)} client tasks due",
+        f"- **Pending Approval Queue:** {kpis.get('pending_approvals', 0)} outbound drafts waiting",
+        f"- **Website Intent Signals:** {visitor_count} company visits detected in last 24h",
+        "",
+        f"### 🎯 Top 3 Priority Actions for Today"
+    ]
+
+    for i, f in enumerate(focus, 1):
+        lines.append(f"{i}. **{f['title']}** — {f['detail']}")
+
+    lines.append("")
+    lines.append(f"### 🚀 Channel Pacing")
+    for c in channels[:3]:
+        lines.append(f"- **{c['label']}:** {c.get('streak_days', 0)}d routine streak | {c.get('followups_due', 0)} follow-ups due")
+
+    return {
+        "headline": f"Daily Briefing: {today_str}",
+        "date": today_str,
+        "pipeline_value_str": val_str,
+        "followups_due": kpis.get("client_followups_due", 0),
+        "pending_approvals": kpis.get("pending_approvals", 0),
+        "overnight_visitors": visitor_count,
+        "focus_items": focus,
+        "markdown": "\n".join(lines)
+    }

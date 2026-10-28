@@ -10,6 +10,7 @@ import { Preferences } from '../components/settings/Preferences';
 import { SETTINGS_SECTIONS } from '../components/settings/sections';
 import { Tour } from '../components/settings/Tour';
 import { IntegrationsPanel } from '../components/settings/IntegrationsPanel';
+import { WebhooksPanel } from '../components/settings/WebhooksPanel';
 import { PortfolioManager } from '../components/modules/PortfolioManager';
 import { GovernanceAndLearning } from '../components/modules/GovernanceAndLearning';
 import { DnsStudio } from '../components/modules/DnsStudio';
@@ -59,6 +60,7 @@ export const Settings: FC<{ me: Me; section: string; setSection: (s: string) => 
           {section === 'setup' && <SetupWizard status={status} onGo={pick} />}
           {section === 'profile' && <AgencyProfile />}
           {section === 'keys' && <IntegrationsPanel />}
+          {section === 'webhooks' && <WebhooksPanel />}
           {section === 'services' && <PortfolioManager />}
           {section === 'sending' && (<div className="space-y-6"><GovernanceAndLearning />
             <button onClick={() => setRouting((v) => !v)} className="text-xs text-indigo-300 hover:text-indigo-200 underline">{routing ? 'Hide' : 'Show'} sender-routing tools</button>{routing && <FleetRouter />}</div>)}
