@@ -750,3 +750,24 @@ for (const theme of ['light', 'dark'] as const) {
     }
   });
 }
+
+test('find jobs: a short skill matches whole words only, so "ai" is not "email" and "seo" is not "Seoul"', async ({ page }) => {
+  const opp = (id: number, title: string, description: string) => ({ id, type: 'hiring_signal', source: 'hn', external_id: `x${id}`, title, description, company_name: 'Acme', url: `https://example.com/${id}`, fit_score: 0.5, fit_reasons: [], budget_min: null, budget_max: null, currency: 'USD', created_at: '2026-10-20' });
+  await page.route('**/api/opportunities*', (r) => r.fulfill(json([
+    opp(1, 'AI engineer', 'Build LLM features'), opp(2, 'Office admin', 'Maintain email systems and said so'), opp(3, 'SEO specialist', 'Grow organic traffic'),
+    opp(4, 'Seoul office manager', 'Based in Seoul'), opp(5, 'React developer', 'Frontend with reactjs'), opp(6, 'Proactive support agent', 'Customer care'),
+  ])));
+  await signIn(page);
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /^Find/ }).click();
+  await page.getByRole('tab', { name: 'Jobs and projects' }).click();
+  const search = page.getByPlaceholder('react, tender, fintech…');
+  await search.fill('ai');
+  await expect(page.getByText('AI engineer')).toBeVisible();
+  await expect(page.getByText('Office admin')).toHaveCount(0);
+  await search.fill('seo');
+  await expect(page.getByText('SEO specialist')).toBeVisible();
+  await expect(page.getByText('Seoul office manager')).toHaveCount(0);
+  await search.fill('react');
+  await expect(page.getByText('React developer').first()).toBeVisible();               // a longer term still finds "reactjs"
+  await expect(page.getByText('Proactive support agent')).toHaveCount(0);
+});

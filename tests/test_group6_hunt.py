@@ -229,3 +229,64 @@ def test_pitch_strategy_uses_the_catalog_price_band_and_never_invents_statistics
     assert ps["value_estimate"] == "GBP 2,000-3,500" and ps["deliverables"] == ["Design", "Build", "Launch"]
     blob = " ".join([ps["cold_pitch_hook"]] + ps["actionable_teardown"])
     assert "Facebook" in ps["cold_pitch_hook"] and "%" not in blob and "$" not in blob
+
+
+# ------------------------------------------------------------------ found while testing real businesses in six cities
+
+SHELL = ("<html><head><title>Tim Hortons</title><script src='/a.js'></script><script src='/b.js'></script></head>"
+         "<body><div id='root'></div><noscript>enable js</noscript></body></html>")
+BLANK = "<html><head></head><body><p>hi</p></body></html>"
+PARKED_PAGE = "<html><head><title>x.com</title></head><body><h1>This domain is for sale</h1><a href='https://www.hugedomains.com/'>Buy</a></body></html>"
+
+
+def test_a_javascript_app_shell_is_a_live_site_not_a_parked_one():
+    from intel.site_profile import extract_profile
+    p = extract_profile(SHELL, "https://www.timhortons.com/")
+    assert p["js_rendered"] is True and p["is_parked"] is False and p["word_count"] < 15
+
+
+def test_parked_still_needs_positive_evidence_and_blank_pages_still_count():
+    from intel.site_profile import extract_profile
+    assert extract_profile(PARKED_PAGE)["is_parked"] is True                          # explicit for-sale wording
+    assert extract_profile(BLANK)["is_parked"] is True                                # nothing at all: no title, no scripts, a few words
+    assert extract_profile("<html><head><title>Acme</title></head><body>" + "word " * 200 + "</body></html>")["is_parked"] is False
+
+
+def test_thin_content_is_not_claimed_for_a_page_whose_text_is_rendered_in_the_browser(web):
+    from auditors.engine import WebsiteDoctorEngine
+    web["spa.example"] = SHELL
+    ids = {f["check_id"] for f in WebsiteDoctorEngine.run_audit("spa.example", org_id="o")["findings"]}
+    assert "thin_content" not in ids
+    web["plain.example"] = "<html><head><title>Plain</title></head><body><p>" + "few words here " * 5 + "</p></body></html>"
+    assert "thin_content" in {f["check_id"] for f in WebsiteDoctorEngine.run_audit("plain.example", org_id="o")["findings"]}
+
+
+def test_branches_of_one_chain_become_one_ranked_down_row(monkeypatch):
+    rows = [raw("The Gym", "https://www.thegymgroup.com", provider="osm", place_id=None) | {"place_id": f"g{i}"} for i in range(4)] + [raw("Local Gym", "https://localgym.example", provider="osm")]
+    monkeypatch.setattr(places, "search_osm", lambda c, city, n: rows)
+    monkeypatch.setattr(local_hunt, "_site_signals", lambda url, name: {"classification": "has_site", "domain": url.split("//")[1], "issues": []})
+    out = local_hunt.hunt("gym", "Glasgow", provider="osm", limit=10)
+    domains = [r["domain"] for r in out["results"]]
+    assert domains.count("www.thegymgroup.com") == 1 and "localgym.example" in domains
+    chain = next(r for r in out["results"] if r["domain"] == "www.thegymgroup.com")
+    assert chain["chain"] is True and chain["branches"] == 4 and chain["score"] <= 15 and any("chain" in i for i in chain["issues"])
+    assert out["results"][0]["domain"] == "localgym.example"                          # the independent outranks the chain
+    assert any("chain" in n for n in out["notes"])
+
+
+def test_a_google_share_link_is_not_the_businesss_website():
+    from intel.presence import _is_social
+    assert _is_social("https://share.google/abc123") and _is_social("https://maps.app.goo.gl/xyz") and not _is_social("https://realbusiness.co.uk")
+
+
+def test_a_domain_you_gave_is_probed_patiently_and_a_guess_quickly(monkeypatch):
+    from intel import resolver
+    seen = []
+    class Res:
+        status_code, final_url, text, headers = 200, "https://slow.example/", "<html><head><title>Slow Co</title></head><body>" + "word " * 100 + "</body></html>", {}
+    monkeypatch.setattr(resolver.SafeFetcher, "safe_fetch", classmethod(lambda cls, url, timeout=10, **k: (seen.append(timeout), Res())[1]))
+    resolver.CompanyResolver.resolve_domain_from_name("Slow Co", "slow.example", org_id="o")
+    assert seen and max(seen) >= 15                                                   # a slow site is not a dead site
+    seen.clear()
+    resolver.probe("guess.example", ["guess"])
+    assert seen == [6]

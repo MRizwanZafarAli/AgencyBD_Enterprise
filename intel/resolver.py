@@ -66,15 +66,16 @@ def score_homepage(tokens: List[str], domain: str, profile: Dict[str, Any]) -> f
     return round(score * (0.2 if profile["is_parked"] else 1.0), 3)
 
 
-def probe(domain: str, tokens: List[str]) -> Optional[Dict[str, Any]]:
-    """Fetches a candidate homepage. None when it cannot be reached; SSRF-blocked targets raise."""
+def probe(domain: str, tokens: List[str], timeout: int = 6) -> Optional[Dict[str, Any]]:
+    """Fetches a candidate homepage. None when it cannot be reached; SSRF-blocked targets raise.
+    Guessed candidates get a short timeout (many are probed at once); a domain the person gave gets a long one, because a slow site is not a dead site."""
     try:
-        res = SafeFetcher.safe_fetch(f"https://{domain}", timeout=6)
+        res = SafeFetcher.safe_fetch(f"https://{domain}", timeout=timeout)
     except SSRFSecurityError:
         raise
     except Exception:
         try:
-            res = SafeFetcher.safe_fetch(f"http://{domain}", timeout=6)
+            res = SafeFetcher.safe_fetch(f"http://{domain}", timeout=timeout)
         except SSRFSecurityError:
             raise
         except Exception:
@@ -122,7 +123,7 @@ class CompanyResolver:
         # ---- the user supplied the domain: verify it, don't search
         if given:
             domain = clean_domain(given).split(":")[0]
-            result = probe(domain, tokens)
+            result = probe(domain, tokens, timeout=20)
             if result is None:
                 status, chosen, candidates = "domain_unreachable", None, []
             elif result.get("blocked"):
