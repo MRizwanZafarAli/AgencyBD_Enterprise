@@ -93,3 +93,135 @@ def test_today_executive_briefing(client, make_key):
     assert "markdown" in data
     assert "focus_items" in data
     assert "pipeline_value_str" in data
+
+
+def test_database_engine_info_endpoint(client, make_key):
+    h = make_key(role="growth_lead")
+    res = client.get("/api/system/database", headers=h)
+    assert res.status_code == 200
+    data = res.json()
+    assert "backend" in data
+    assert "status" in data
+    assert data["backend"] in ("sqlite", "postgresql")
+
+
+def test_task_queue_and_dlq_endpoints(client, admin_headers):
+    # 1. Enqueue task
+    enq_res = client.post(
+        "/api/system/queue/enqueue",
+        headers=admin_headers,
+        json={"task_name": "ping", "payload": {"message": "hello queue"}, "max_retries": 2}
+    )
+    assert enq_res.status_code == 200
+    task_id = enq_res.json()["task_id"]
+
+    # 2. Inspect queue
+    q_res = client.get("/api/system/queue", headers=admin_headers)
+    assert q_res.status_code == 200
+    assert "counts" in q_res.json()
+    assert "recent_tasks" in q_res.json()
+
+    # 3. Drain task
+    drain_res = client.post("/api/system/queue/drain?limit=5", headers=admin_headers)
+    assert drain_res.status_code == 200
+    assert drain_res.json()["processed_count"] >= 1
+
+
+def test_crm_sync_inbound_endpoints(client, admin_headers):
+    # Ensure a test lead exists
+    with get_db() as db:
+        db.execute(
+            "INSERT OR IGNORE INTO leads (org_id, company_name, domain, source_channel, status) "
+            "VALUES ('org_default', 'Test CRM Corp', 'testcrmcorp.com', 'outreach', 'sourced')"
+        )
+        db.commit()
+
+    # Inbound CRM update
+    sync_res = client.post(
+        "/api/integrations/crm/sync",
+        headers=admin_headers,
+        json={
+            "domain": "testcrmcorp.com",
+            "deal_stage": "opportunity",
+            "deal_value": 25000.0,
+            "note": "Spoke to VP of Eng, moving to proposal"
+        }
+    )
+    assert sync_res.status_code == 200
+    assert sync_res.json()["deal_stage"] == "proposal_sent"
+    assert sync_res.json()["deal_value"] == 25000.0
+
+    # Inbound HubSpot webhook
+    hs_res = client.post(
+        "/api/integrations/crm/hubspot",
+        json=[{"objectId": 1, "propertyName": "lifecyclestage", "propertyValue": "customer"}]
+    )
+    assert hs_res.status_code == 200
+
+    # Export all
+    exp_res = client.get("/api/integrations/crm/export-all", headers=admin_headers)
+    assert exp_res.status_code == 200
+    assert "leads" in exp_res.json()
+
+
+def test_video_pitch_storyboard_endpoint(client, make_key):
+    h = make_key(role="growth_lead")
+    with get_db() as db:
+        cursor = db.cursor()
+        cursor.execute(
+            "INSERT INTO leads (org_id, company_name, domain, source_channel) "
+            "VALUES ('org_default', 'Storyboard Test Inc', 'storyboardtest.com', 'demo')"
+        )
+        lead_id = cursor.lastrowid
+        db.commit()
+
+    res = client.post(
+        "/api/reports/video-storyboard",
+        headers=h,
+        json={"lead_id": lead_id, "prospect_name": "Sarah Connor"}
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert "storyboard" in data
+    assert "storyboard_scenes" in data["storyboard"]
+    assert len(data["storyboard"]["storyboard_scenes"]) >= 2
+
+
+def test_voice_sales_intelligence_endpoints(client, make_key):
+    h = make_key(role="growth_lead")
+
+    # 1. Transcript Qualification
+    sample_transcript = (
+        "Agency: Hi Mark, thanks for meeting. Can you tell me what latency challenges you're facing?\n"
+        "Prospect: Our loading times are really slow, LCP is lagging and our AWS bill is high. "
+        "We considered Toptal but their open hourly billing is expensive."
+    )
+    res_qual = client.post(
+        "/api/voice/qualify",
+        headers=h,
+        json={"transcript": sample_transcript}
+    )
+    assert res_qual.status_code == 200
+    analysis = res_qual.json()["analysis"]
+    assert "toptal" in analysis["detected_competitors"]
+    assert "site_performance_latency" in analysis["validated_customer_pain_points"]
+    assert "founder_talk_percent" in analysis
+
+    # 2. Objection Simulator
+    res_obj = client.post(
+        "/api/voice/simulate-objection",
+        headers=h,
+        json={"objection_text": "Your price is way too expensive for our budget"}
+    )
+    assert res_obj.status_code == 200
+    result = res_obj.json()["result"]
+    assert result["matched"] is True
+    assert "reframe" in result
+    assert "verbal_counter_script" in result
+
+    # 3. Battlecards list
+    res_cards = client.get("/api/voice/battlecards", headers=h)
+    assert res_cards.status_code == 200
+    assert len(res_cards.json()["battlecards"]) >= 2
+

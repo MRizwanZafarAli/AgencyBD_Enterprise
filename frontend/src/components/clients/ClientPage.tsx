@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { ExternalLink, FileText, Presentation, Search, ShieldCheck, Sparkles, UserPlus } from 'lucide-react';
+import { ExternalLink, FileText, Presentation, Search, ShieldCheck, Sparkles, UserPlus, Video } from 'lucide-react';
 import { Badge, Button, Card, Drawer, EmptyState, ScoreBar, Skeletons, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
+import { VideoStoryboardDrawer } from '../shared/VideoStoryboardDrawer';
+import type { VideoStoryboardData } from '../shared/VideoStoryboardDrawer';
 import { openProtected } from '../../lib/api';
 import { send, useApi } from '../../lib/hooks';
 import { normalizeUrl } from '../../lib/urls';
@@ -34,6 +36,7 @@ export const ClientPage: FC<{ leadId: number | null; onClose: () => void }> = ({
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
+  const [storyboard, setStoryboard] = useState<VideoStoryboardData | null>(null);
   const [aiAdvice, setAiAdvice] = useState<Advice | null>(null);
   const [country, setCountry] = useState('');
   const [contact, setContact] = useState({ first_name: '', last_name: '', title: '', email: '' });
@@ -52,6 +55,13 @@ export const ClientPage: FC<{ leadId: number | null; onClose: () => void }> = ({
   });
   const report = () => run('report', async () => { const r = await send<{ html_filename: string; pdf_filename: string | null }>('/api/reports/client', 'POST', { domain: d!.lead.domain, output_format: 'both' }); await openProtected(`/api/reports/view/${r.pdf_filename ?? r.html_filename}`); });
   const deck = () => run('deck', async () => { const r = await send<{ html_filename: string; pdf_filename: string | null; view_url: string }>('/api/reports/deck', 'POST', { domain: d!.lead.domain, output_format: 'both' }); await openProtected(r.view_url); });
+  const openStoryboard = () => run('storyboard', async () => {
+    const r = await send<{ status: string; storyboard: VideoStoryboardData }>('/api/reports/video-storyboard', 'POST', {
+      lead_id: leadId!,
+      prospect_name: d?.contacts[0]?.first_name ? `${d.contacts[0].first_name} ${d.contacts[0].last_name}` : 'Founder / CTO'
+    });
+    setStoryboard(r.storyboard);
+  });
   const addContact = (e: FormEvent) => { e.preventDefault(); run('contact', async () => { await send(`/api/clients/${leadId}/contacts`, 'POST', contact); setContact({ first_name: '', last_name: '', title: '', email: '' }); setAdding(false); detail.reload(); }); };
   const verify = (cid: number) => run('verify', async () => { const r = await send<{ verified: boolean; reason: string }>(`/api/clients/${leadId}/contacts/${cid}/verify`, 'POST'); setNote(r.verified ? 'Verified.' : `Not verified: ${r.reason}`); detail.reload(); });
   const findContacts = () => run('find', async () => setFound(await send<Found>(`/api/clients/${leadId}/find_contacts`, 'POST')));
@@ -88,6 +98,7 @@ export const ClientPage: FC<{ leadId: number | null; onClose: () => void }> = ({
                 {d.has_website && <Button small variant="primary" disabled={busy !== ''} onClick={audit}>{busy === 'audit' ? 'Checking…' : d.audit ? 'Re-run audit' : 'Run audit'}</Button>}
                 {d.audit?.status === 'completed' && <Button small disabled={busy !== ''} onClick={report}><FileText className="h-3.5 w-3.5" />Client report</Button>}
                 {d.audit?.status === 'completed' && <Button small disabled={busy !== ''} onClick={deck}><Presentation className="h-3.5 w-3.5 text-amber-400" />Executive deck</Button>}
+                {d.audit?.status === 'completed' && <Button small disabled={busy !== ''} onClick={openStoryboard}><Video className="h-3.5 w-3.5 text-purple-400" />Video script</Button>}
               </div>
             </div>
             {!d.has_website ? <p className="text-xs text-slate-400">This business has no website to audit. The pitch is building one; see the opener on its Find result.</p>
@@ -152,6 +163,7 @@ export const ClientPage: FC<{ leadId: number | null; onClose: () => void }> = ({
           <ClientNotes leadId={d.lead.id} />
         </div>
       )}
+      <VideoStoryboardDrawer open={storyboard !== null} onClose={() => setStoryboard(null)} storyboard={storyboard} />
     </Drawer>
   );
 };

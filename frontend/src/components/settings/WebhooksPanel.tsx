@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { Plus, Send, Trash2, Zap } from 'lucide-react';
+import { Database, Plus, Send, Trash2, Zap } from 'lucide-react';
 import { Badge, Button, Card, EmptyState, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { send, useApi } from '../../lib/hooks';
@@ -233,6 +233,32 @@ export const WebhooksPanel: FC = () => {
             ))}
           </ul>
         )}
+      </div>
+
+      <div className="pt-4 border-t border-white/5 space-y-3">
+        <div className="flex items-center gap-2">
+          <Database className="h-4 w-4 text-indigo-400" />
+          <h3 className="text-xs font-semibold text-slate-200">Bi-directional Inbound CRM Sync</h3>
+        </div>
+        <p className="text-xs text-slate-400">
+          Configure external CRMs (HubSpot, Salesforce, Zapier, Make) to push stage updates directly into AgencyBD.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2 text-xs">
+          <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+            <div className="font-semibold text-slate-300">HubSpot Webhook URL</div>
+            <div className="font-mono text-[11px] text-amber-300 select-all break-all">
+              {window.location.origin}/api/integrations/crm/hubspot
+            </div>
+            <div className="text-[10px] text-slate-500">Listens for lifecyclestage &amp; dealstage events</div>
+          </div>
+          <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+            <div className="font-semibold text-slate-300">Generic CRM Sync URL</div>
+            <div className="font-mono text-[11px] text-amber-300 select-all break-all">
+              {window.location.origin}/api/integrations/crm/sync
+            </div>
+            <div className="text-[10px] text-slate-500">Accepts domain, deal_stage, deal_value &amp; note</div>
+          </div>
+        </div>
       </div>
     </Card>
   );

@@ -1175,6 +1175,14 @@ from routers.visitor_intent import router as visitor_intent_router
 app.include_router(visitor_intent_router)
 from routers.webhooks import router as webhooks_router, dispatch_webhook_event
 app.include_router(webhooks_router)
+from routers.tasks import router as tasks_router
+app.include_router(tasks_router)
+from routers.crm_sync import router as crm_sync_router
+app.include_router(crm_sync_router)
+from routers.video_pitch import router as video_pitch_router
+app.include_router(video_pitch_router)
+from routers.voice_relay import router as voice_relay_router
+app.include_router(voice_relay_router)
 
 # ==================== Autopilot, priority, inbox, reports, assistant ====================
 from orchestrator.autopilot import DiscoveryRun

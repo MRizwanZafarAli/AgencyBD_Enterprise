@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import type { FC } from 'react';
-import { Check, Copy, Download, FileText, GitCompare, Loader2, Presentation, RefreshCw, Stethoscope, UserPlus } from 'lucide-react';
+import { Check, Copy, Download, FileText, GitCompare, Loader2, Presentation, RefreshCw, Stethoscope, UserPlus, Video } from 'lucide-react';
 import { Badge, Button, Card, Drawer, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
+import { VideoStoryboardDrawer } from '../shared/VideoStoryboardDrawer';
+import type { VideoStoryboardData } from '../shared/VideoStoryboardDrawer';
 import { openProtected } from '../../lib/api';
 import { send } from '../../lib/hooks';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
@@ -26,6 +28,7 @@ export const SiteClinic: FC<{ initial?: string; autoRun?: boolean; onOpenClient:
   const [chart, setChart] = useState<Chart | null>(null);
   const [options, setOptions] = useState<Resolve | null>(null);
   const [teardown, setTeardown] = useState<{ markdown: string; filename: string } | null>(null);
+  const [storyboard, setStoryboard] = useState<VideoStoryboardData | null>(null);
   const [note, setNote] = useState('');
   const [copied, setCopied] = useState(false);
   const busy = step >= 0 && step < STEPS.length;
@@ -65,6 +68,16 @@ export const SiteClinic: FC<{ initial?: string; autoRun?: boolean; onOpenClient:
   const saveClient = () => act(async () => { const lead = await send<{ id: number }>('/api/pipeline/deals/create', 'POST', { company_name: chart!.resolve.name, domain }); onOpenClient(lead.id); });
   const report = () => act(async () => { const r = await send<{ html_filename: string; pdf_filename: string | null }>('/api/reports/client', 'POST', { domain, output_format: 'both' }); await openProtected(`/api/reports/view/${r.pdf_filename ?? r.html_filename}`); });
   const openDeck = () => act(async () => { const r = await send<{ html_filename: string; pdf_filename: string | null; view_url: string }>('/api/reports/deck', 'POST', { domain, output_format: 'both' }); await openProtected(r.view_url); });
+  const openVideoStoryboard = () => act(async () => {
+    const r = await send<VideoStoryboardData>('/api/native/generate_video_storyboard', 'POST', {
+      prospect_name: 'Founder / CTO',
+      company_name: chart!.resolve.name,
+      domain,
+      lcp_score: null,
+      proof_point: null
+    });
+    setStoryboard(r);
+  });
   const openTeardown = () => act(async () => setTeardown(await get<{ markdown: string; filename: string }>(`/api/companies/${chart!.resolve.company_id}/teardown`)));
   const copy = async () => { if (!teardown) return; try { await navigator.clipboard.writeText(teardown.markdown); setCopied(true); window.setTimeout(() => setCopied(false), 1600); } catch { setNote('Copy was blocked by the browser; use Download.'); } };
   const download = () => { if (!teardown) return; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([teardown.markdown], { type: 'text/markdown' })); a.download = teardown.filename; a.click(); URL.revokeObjectURL(a.href); };
@@ -108,6 +121,7 @@ export const SiteClinic: FC<{ initial?: string; autoRun?: boolean; onOpenClient:
               <Button small onClick={openTeardown} disabled={chart.audit?.status !== 'completed'}><FileText className="h-3.5 w-3.5" />Teardown</Button>
               <Button small onClick={report} disabled={chart.audit?.status !== 'completed'}><Download className="h-3.5 w-3.5" />PDF report</Button>
               <Button small onClick={openDeck} disabled={chart.audit?.status !== 'completed'}><Presentation className="h-3.5 w-3.5 text-amber-400" />Executive deck</Button>
+              <Button small onClick={openVideoStoryboard} disabled={chart.audit?.status !== 'completed'}><Video className="h-3.5 w-3.5 text-purple-400" />Video script</Button>
               <Button small onClick={() => onHandoff('compare', domain)}><GitCompare className="h-3.5 w-3.5" />Compare</Button>
               <Button small variant="primary" onClick={saveClient}><UserPlus className="h-3.5 w-3.5" />Save as client</Button>
             </div>
@@ -127,6 +141,12 @@ export const SiteClinic: FC<{ initial?: string; autoRun?: boolean; onOpenClient:
         </div>
         <pre className="text-xs text-slate-200 whitespace-pre-wrap font-mono leading-relaxed">{teardown?.markdown}</pre>
       </Drawer>
+
+      <VideoStoryboardDrawer
+        open={storyboard !== null}
+        onClose={() => setStoryboard(null)}
+        storyboard={storyboard}
+      />
     </div>
   );
 };

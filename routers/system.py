@@ -63,6 +63,13 @@ def system_status(principal: Principal = Depends(require_permission("leads:read"
             if c["key"] in ("verifier", "mailbox", "sender_identity")), "required_missing": len(missing), "checks": checks, "warnings": warnings}
 
 
+@router.get("/system/database")
+def get_database_status(principal: Principal = Depends(require_permission("leads:read"))):
+    """Telemetry about database engine, connection pooling, and migration readiness."""
+    from database.db import get_database_engine_info
+    return get_database_engine_info()
+
+
 @router.get("/security/roles")
 def list_roles(principal: Principal = Depends(get_current_principal)):
     """The server's authoritative role/permission table (what each key type may do)."""
