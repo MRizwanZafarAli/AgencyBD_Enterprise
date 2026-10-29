@@ -9,7 +9,6 @@ import hmac
 import json
 import threading
 import time
-import urllib.request
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -17,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, HttpUrl
 
 from database.db import get_db
+from net.fetcher import SafeFetcher
 from security.auth import Principal, require_permission
 
 router = APIRouter(prefix="/api/webhooks", tags=["Webhooks"])
@@ -58,26 +58,27 @@ def dispatch_webhook_event(org_id: str, event_name: str, payload: Dict[str, Any]
                 body_bytes = json.dumps(full_body).encode("utf-8")
                 sig = _sign_payload(r["secret"], body_bytes)
 
-                req = urllib.request.Request(
-                    r["url"],
-                    data=body_bytes,
-                    headers={
-                        "Content-Type": "application/json",
-                        "X-AgencyBD-Signature": sig,
-                        "X-AgencyBD-Event": event_name,
-                        "User-Agent": "AgencyBD-Webhook-Dispatcher/2.4"
-                    },
-                    method="POST"
-                )
+                headers = {
+                    "Content-Type": "application/json",
+                    "X-AgencyBD-Signature": sig,
+                    "X-AgencyBD-Event": event_name,
+                    "User-Agent": "AgencyBD-Webhook-Dispatcher/2.4"
+                }
 
                 status_code = None
                 err_msg = None
                 try:
-                    with urllib.request.urlopen(req, timeout=8.0) as resp:
-                        status_code = resp.getcode()
+                    res = SafeFetcher.safe_fetch(
+                        r["url"],
+                        method="POST",
+                        json_body=full_body,
+                        headers=headers,
+                        timeout=8
+                    )
+                    status_code = res.status_code
                 except Exception as e:
                     err_msg = str(e)[:250]
-                    status_code = getattr(e, "code", 500)
+                    status_code = getattr(e, "status_code", 500)
 
                 db.execute(
                     "UPDATE outbound_webhooks SET last_delivered_at = CURRENT_TIMESTAMP, last_status_code = ?, last_error = ? WHERE id = ?",
@@ -180,22 +181,23 @@ def test_webhook(webhook_id: int, principal: Principal = Depends(MANAGE)) -> Dic
     t0 = time.time()
     status_code = None
     err = None
+    headers = {
+        "Content-Type": "application/json",
+        "X-AgencyBD-Signature": sig,
+        "X-AgencyBD-Event": "test.ping",
+        "User-Agent": "AgencyBD-Webhook-Dispatcher/2.4"
+    }
     try:
-        req = urllib.request.Request(
+        res = SafeFetcher.safe_fetch(
             url,
-            data=body_bytes,
-            headers={
-                "Content-Type": "application/json",
-                "X-AgencyBD-Signature": sig,
-                "X-AgencyBD-Event": "test.ping",
-                "User-Agent": "AgencyBD-Webhook-Dispatcher/2.4"
-            },
-            method="POST"
+            method="POST",
+            json_body=test_payload,
+            headers=headers,
+            timeout=5
         )
-        with urllib.request.urlopen(req, timeout=5.0) as resp:
-            status_code = resp.getcode()
+        status_code = res.status_code
     except Exception as e:
-        status_code = getattr(e, "code", 500)
+        status_code = getattr(e, "status_code", 500)
         err = str(e)[:200]
 
     ms = int((time.time() - t0) * 1000)
