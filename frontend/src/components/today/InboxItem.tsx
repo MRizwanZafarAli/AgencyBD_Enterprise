@@ -17,7 +17,7 @@ export interface InboxEntry {
   data?: any;
 }
 
-const KIND_ICON: Record<string, FC<{ className?: string }>> = { find_contact: UserSearch, new_cve: ShieldAlert, review_lead: ClipboardList, approval: Mail, setup: Gear };
+const KIND_ICON: Record<string, FC<{ className?: string }>> = { find_contact: UserSearch, new_cve: ShieldAlert, site_change: ShieldAlert, review_lead: ClipboardList, approval: Mail, setup: Gear };
 
 export const InboxItem: FC<{ item: InboxEntry; onChanged: () => void; onOpenClient: (leadId: number) => void; onSettings: (section?: string) => void }> = ({ item, onChanged, onOpenClient, onSettings }) => {
   const [busy, setBusy] = useState(false);
@@ -49,6 +49,7 @@ export const InboxItem: FC<{ item: InboxEntry; onChanged: () => void; onOpenClie
           <span className="text-sm font-medium text-white">{item.title}</span>
           {item.type === 'approval' && <Badge tone="accent">{a?.subject_type === 'outbound_draft' ? 'Email draft' : 'Proposal'}</Badge>}
           {item.kind === 'new_cve' && <Badge tone="bad">Security watch</Badge>}
+          {item.kind === 'site_change' && <Badge tone="warn">Site changed</Badge>}
         </div>
         {item.type === 'approval' && a?.draft_recipient && <div className="text-xs text-slate-400">To {a.draft_recipient}{a.draft_step ? ` · step ${a.draft_step}` : ''}</div>}
         {item.detail && item.type !== 'approval' && <p className="text-xs text-slate-400 max-w-2xl">{item.detail}</p>}

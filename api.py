@@ -62,6 +62,18 @@ async def lifespan(_app: FastAPI):
         _profile.apply_all()                            # the agency identity saved in Settings survives a restart
     except Exception:
         logger.exception("could not apply the saved agency profile")
+    alert_worker = None
+    try:
+        from alertdesk import worker as _alerts
+        alert_worker = _alerts.start()                  # idles until a workspace switches the Alert Desk on
+    except Exception:
+        logger.exception("could not start the alert desk")
+    lead_worker = None
+    try:
+        from leadfinder import worker as _leads
+        lead_worker = _leads.start()                    # idles until a search is saved
+    except Exception:
+        logger.exception("could not start the lead finder")
     if os.getenv("AGENCYBD_SCHEDULER", "off").lower() in ("on", "true", "1"):
         from workflows.scheduler import SchedulerThread
         runner = SchedulerThread(int(os.getenv("AGENCYBD_SCHEDULER_INTERVAL", "60")))
@@ -69,6 +81,10 @@ async def lifespan(_app: FastAPI):
     yield
     if runner:
         runner.stop()
+    if alert_worker:
+        alert_worker.stop()
+    if lead_worker:
+        lead_worker.stop()
 
 
 app = FastAPI(
@@ -928,6 +944,15 @@ def update_pipeline_deal_stage(req: DealStageUpdateRequest, principal: Principal
     res = LeadRepository.update_deal_stage(req.lead_id, req.new_stage, org_id=principal.org_id)
     if not res:
         raise HTTPException(status_code=404, detail="Lead not found in this organization")
+    if req.new_stage.lower() == "won":
+        try:
+            from workflows import client_notes as _cn
+            lead = LeadRepository.get_lead(req.lead_id, principal.org_id)
+            task = _cn.ask_for_review(principal.org_id, req.lead_id, (lead or {}).get("company_name") or "the client")
+            if task and isinstance(res, dict):
+                res = {**res, "review_task": {"id": task["id"], "due_date": task["due_date"]}}
+        except Exception:
+            logger.exception("could not plan the review request")
     try:
         from routers.webhooks import dispatch_webhook_event
         dispatch_webhook_event(principal.org_id, "client.stage_changed", {"lead_id": req.lead_id, "new_stage": req.new_stage})
@@ -1163,6 +1188,12 @@ from routers.client_notes import router as client_notes_router
 app.include_router(client_notes_router)
 from routers.workspace import router as workspace_router
 app.include_router(workspace_router)
+from routers.alerts import router as alerts_router
+from routers.leadfinder import router as leadfinder_router
+from routers.partners import router as partners_router
+app.include_router(alerts_router)
+app.include_router(leadfinder_router)
+app.include_router(partners_router)
 app.include_router(outbound_router)
 app.include_router(compliance_router)
 app.include_router(policy_router)
@@ -1307,6 +1338,16 @@ def company_teardown(company_id: int, principal: Principal = Depends(require_per
     if out is None:
         raise HTTPException(status_code=422, detail="Examine the site first; there is no completed audit to write about.")
     return out
+
+
+@app.get("/api/companies/{company_id}/offer")
+def company_offer(company_id: int, principal: Principal = Depends(require_permission("leads:read"))):
+    """A one-page fixed-price offer (Markdown) from the latest completed check and your own service prices. Blanks are listed in `needs`; 422 without a completed check."""
+    from proposals.offer import build_offer
+    try:
+        return build_offer(principal.org_id, company_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Company not found")
 
 
 @app.post("/api/companies/{company_id}/advice/ai")

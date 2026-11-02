@@ -635,7 +635,7 @@ def init_db():
     CREATE TABLE IF NOT EXISTS work_items (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         org_id TEXT NOT NULL,
-        kind TEXT NOT NULL,              -- find_contact | review_lead | fix_setup | new_cve | reply | custom
+        kind TEXT NOT NULL,              -- find_contact | review_lead | fix_setup | new_cve | site_change | reply | custom
         title TEXT NOT NULL,
         detail TEXT,
         entity_type TEXT,
@@ -665,6 +665,104 @@ def init_db():
         changed_by TEXT,
         changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS alert_settings (
+        org_id TEXT PRIMARY KEY,
+        data_json TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS alert_state (
+        org_id TEXT NOT NULL,
+        key TEXT NOT NULL,               -- imap_last_uid, imap_uidvalidity, telegram_offset, last_cycle_at, last_mail_error ...
+        value TEXT,
+        PRIMARY KEY (org_id, key)
+    );
+    CREATE TABLE IF NOT EXISTS client_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL,
+        platform TEXT NOT NULL,
+        kind TEXT NOT NULL DEFAULT 'message',        -- message | proposal | order | other
+        sender TEXT,
+        subject TEXT,
+        preview TEXT,
+        url TEXT,
+        origin TEXT NOT NULL DEFAULT 'email',        -- email | manual
+        source_ref TEXT,                              -- Message-ID: the same email is never ingested twice
+        received_at TEXT NOT NULL,                    -- UTC 'YYYY-MM-DD HH:MM:SS'
+        status TEXT NOT NULL DEFAULT 'new',           -- new | acknowledged | dismissed
+        acknowledged_at TEXT,
+        acknowledged_via TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (org_id, source_ref)
+    );
+    CREATE INDEX IF NOT EXISTS idx_client_messages ON client_messages(org_id, status);
+    CREATE TABLE IF NOT EXISTS alert_attempts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL,
+        message_id INTEGER NOT NULL,
+        step_index INTEGER NOT NULL,
+        channel TEXT NOT NULL,
+        status TEXT NOT NULL,            -- sent | failed | skipped
+        detail TEXT,
+        tries INTEGER NOT NULL DEFAULT 1,
+        at TEXT NOT NULL,
+        UNIQUE (message_id, step_index)
+    );
+    CREATE TABLE IF NOT EXISTS lead_searches (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        source TEXT NOT NULL,            -- hiring | new_companies | site_signals
+        params_json TEXT NOT NULL DEFAULT '{}',
+        notify INTEGER NOT NULL DEFAULT 1,
+        active INTEGER NOT NULL DEFAULT 1,
+        every_hours INTEGER NOT NULL DEFAULT 24,
+        last_run_at TEXT,
+        last_status TEXT,                -- ok | error
+        last_detail TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_lead_searches ON lead_searches(org_id, active);
+    CREATE TABLE IF NOT EXISTS lead_hits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL,
+        search_id INTEGER NOT NULL,
+        key TEXT NOT NULL,
+        title TEXT NOT NULL,
+        detail TEXT,
+        url TEXT,
+        data_json TEXT NOT NULL DEFAULT '{}',
+        status TEXT NOT NULL DEFAULT 'new',   -- new | saved | dismissed
+        notified INTEGER NOT NULL DEFAULT 0,
+        lead_id INTEGER,                      -- set once you attach a website and it becomes a client
+        first_seen_at TEXT NOT NULL,
+        UNIQUE (search_id, key)
+    );
+    CREATE INDEX IF NOT EXISTS idx_lead_hits ON lead_hits(org_id, status);
+    CREATE TABLE IF NOT EXISTS partners (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        kind TEXT NOT NULL DEFAULT 'other',
+        contact_name TEXT,
+        contact_where TEXT,              -- how to reach them: an email, a phone number or a profile link, as you typed it
+        website TEXT,
+        stage TEXT NOT NULL DEFAULT 'to_contact',   -- to_contact | contacted | talking | active_partner | not_a_fit
+        offer TEXT,                      -- what you offered them
+        next_step_date TEXT,
+        last_contact_at TEXT,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_partners ON partners(org_id, stage);
+    CREATE TABLE IF NOT EXISTS partner_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL,
+        partner_id INTEGER NOT NULL,
+        kind TEXT NOT NULL,              -- contacted | note | referral_in | referral_out
+        body TEXT,
+        at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_partner_events ON partner_events(org_id, partner_id);
     CREATE TABLE IF NOT EXISTS agency_profile (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL,             -- '' is an explicit clear that overrides .env; deleting the row restores .env

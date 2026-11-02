@@ -5,10 +5,11 @@ import { FindLocal } from '../components/find/FindLocal';
 import type { LocalPreset } from '../components/find/FindLocal';
 import { FindJobs } from '../components/find/FindJobs';
 import type { JobsPreset } from '../components/find/FindJobs';
+import { LeadFinder } from '../components/leadfinder/LeadFinder';
 import { SmartSearch } from '../components/find/SmartSearch';
 import type { SearchRun } from '../components/find/SmartSearch';
 
-const TABS = [{ id: 'local', label: 'Local businesses' }, { id: 'jobs', label: 'Jobs and projects' }, { id: 'tenders', label: 'Tenders' }];
+const TABS = [{ id: 'local', label: 'Local businesses' }, { id: 'jobs', label: 'Jobs and projects' }, { id: 'tenders', label: 'Tenders' }, { id: 'watch', label: 'Watching' }];
 
 export const Find: FC<{ onOpenClient: (leadId: number) => void; onAddGoogleKey: () => void; seed?: { text: string; n: number } | null }> = ({ onOpenClient, onAddGoogleKey, seed }) => {
   const [tab, setTab] = useState('local');
@@ -31,6 +32,7 @@ export const Find: FC<{ onOpenClient: (leadId: number) => void; onAddGoogleKey: 
       {tab === 'local' && <FindLocal onSaved={onOpenClient} preset={local} onAddGoogleKey={onAddGoogleKey} />}
       {tab === 'jobs' && <FindJobs types={['marketplace', 'hiring_signal', 'inbound', 'outbound']} preset={jobs} />}
       {tab === 'tenders' && <FindJobs types={['tender']} preset={tenders} />}
+      {tab === 'watch' && <LeadFinder onOpenClient={onOpenClient} onAddKey={onAddGoogleKey} />}
     </div>
   );
 };

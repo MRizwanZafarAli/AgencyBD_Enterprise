@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { BookOpen, Building2, Code2, Database, Globe, KeyRound, ListChecks, Mail, Palette, ShieldCheck, Users, BadgeCheck, MailX, Zap } from 'lucide-react';
+import { BellRing, BookOpen, Building2, Code2, Database, Globe, KeyRound, ListChecks, Mail, Palette, ShieldCheck, Users, BadgeCheck, MailX, Zap } from 'lucide-react';
 
 export interface SettingsSection { id: string; label: string; group: string; hint: string; keywords: string; icon: LucideIcon }
 
@@ -10,6 +10,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { id: 'services', label: 'Services and proof', group: 'Workspace', hint: 'What you sell, at what price', keywords: 'price bands portfolio case studies offers services', icon: BadgeCheck },
   { id: 'keys', label: 'Integrations and keys', group: 'Connections', hint: 'API keys of the products you use', keywords: 'api key anthropic google places pagespeed zerobounce hunter slack token openai', icon: KeyRound },
   { id: 'webhooks', label: 'Webhooks & CRM', group: 'Connections', hint: 'Outbound real-time events for HubSpot, Zapier, Make', keywords: 'webhook webhooks crm sync hubspot zapier make n8n rest api signature hmac deal won audit completed', icon: Zap },
+  { id: 'alerts', label: 'Message alerts', group: 'Connections', hint: 'Be told when a client writes', keywords: 'alert notify whatsapp telegram call phone message client fiverr upwork linkedin escalate remind schedule bot ntfy imap mailbox', icon: BellRing },
   { id: 'sending', label: 'Sending and policy', group: 'Connections', hint: 'Mailboxes, approvals, daily caps', keywords: 'mailbox smtp email approval autonomy policy cap warmup send stop', icon: Mail },
   { id: 'dns', label: 'Domain DNS', group: 'Connections', hint: 'SPF, DKIM, DMARC', keywords: 'spf dkim dmarc domain deliverability records', icon: Globe },
   { id: 'unsub', label: 'Unsubscribe list', group: 'Connections', hint: 'People you must not email', keywords: 'suppression opt out gdpr compliance can-spam block list', icon: MailX },
