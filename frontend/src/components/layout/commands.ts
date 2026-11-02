@@ -16,6 +16,7 @@ export const COMMANDS: Command[] = [
   { id: 'settings-dns', label: 'Domain DNS', hint: 'SPF, DKIM, DMARC', surface: 'settings', section: 'dns' },
   { id: 'settings-unsub', label: 'Unsubscribe list', hint: 'suppression', surface: 'settings', section: 'unsub' },
   { id: 'settings-team', label: 'Team and keys', hint: 'roles, API keys', surface: 'settings', section: 'team' },
+  { id: 'settings-alerts', label: 'Message alerts', hint: 'WhatsApp, Telegram, phone call when a client writes', surface: 'settings', section: 'alerts' },
   { id: 'settings-profile', label: 'Agency profile', hint: 'name, sender, legal footer, quoted result', surface: 'settings', section: 'profile' },
   { id: 'settings-security', label: 'Security and session', hint: 'role, sign out, key hygiene', surface: 'settings', section: 'security' },
   { id: 'settings-data', label: 'Data and export', hint: 'CSV export, backups', surface: 'settings', section: 'data' },

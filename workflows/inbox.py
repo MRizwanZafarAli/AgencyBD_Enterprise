@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from database.db import get_db
 
-KINDS = {"find_contact", "review_lead", "fix_setup", "new_cve", "reply", "custom"}
+KINDS = {"find_contact", "review_lead", "fix_setup", "new_cve", "site_change", "reply", "custom"}
 
 
 class WorkItemRepository:

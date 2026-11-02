@@ -7,6 +7,7 @@ import { AgencyProfile } from '../components/settings/AgencyProfile';
 import { SecurityPanel } from '../components/settings/SecurityPanel';
 import { DataPanel } from '../components/settings/DataPanel';
 import { Preferences } from '../components/settings/Preferences';
+import { AlertSettings } from '../components/alerts/AlertSettings';
 import { SETTINGS_SECTIONS } from '../components/settings/sections';
 import { Tour } from '../components/settings/Tour';
 import { IntegrationsPanel } from '../components/settings/IntegrationsPanel';
@@ -60,6 +61,7 @@ export const Settings: FC<{ me: Me; section: string; setSection: (s: string) => 
           {section === 'setup' && <SetupWizard status={status} onGo={pick} />}
           {section === 'profile' && <AgencyProfile />}
           {section === 'keys' && <IntegrationsPanel />}
+          {section === 'alerts' && <AlertSettings onGo={pick} />}
           {section === 'webhooks' && <WebhooksPanel />}
           {section === 'services' && <PortfolioManager />}
           {section === 'sending' && (<div className="space-y-6"><GovernanceAndLearning />

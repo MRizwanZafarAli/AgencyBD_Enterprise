@@ -276,7 +276,7 @@ test('channels: fiverr states plainly that nothing logs in, refreshes or fakes b
 
 test('channels: routine tick, application log with follow-up, and reply-time log persist', async ({ page }) => {
   await openChannel(page, 'Upwork');
-  const first = page.getByRole('checkbox').first();
+  const first = page.getByRole('checkbox', { name: /: (done|not done)$/ }).first();         // the routine items, not any other checkbox on the page
   await first.click();
   await expect(first).toHaveAttribute('aria-checked', 'true');
 
@@ -297,7 +297,7 @@ test('channels: routine tick, application log with follow-up, and reply-time log
   await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /^Channels/ }).click();
   await page.getByRole('tab', { name: /^Upwork/ }).click();
   await expect(page.getByText('E2E dashboard rebuild').last()).toBeVisible();
-  await expect(page.getByRole('checkbox').first()).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('checkbox', { name: /: (done|not done)$/ }).first()).toHaveAttribute('aria-checked', 'true');
 });
 
 test('channels: linkedin builds plain search links and a 300 character counter', async ({ page }) => {
@@ -519,6 +519,7 @@ async function mockClinic(page: Page, resolveReplies: unknown[]) {
   await page.route('**/api/companies/1/advice', (r) => r.fulfill(json({ recommendations: [{ service_key: 'security_hardening', service: 'Security hardening', priority: 'high', price_band: null, summary: '1 finding(s)', findings: [{ finding: 'No HSTS', severity: 'high', fix: 'Send HSTS', evidence_id: 3 }] }] })));
   await page.route('**/api/companies/1/audit_history', (r) => r.fulfill(json({ audits: [], change: { latest_audit_id: 2, previous_audit_id: 1, score_before: 30, score_after: 42, score_delta: 12, previous_at: '2026-10-01 10:00:00', latest_at: '2026-10-25 10:00:00', still_open: 2, fixed: [{ check_id: 'x', severity: 'low', finding: 'Missing favicon' }], new: [] } })));
   await page.route('**/api/companies/1/teardown', (r) => r.fulfill(json({ markdown: '# Website teardown: Acme Plumbing\n\n## Findings (3)', filename: 'Teardown_Acme_Plumbing.md' })));
+  await page.route('**/api/companies/1/offer', (r) => r.fulfill(json({ markdown: '# Fixed-price offer for Acme Plumbing\n\nPrice: [your fixed price]', filename: 'Offer_Acme_Plumbing.md', needs: ['Your price for Security hardening (Settings > Services and proof).', 'Your delivery time.'] })));
   await page.route('**/api/companies/presence', (r) => r.fulfill(json({ verified: false, confidence: 0.6, classification: 'has_website', checks_performed: [{ check: 'domain', outcome: 'resolves' }], limitations: ['Could not confirm the address.'] })));
 }
 async function openTools(page: Page) {
@@ -550,6 +551,13 @@ test('site clinic: paste a business and place, get a chart, a diagnosis, a surge
 
   await page.getByRole('button', { name: 'Teardown' }).click();
   await expect(page.getByRole('dialog', { name: 'Website teardown' })).toContainText('Website teardown: Acme Plumbing');
+  await page.keyboard.press('Escape');
+
+  await page.getByRole('button', { name: 'Offer', exact: true }).click();                                // the offer lists what only you can fill in
+  const offer = page.getByRole('dialog', { name: 'Fixed-price offer' });
+  await expect(offer).toContainText('Fixed-price offer for Acme Plumbing');
+  await expect(offer).toContainText('never makes up a price or a date');
+  await expect(offer).toContainText('Your price for Security hardening');
   await page.keyboard.press('Escape');
 });
 
@@ -770,4 +778,241 @@ test('find jobs: a short skill matches whole words only, so "ai" is not "email" 
   await search.fill('react');
   await expect(page.getByText('React developer').first()).toBeVisible();               // a longer term still finds "reactjs"
   await expect(page.getByText('Proactive support agent')).toHaveCount(0);
+});
+
+test('alert desk: settings explain the safe way it works, validate, and save a ladder you can edit', async ({ page }) => {
+  await openSettings(page, 'Message alerts');
+  await expect(page.getByText(/never logs in to Fiverr, Upwork or LinkedIn/)).toBeVisible();
+  await expect(page.getByText('Mailbox not set up')).toBeVisible();
+  await expect(page.getByRole('switch', { name: 'Alert Desk on or off' })).toHaveAttribute('aria-checked', 'false');
+
+  await page.getByRole('group', { name: 'Presets' }).getByRole('button', { name: 'Persistent' }).click();
+  await expect(page.getByLabel('Plan summary')).toContainText('WhatsApp right away → Phone call after 15 min → Phone call after 30 min → Phone call after 1 h');
+  await page.getByRole('button', { name: 'Remove step 4' }).click();
+  await page.getByRole('button', { name: 'Add a step' }).click();
+  await page.getByLabel('Minutes for step 4').fill('45');
+  await expect(page.getByLabel('Plan summary')).toContainText('Phone call after 45 min');
+
+  await page.getByRole('textbox', { name: /Your phone number/ }).fill('03001234567');                      // not international: the server says so
+  await page.getByRole('switch', { name: 'Alert Desk on or off' }).click();
+  await page.getByRole('button', { name: 'Save alert settings' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'international form' })).toBeVisible();
+
+  await page.getByRole('textbox', { name: /Your phone number/ }).fill('+92 340 4095953');
+  await page.getByRole('button', { name: 'Save alert settings' }).click();
+  await expect(page.getByText('Saved. The desk uses these settings from now on.')).toBeVisible();
+  await page.reload();
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /^Settings/ }).click();
+  await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Message alerts' }).click();
+  await expect(page.getByRole('switch', { name: 'Alert Desk on or off' })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('textbox', { name: /Your phone number/ })).toHaveValue('+923404095953');       // normalised and remembered
+  await expect(page.getByLabel('Plan summary')).toContainText('Phone call after 45 min');
+});
+
+test('alert desk: channels that are not set up say so, and tests are held back until they are', async ({ page }) => {
+  await openSettings(page, 'Message alerts');
+  for (const name of ['Telegram', 'ntfy push', 'WhatsApp', 'Phone call']) await expect(page.getByRole('heading', { name })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Test Telegram' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Test Phone call' })).toBeDisabled();
+  await expect(page.getByText(/Meta changed its pricing in October 2026/)).toBeVisible();                    // honest about WhatsApp cost
+  await page.getByRole('button', { name: 'Make one' }).click();
+  await expect(page.getByPlaceholder('agencybd-x7k2m9q4')).toHaveValue(/^agencybd-[a-z0-9]{14}$/);          // a hard-to-guess ntfy topic
+});
+
+test('alert desk: a client message shows on Channels and Today until you say you are on it', async ({ page }) => {
+  await signIn(page);
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /^Channels/ }).click();
+  await expect(page.getByText('Nothing waiting for a reply')).toBeVisible();
+  await page.getByRole('button', { name: 'Add by hand' }).click();
+  await page.getByLabel('Platform', { exact: true }).selectOption('fiverr');
+  await page.getByLabel('Who wrote').fill('Amina K.');
+  await page.getByLabel('What they wrote').fill('I need a website for my clinic. Can you start this week?');
+  await page.locator('section').filter({ has: page.getByRole('heading', { name: 'Client messages' }) }).getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(page.getByText('I need a website for my clinic.')).toBeVisible();
+
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /^Today/ }).click();
+  await expect(page.getByText('1 client message waiting for a reply: Amina K. on fiverr')).toBeVisible();
+
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /^Channels/ }).click();
+  await page.getByRole('button', { name: "I'm on it: Amina K." }).click();
+  await expect(page.getByText('Nothing waiting for a reply')).toBeVisible();
+  await page.getByText(/Recently handled/).click();
+  await expect(page.getByText(/Amina K. on fiverr.*acknowledged via app/)).toBeVisible();
+});
+
+test('alert desk: the new secrets are grouped, validated and never shown again', async ({ page }) => {
+  await openSettings(page, 'Integrations and keys');
+  await expect(page.getByRole('heading', { name: 'Message alerts' })).toBeVisible();
+  const field = page.getByLabel('Telegram bot token value');
+  await field.fill('not-a-token');
+  await field.press('Enter');
+  await expect(page.getByRole('alert').filter({ hasText: /Telegram token looks like/ })).toBeVisible();
+  await field.fill('123456789:AAH-e2e-fake-token-for-validation-only-000');
+  await field.press('Enter');
+  await expect(page.getByText('Saved and active now.').first()).toBeVisible();
+  await expect(page.getByText('••••-000')).toBeVisible();                                                   // only the last four characters, ever
+  await expect(page.getByText('AAH-e2e-fake')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Remove' }).first().click();                                      // leave the test installation as it was
+});
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`accessibility (${theme}): the alert settings and the client messages panel`, async ({ page }) => {
+    await page.addInitScript((t) => localStorage.setItem('agencybd_theme', t), theme);
+    await openSettings(page, 'Message alerts');
+    await page.waitForTimeout(700);
+    const run = async (label: string) => {
+      const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+      const bad = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+      expect(bad.map((v) => `${theme} ${label}: ${v.id} (${v.nodes.length}) ${v.nodes[0]?.html.slice(0, 100)}`)).toEqual([]);
+    };
+    await run('message alerts');
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /^Channels/ }).click();
+    await page.waitForTimeout(700);
+    await run('client messages');
+  });
+}
+
+async function openWatching(page: Page) {
+  await signIn(page);
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /^Find/ }).click();
+  await page.getByRole('tab', { name: 'Watching' }).click();
+  await expect(page.getByRole('heading', { name: 'Watching for you' })).toBeVisible();
+}
+
+test('lead finder: a watch is saved, looks at once, can be paused and deleted, and mistakes are explained', async ({ page }) => {
+  await openWatching(page);
+  await expect(page.getByText('Nothing is being watched yet')).toBeVisible();
+  await page.getByRole('button', { name: 'New watch' }).click();
+  await page.getByLabel('Name', { exact: true }).fill('Shopify jobs');
+  await page.getByLabel(/Words to look for/).fill('shopify, wordpress');
+  await page.getByRole('button', { name: 'Save and look now' }).click();
+  await expect(page.getByRole('status').filter({ hasText: /Saved\. First look found 0 matches/ })).toBeVisible();
+  await expect(page.getByText('Shopify jobs')).toBeVisible();
+  await expect(page.getByRole('listitem').getByText('Watching', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Pause Shopify jobs' }).click();
+  await expect(page.getByRole('listitem').getByText('Paused', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Resume Shopify jobs' }).click();
+
+  await page.getByRole('button', { name: 'New watch' }).click();                                              // a watch that needs a key says so, in plain words
+  await page.getByLabel('What to watch').selectOption('new_companies');
+  await page.getByLabel('Name', { exact: true }).fill('New UK firms');
+  await expect(page.getByRole('button', { name: 'Add it in Settings' })).toBeVisible();
+  await page.getByRole('button', { name: 'Save and look now' }).click();
+  await expect(page.getByRole('status').filter({ hasText: /free Companies House key/ })).toBeVisible();
+
+  await page.getByRole('button', { name: 'New watch' }).click();                                              // nothing chosen: a clear sentence, not a crash
+  await page.getByLabel('What to watch').selectOption('site_signals');
+  await page.getByLabel('Name', { exact: true }).fill('Fixable sites');
+  await page.getByRole('button', { name: 'Save and look now' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: /at least one thing/ })).toBeVisible();
+
+  for (const name of ['Shopify jobs', 'New UK firms']) await page.getByRole('button', { name: `Delete ${name}` }).click();
+  await expect(page.getByText('Nothing is being watched yet')).toBeVisible();
+});
+
+test('lead finder: LinkedIn search links open in your own browser and nothing is fetched for you', async ({ page }) => {
+  await openWatching(page);
+  await page.getByRole('button', { name: 'Make links' }).click();                                            // the title is required
+  await expect(page.locator('li a[href^="https://www.google.com/search"]')).toHaveCount(0);
+  await page.getByLabel('Who (job title)').fill('practice manager');
+  await page.getByLabel('Industry').fill('dental');
+  await page.getByLabel('Place').fill('Dublin');
+  await page.getByRole('button', { name: 'Make links' }).click();
+  const first = page.getByRole('link', { name: /People on LinkedIn \(Google\)/ });
+  await expect(first).toBeVisible();
+  expect(await first.getAttribute('href')).toContain('site%3Alinkedin.com/in');
+  expect(await first.getAttribute('rel')).toContain('noopener');
+  await expect(page.getByRole('link', { name: /Who is hiring for it/ })).toBeVisible();
+});
+
+for (const theme of ['light', 'dark'] as const) {
+  test(`accessibility (${theme}): the watching tab with the form open and links shown`, async ({ page }) => {
+    await page.addInitScript((t) => localStorage.setItem('agencybd_theme', t), theme);
+    await openWatching(page);
+    await page.getByRole('button', { name: 'New watch' }).click();
+    await page.getByLabel('Who (job title)').fill('owner');
+    await page.getByRole('button', { name: 'Make links' }).click();
+    await page.waitForTimeout(700);
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+    const bad = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+    expect(bad.map((v) => `${theme}: ${v.id} (${v.nodes.length}) ${v.nodes[0]?.html.slice(0, 100)}`)).toEqual([]);
+  });
+}
+
+test('chase today: a quiet client is listed with the reason, and picking a day sets a real follow-up task', async ({ page }) => {
+  let list = [{ lead_id: 4242, company: 'Quiet Dental', stage: 'proposal_sent', stage_label: 'Proposal sent', days_quiet: 5, reason: 'x' }];
+  await page.route('**/api/chase', (r) => r.fulfill({ json: { items: list, quiet_after_days: {} } }));
+  let posted: { url: string; body: any } | null = null;
+  await page.route('**/api/clients/4242/notes', (r) => { posted = { url: r.request().url(), body: r.request().postDataJSON() }; list = []; return r.fulfill({ json: { id: 1 } }); });
+  await signIn(page);
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /^Clients/ }).click();
+  await page.getByRole('tab', { name: /Pipeline/ }).click();
+  await expect(page.getByRole('heading', { name: 'Chase today' })).toBeVisible();
+  await expect(page.getByText('5 days quiet')).toBeVisible();
+  await page.getByRole('button', { name: 'Tomorrow: follow up with Quiet Dental' }).click();
+  await expect(page.getByRole('heading', { name: 'Chase today' })).toHaveCount(0);                              // planned, so it leaves the list
+  expect(posted!.body.kind).toBe('task');
+  expect(posted!.body.body).toBe('Follow up with Quiet Dental');
+  expect(posted!.body.due_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+});
+
+test('alert desk: a reply can be drafted from a client message, and the drafts ask rather than invent', async ({ page }) => {
+  await signIn(page);
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /^Channels/ }).click();
+  await page.getByRole('button', { name: 'Add by hand' }).click();
+  await page.getByLabel('Platform', { exact: true }).selectOption('fiverr');
+  await page.getByLabel('Who wrote').fill('Sara M.');
+  await page.getByLabel('What they wrote').fill('How much for a new website for my bakery? When can you start?');
+  await page.locator('section').filter({ has: page.getByRole('heading', { name: 'Client messages' }) }).getByRole('button', { name: 'Add', exact: true }).click();
+  await page.getByRole('button', { name: 'Draft a reply to Sara M.' }).click();
+  const ask = page.getByLabel('Draft reply: Ask first');
+  await expect(ask).toHaveValue(/Hi Sara,/);
+  await expect(ask).toHaveValue(/what budget you have in mind|budget do you have in mind/i);
+  await expect(page.getByLabel('Draft reply: Give the price')).toHaveCount(0);                                 // no price was set, so none is stated
+  await expect(page.getByText(/To improve these drafts:.*Your price/)).toBeVisible();
+  await page.getByRole('button', { name: "I'm on it: Sara M." }).click();                                      // leave the test installation as it was
+});
+
+test('partners: add one, log contact and referrals, change the stage, and delete it', async ({ page }) => {
+  await signIn(page);
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /^Clients/ }).click();
+  await page.getByRole('tab', { name: 'Partners' }).click();
+  await expect(page.getByText('No partners yet')).toBeVisible();
+  await page.getByRole('button', { name: 'Add partner' }).click();
+  await page.getByLabel('Name', { exact: true }).fill('Brightside Marketing');
+  await page.getByLabel('Website').fill('not a site');
+  await page.getByRole('button', { name: 'Save partner' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: /example\.com/ })).toBeVisible();                       // mistakes are explained
+  await page.getByLabel('Website').fill('brightside.example');
+  await page.getByLabel('What you will offer them').fill('10% on the first project');
+  await page.getByRole('button', { name: 'Save partner' }).click();
+  await expect(page.getByText('Brightside Marketing')).toBeVisible();
+  await expect(page.getByLabel('Stage of Brightside Marketing')).toHaveValue('to_contact');
+  await page.getByRole('button', { name: 'I contacted Brightside Marketing' }).click();
+  await expect(page.getByLabel('Stage of Brightside Marketing')).toHaveValue('contacted');
+  await page.getByRole('button', { name: 'Brightside Marketing sent me a client' }).click();
+  await expect(page.getByLabel('Stage of Brightside Marketing')).toHaveValue('active_partner');
+  await expect(page.getByText(/Sent to you: 1 · You sent: 0/)).toBeVisible();
+  await expect(page.getByText('Clients they sent')).toBeVisible();
+  await page.getByRole('button', { name: 'Delete Brightside Marketing' }).click();
+  await expect(page.getByText('No partners yet')).toBeVisible();
+});
+
+test('today: the weekly scorecard compares with last week and shows a rate only when there is something to divide by', async ({ page }) => {
+  const rows = (sent: number, replies: number) => [
+    { key: 'sent', label: 'Emails sent', hint: '', this_week: sent, last_week: 4 }, { key: 'replies', label: 'Replies', hint: '', this_week: replies, last_week: 0 },
+    { key: 'wins', label: 'Clients won', hint: '', this_week: 0, last_week: 0 }];
+  await page.route('**/api/today/scorecard', (r) => r.fulfill({ json: { rows: rows(10, 2), reply_rate_percent: 20, last_reply_rate_percent: 0, winners_by_source: [{ source: 'local', n: 2 }], note: 'Counted from your own records.' } }));
+  await signIn(page);
+  const card = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Your week' }) });
+  await expect(card.getByText('up from 4')).toBeVisible();
+  await expect(card.getByText('Reply rate')).toBeVisible();
+  await expect(card.getByText('20%')).toBeVisible();
+  await expect(card.getByText('Clients won')).toHaveCount(0);                                         // a metric that is zero in both weeks stays out of the way
+  await expect(card.getByText('Where your won clients came from: local (2)')).toBeVisible();
+  await page.unroute('**/api/today/scorecard');
+  await page.route('**/api/today/scorecard', (r) => r.fulfill({ json: { rows: rows(0, 0).map((x) => ({ ...x, last_week: 0 })), reply_rate_percent: null, last_reply_rate_percent: null, winners_by_source: [], note: 'n' } }));
+  await page.reload();
+  await expect(page.getByText(/Nothing logged yet this week or last/)).toBeVisible();
+  await expect(page.getByText('Reply rate')).toHaveCount(0);                                          // no emails sent, so no invented 0%
 });
