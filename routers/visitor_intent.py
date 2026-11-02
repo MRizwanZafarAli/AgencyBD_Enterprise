@@ -26,13 +26,6 @@ class TrackVisitorRequest(BaseModel):
     referrer: Optional[str] = None
 
 
-class SimulateVisitorRequest(BaseModel):
-    company_name: str
-    domain: str
-    page_url: str
-    intent_score: Optional[int] = 85
-
-
 @router.get("/visitor-intent")
 def list_visitor_intent(principal: Principal = Depends(READ)) -> Dict[str, Any]:
     org = principal.org_id
@@ -55,7 +48,8 @@ def list_visitor_intent(principal: Principal = Depends(READ)) -> Dict[str, Any]:
             "high_intent_count": high_intent,
             "converted_count": converted
         },
-        "tracking_snippet": f'<script defer src="/api/tracker.js" data-org="{org}"></script>'
+        "tracking_snippet": None,
+        "note": "Companies are not identified: reverse DNS cannot do that. There is no tracker script yet, so visits appear only if your own site posts them here."
     }
 
 
@@ -66,10 +60,7 @@ def track_visitor(req: TrackVisitorRequest, principal: Optional[Principal] = Dep
     
     hostname = resolution.get("hostname")
     domain = resolution.get("candidate_domain")
-    company_name = None
-    
-    if domain:
-        company_name = domain.split(".")[0].capitalize()
+    company_name = None                      # a reverse-DNS name does not identify a company, so none is stated
 
     # Intent Scoring logic
     score = 45
@@ -122,15 +113,17 @@ def convert_visitor_to_client(event_id: int, principal: Principal = Depends(MANA
         if event["converted_lead_id"]:
             return {"status": "already_converted", "lead_id": event["converted_lead_id"]}
         
-        name = event["company_name"] or f"Visitor {event['ip_address']}"
-        domain = event["domain"] or f"ip-{event['ip_address'].replace('.', '-')}.net"
+        if not event["domain"]:
+            raise HTTPException(status_code=422, detail="This visit has no website name to work from, and the app will not make one up. Find the company yourself and add it in Find or Clients.")
+        domain = event["domain"]
+        name = event["company_name"] or domain
 
         # Create or fetch lead
         lead = LeadRepository.create_or_get_lead(
             company_name=name,
             domain=domain,
             source_channel="visitor_intent",
-            notes=f"Converted from live website visit on {event['page_url']}. Intent score: {event['intent_score']}.",
+            notes=f"Added from a website visit to {event['page_url']}. The website name comes from reverse DNS and is not verified.",
             org_id=org
         )
         lead_id = lead["id"]
@@ -142,21 +135,3 @@ def convert_visitor_to_client(event_id: int, principal: Principal = Depends(MANA
         db.commit()
 
     return {"status": "converted", "lead_id": lead_id, "company_name": name, "domain": domain}
-
-
-@router.post("/visitor-intent/simulate")
-def simulate_visitor_event(req: SimulateVisitorRequest, principal: Principal = Depends(MANAGE)) -> Dict[str, Any]:
-    org = principal.org_id
-    with get_db() as db:
-        cursor = db.cursor()
-        cursor.execute(
-            """
-            INSERT INTO visitor_intent_events (org_id, ip_address, hostname, company_name, domain, page_url, intent_score)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (org, "199.16.156.38", f"corp.{req.domain}", req.company_name, req.domain, req.page_url, req.intent_score or 85)
-        )
-        event_id = cursor.lastrowid
-        db.commit()
-
-    return {"status": "simulated", "event_id": event_id, "company": req.company_name}

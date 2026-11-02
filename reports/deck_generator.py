@@ -49,8 +49,8 @@ class ExecutiveDeckGenerator:
         score = audit.get("overall_score") or 0
         company_label = domain.split(".")[0].capitalize()
 
-        # Estimated conversion loss calculation from LCP
-        lcp_val = 2.5
+        # Loading time is shown only if this check actually measured it
+        lcp_val = None
         for f in audit.get("findings", []):
             if "lcp" in f.get("check_id", "").lower() or "largest contentful paint" in f.get("finding", "").lower():
                 try:
@@ -61,8 +61,12 @@ class ExecutiveDeckGenerator:
                 except Exception:
                     pass
 
-        # Each second over 2.0s roughly accounts for ~7% conversion loss
-        conv_loss_pct = max(0, min(65, int((lcp_val - 1.8) * 7))) if lcp_val > 1.8 else 0
+        if lcp_val is None:
+            speed_html = '<p style="font-size:13px; color:#cbd5e1; line-height:1.5;">Loading time was not measured in this check, so no speed claim is made.</p>'
+        else:
+            verdict = "within" if lcp_val <= 2.5 else "above" if lcp_val <= 4.0 else "well above"
+            speed_html = (f'<p style="font-size:13px; color:#cbd5e1; line-height:1.5;">Largest content loaded in about <strong style="color:#ffffff;">{lcp_val:.1f}s</strong>. '
+                          f'Google rates up to 2.5s as good and over 4.0s as poor, so this is {verdict} the good range.</p>')
 
         # Slide 3: Findings rows
         findings_html = ""
@@ -265,7 +269,7 @@ class ExecutiveDeckGenerator:
     </div>
     <div class="slide-footer">
       <div>CONFIDENTIAL &middot; PREPARED SPECIFICALLY FOR {e(domain).upper()}</div>
-      <div>100% Verified Telemetry &middot; $0 Recurring API Tax</div>
+      <div>Every figure was measured on the public site</div>
     </div>
   </section>
 
@@ -289,15 +293,8 @@ class ExecutiveDeckGenerator:
         </div>
 
         <div class="card">
-          <div style="font-size:13px; font-mono; color:#d97706; margin-bottom:12px; font-weight:700; text-transform:uppercase;">Observed Conversion Headwind</div>
-          <p style="font-size:13px; color:#cbd5e1; line-height:1.5;">
-            Target measured loading time is approximately <strong style="color:#ffffff;">{lcp_val:.1f}s</strong>.
-            Research across top web properties indicates each 1-second delay past 2.0s degrades conversion by ~7%.
-          </p>
-          <div style="margin-top:16px; padding:12px; background:rgba(239, 68, 68, 0.1); border-left:3px solid #ef4444; border-radius:6px;">
-            <div style="font-size:12px; font-weight:700; color:#ef4444;">Estimated Opportunity Drag: ~{conv_loss_pct}%</div>
-            <div style="font-size:11px; color:#94a3b8; margin-top:2px;">Visitors abandon slow checkout, demo, and contact pages before interaction.</div>
-          </div>
+          <div style="font-size:13px; font-mono; color:#d97706; margin-bottom:12px; font-weight:700; text-transform:uppercase;">Loading speed</div>
+          {speed_html}
         </div>
       </div>
     </div>

@@ -2,7 +2,6 @@ import type { FC } from 'react';
 import { Radio, RefreshCw, Search, Users, Wrench } from 'lucide-react';
 import { FollowupsPanel } from '../components/clients/FollowupsPanel';
 import { Scorecard } from '../components/today/Scorecard';
-import { VisitorRadar } from '../components/today/VisitorRadar';
 import { Button, Card, EmptyState, PageHeader, Skeletons } from '../components/ui';
 import { ErrorBanner } from '../components/shared/ErrorBanner';
 import { DigestPanel } from '../components/shared/DigestPanel';
@@ -39,7 +38,6 @@ export const Today: FC<{ onOpenClient: (leadId: number) => void; onSettings: (se
       </div>
       <FollowupsPanel onOpenClient={onOpenClient} />
       <Scorecard />
-      <VisitorRadar onOpenClient={onOpenClient} />
 
       <DiscoveryPanel onDone={inbox.reload} onOpenClient={onOpenClient} />
 

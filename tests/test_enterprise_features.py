@@ -28,34 +28,35 @@ def test_executive_deck_export(client, make_key):
     assert "example.com" in view_res.text
 
 
-def test_visitor_intent_tracking_and_conversion(client, make_key):
+def test_visitor_intent_tracking_never_invents_a_company_or_a_website(client, make_key, monkeypatch):
+    import socket
     h = make_key(role="growth_lead")
+    monkeypatch.setattr(socket, "gethostbyaddr", lambda ip: (_ for _ in ()).throw(OSError("no PTR")))
 
-    # 1. Track a visitor
-    track_res = client.post(
-        "/api/analytics/visitor-track",
-        headers=h,
-        json={"ip_address": "199.16.156.38", "page_url": "/pricing"}
-    )
+    track_res = client.post("/api/analytics/visitor-track", headers=h, json={"ip_address": "203.0.113.7", "page_url": "/pricing"})
     assert track_res.status_code == 200
-    event_id = track_res.json()["id"]
-    assert track_res.json()["intent_score"] >= 80
+    body = track_res.json()
+    assert body["company_name"] is None and body["domain"] is None and body["intent_score"] >= 80      # the score comes only from the page visited
+    event_id = body["id"]
 
-    # 2. List visitors
-    list_res = client.get("/api/analytics/visitor-intent", headers=h)
-    assert list_res.status_code == 200
-    events = list_res.json()["events"]
-    assert any(e["id"] == event_id for e in events)
+    listing = client.get("/api/analytics/visitor-intent", headers=h).json()
+    assert any(e["id"] == event_id for e in listing["events"]) and listing["tracking_snippet"] is None and "not identified" in listing["note"]
+    assert all(e["hostname"] is None for e in listing["events"] if e["id"] == event_id)
 
-    # 3. Convert visitor to client
-    conv_res = client.post(f"/api/analytics/visitor-intent/{event_id}/convert", headers=h)
-    assert conv_res.status_code == 200
-    lead_id = conv_res.json()["lead_id"]
-    assert lead_id > 0
+    refused = client.post(f"/api/analytics/visitor-intent/{event_id}/convert", headers=h)
+    assert refused.status_code == 422 and "will not make one up" in refused.text
+    assert client.post("/api/analytics/visitor-intent/simulate", headers=h, json={"company_name": "Stripe", "domain": "stripe.com", "page_url": "/pricing"}).status_code in (404, 405)
 
-    # 4. Converting again returns already_converted
-    conv_again = client.post(f"/api/analytics/visitor-intent/{event_id}/convert", headers=h)
-    assert conv_again.json()["status"] == "already_converted"
+
+def test_a_real_reverse_dns_name_is_kept_as_an_unverified_candidate_and_can_be_added(client, make_key, monkeypatch):
+    import socket
+    h = make_key(role="growth_lead")
+    monkeypatch.setattr(socket, "gethostbyaddr", lambda ip: ("gateway.acme-clinic.example", [], [ip]))
+    body = client.post("/api/analytics/visitor-track", headers=h, json={"ip_address": "203.0.113.9", "page_url": "/contact"}).json()
+    assert body["company_name"] is None and body["domain"] == "acme-clinic.example"
+    conv = client.post(f"/api/analytics/visitor-intent/{body['id']}/convert", headers=h)
+    assert conv.status_code == 200 and conv.json()["domain"] == "acme-clinic.example"
+    assert client.post(f"/api/analytics/visitor-intent/{body['id']}/convert", headers=h).json()["status"] == "already_converted"
 
 
 def test_webhooks_crud_and_dispatch(client, admin_headers):

@@ -126,7 +126,7 @@ def today_briefing(principal: Principal = Depends(require_permission("leads:read
         f"- **Historical Win Rate:** {win_rate}",
         f"- **Overdue Follow-ups:** {kpis.get('client_followups_due', 0)} client tasks due",
         f"- **Pending Approval Queue:** {kpis.get('pending_approvals', 0)} outbound drafts waiting",
-        f"- **Website Intent Signals:** {visitor_count} company visits detected in last 24h",
+        f"- **Website Intent Signals:** {visitor_count} website visits recorded in the last 24h (companies are not identified)",
         "",
         f"### 🎯 Top 3 Priority Actions for Today"
     ]
