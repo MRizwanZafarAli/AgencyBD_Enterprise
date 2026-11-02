@@ -620,33 +620,34 @@ test('site clinic: a site that refuses robots is explained, not graded, and noth
   await expect(page.getByText(/\/100/)).toHaveCount(0);                                         // no score of any kind
 });
 
-test('gilded glass: light is the default, gold primary buttons carry dark ink, glass surfaces are translucent and frosted', async ({ page }) => {
+test('ink and teal: light is the default, primary buttons are teal pills with white ink, cards are soft and frosted', async ({ page }) => {
   await signIn(page);
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /^Clients/ }).click();
   const add = page.getByRole('button', { name: 'Add client' });
-  const style = await add.evaluate((el) => { const s = getComputedStyle(el); return { bg: s.backgroundImage, color: s.color }; });
-  expect(style.bg).toContain('linear-gradient');                                  // lit gold, not flat
-  expect(style.color).toBe('rgb(26, 20, 5)');                                      // ink on gold, never white on yellow
+  const style = await add.evaluate((el) => { const s = getComputedStyle(el); return { bg: s.backgroundImage, color: s.color, radius: s.borderRadius }; });
+  expect(style.bg).toContain('linear-gradient');                                  // a lit teal, not flat
+  expect(style.color).toBe('rgb(255, 255, 255)');                                  // white ink on deep teal (5.5:1)
+  expect(parseFloat(style.radius)).toBeGreaterThan(100);                           // a pill
   const tile = await page.locator('.bento-tile').first().evaluate((el) => { const s = getComputedStyle(el); return { blur: s.backdropFilter || (s as any).webkitBackdropFilter, bg: s.backgroundColor }; });
   expect(tile.blur).toContain('blur');
   expect(tile.bg).toMatch(/rgba\(.*0\.\d+\)/);                                    // a translucent fill
   const bodyBg = await page.evaluate(() => getComputedStyle(document.body).backgroundImage);
-  expect(bodyBg).toContain('radial-gradient');                                    // the gold light the glass sits on
+  expect(bodyBg).toContain('radial-gradient');                                    // the teal light the cards sit on
 });
 
-test('gilded glass: the theme toggle switches to warm graphite and keeps gold', async ({ page }) => {
+test('ink and teal: the theme toggle switches to zinc ink and keeps the teal accent', async ({ page }) => {
   await signIn(page);
   await page.getByRole('button', { name: /dark|light/i }).first().click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   const accent = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--color-indigo-500').trim());
-  expect(accent.toLowerCase()).toBe('#f5b301');
+  expect(accent.toLowerCase()).toBe('#2dd4bf');
   await page.reload();                                                             // the choice is remembered
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 });
 
 for (const theme of ['light', 'dark'] as const) {
-  test(`accessibility (${theme} glass): no serious contrast or other violations on every surface, the drawer and the palette`, async ({ page }) => {
+  test(`accessibility (${theme} theme): no serious contrast or other violations on every surface, the drawer and the palette`, async ({ page }) => {
     await page.addInitScript((t) => localStorage.setItem('agencybd_theme', t), theme);
     await signIn(page);
     const nav = page.getByRole('navigation', { name: 'Main' });

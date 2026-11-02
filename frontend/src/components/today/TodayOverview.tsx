@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FC } from 'react';
 import { ArrowDownRight, ArrowRight, ArrowUpRight, Check, ChevronDown, ChevronUp, Copy, Minus, Sparkles } from 'lucide-react';
-import { Badge, Card, Skeletons } from '../ui';
+import { Badge, Card, CountUp, Skeletons } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { useApi } from '../../lib/hooks';
 import type { Surface } from '../../types';
@@ -40,9 +40,9 @@ const Delta: FC<{ p: Pair }> = ({ p }) => {
 };
 
 const Kpi: FC<{ label: string; p: Pair }> = ({ label, p }) => (
-  <div className="bento-tile rounded-2xl p-4">
-    <div className="text-xs text-slate-400">{label}</div>
-    <div className="text-2xl font-semibold text-white tabular mt-1">{p.now}</div>
+  <div className="bento-tile rounded-3xl p-5">
+    <div className="text-xs font-medium text-slate-400">{label}</div>
+    <div className="text-3xl font-semibold text-white tabular mt-1.5 tracking-tight">{typeof p.now === 'number' && Number.isInteger(p.now) ? <CountUp to={p.now} /> : p.now}</div>
     <div className="mt-1"><Delta p={p} /></div>
     <div className="text-[11px] text-slate-500">last 7 days</div>
   </div>
@@ -70,14 +70,14 @@ export const TodayOverview: FC<{ onGo: (s: Surface, opts?: { leadId?: number; se
   return (
     <div className="space-y-5">
       <ErrorBanner message={sum.error} />
-      <Card>
-        <div className="text-xs text-slate-400">{now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</div>
-        <h2 className="text-lg font-semibold text-white mt-0.5">{greeting(now)}. {d && d.focus.length === 0 ? 'Nothing is urgent.' : 'Here is what matters most.'}</h2>
+      <section className="hero-card p-5 sm:p-8">
+        <div className="text-xs font-medium text-slate-400">{now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+        <h2 className="text-2xl sm:text-4xl font-semibold text-white mt-1 tracking-tight leading-tight max-w-3xl">{greeting(now)}. <span className="hero-accent">{d && d.focus.length === 0 ? 'Nothing is urgent.' : 'Here is what matters most.'}</span></h2>
 
         {briefing.data && (
-          <div className="mt-3.5 mb-1 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-200/90 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="mt-3.5 mb-1 rounded-2xl border border-slate-700 bg-slate-900 p-3.5 text-xs text-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 shrink-0">
+              <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 shrink-0">
                 <Sparkles className="h-4 w-4" />
               </div>
               <div className="min-w-0">
@@ -93,14 +93,14 @@ export const TodayOverview: FC<{ onGo: (s: Surface, opts?: { leadId?: number; se
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => setShowBriefingMarkdown(!showBriefingMarkdown)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs transition-colors"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs transition-colors"
               >
                 {showBriefingMarkdown ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                 {showBriefingMarkdown ? 'Hide full text' : 'Read full text'}
               </button>
               <button
                 onClick={copyBriefing}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs transition-colors font-medium"
+                className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-indigo-500/50 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 text-xs transition-colors font-medium"
                 title="Copy complete briefing markdown for team Slack or notes"
               >
                 {copiedBriefing ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
@@ -120,7 +120,7 @@ export const TodayOverview: FC<{ onGo: (s: Surface, opts?: { leadId?: number; se
           <ol className="mt-3 grid gap-2 md:grid-cols-3">
             {d.focus.map((f, i) => (
               <li key={f.title}>
-                <button onClick={() => go(f.target)} className="w-full h-full text-left rounded-xl border border-slate-800 hover:border-indigo-500/60 p-3 transition-colors group">
+                <button onClick={() => go(f.target)} className="w-full h-full text-left rounded-2xl border border-slate-800 bg-slate-900 hover:border-indigo-500/60 hover:bg-slate-800 p-4 transition-colors duration-300 group">
                   <div className="flex items-start gap-2">
                     <span className="h-5 w-5 rounded-full bg-indigo-500/15 text-indigo-300 text-[11px] font-semibold flex items-center justify-center shrink-0 tabular">{i + 1}</span>
                     <div className="min-w-0"><div className="text-sm font-medium text-slate-100">{f.title}</div><div className="text-xs text-slate-400 mt-0.5">{f.detail}</div></div>
@@ -129,7 +129,7 @@ export const TodayOverview: FC<{ onGo: (s: Surface, opts?: { leadId?: number; se
                 </button>
               </li>))}
           </ol>)}
-      </Card>
+      </section>
 
       {d && (
         <>
