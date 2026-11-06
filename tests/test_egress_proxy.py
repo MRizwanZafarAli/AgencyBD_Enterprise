@@ -73,7 +73,7 @@ def test_proxy_listens_on_loopback_only_and_closes():
 def test_chrome_runs_through_the_proxy_with_sandbox_on(monkeypatch):
     from engines.native_browser_service import NativeBrowserService
     monkeypatch.delenv("AGENCYBD_BROWSER_NO_SANDBOX", raising=False)
-    monkeypatch.setattr("os.geteuid", lambda: 1000)
+    monkeypatch.setattr("os.geteuid", lambda: 1000, raising=False)
     assert NativeBrowserService._sandbox_flags() == []
     monkeypatch.setenv("AGENCYBD_BROWSER_NO_SANDBOX", "on")
     assert NativeBrowserService._sandbox_flags() == ["--no-sandbox"]

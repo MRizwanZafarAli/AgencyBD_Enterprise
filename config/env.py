@@ -53,6 +53,8 @@ def _parse_env_file(path: Path) -> Dict[str, str]:
         val = val.strip()
         if len(val) >= 2 and val[0] == val[-1] and val[0] in ("'", '"'):
             val = val[1:-1]
+        elif val.startswith("#"):
+            val = ""
         elif " #" in val:
             val = val.split(" #", 1)[0].rstrip()
         values[key] = val

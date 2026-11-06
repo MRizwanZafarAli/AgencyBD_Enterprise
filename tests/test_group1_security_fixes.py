@@ -279,7 +279,7 @@ def test_every_ui_api_call_goes_through_the_authenticated_wrapper():
         rel = path.relative_to(ROOT).as_posix()
         if rel.endswith("lib/api.ts"):
             continue
-        for lineno, line in enumerate(path.read_text().splitlines(), 1):
+        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             if re.search(r"(?<![A-Za-z_.])fetch\(", line):
                 bare.append(f"{rel}:{lineno}: {line.strip()[:70]}")
     assert not bare, "Use apiFetch() so requests carry X-API-Key:\n" + "\n".join(bare)

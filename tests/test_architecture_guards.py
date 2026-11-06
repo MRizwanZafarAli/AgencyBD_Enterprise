@@ -40,14 +40,17 @@ def test_architecture_layer_isolation_no_circular_api_imports():
 
 def test_process_supervisor_confinement_and_timeout():
     """ProcessSupervisor enforces timeouts and confines process groups."""
+    import sys
     # Test fast command
-    res_fast = ProcessSupervisor.run_confined(["echo", "agencybd_supervised"], timeout_seconds=3)
+    fast_cmd = [sys.executable, "-c", "print('agencybd_supervised')"]
+    res_fast = ProcessSupervisor.run_confined(fast_cmd, timeout_seconds=3)
     assert res_fast.returncode == 0
     assert "agencybd_supervised" in res_fast.stdout
     assert not res_fast.timed_out
 
     # Test timeout with sleep
-    res_slow = ProcessSupervisor.run_confined(["sleep", "5"], timeout_seconds=1)
+    slow_cmd = [sys.executable, "-c", "import time; time.sleep(5)"]
+    res_slow = ProcessSupervisor.run_confined(slow_cmd, timeout_seconds=1)
     assert res_slow.timed_out is True
     assert res_slow.returncode == -9
 
