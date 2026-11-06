@@ -59,6 +59,7 @@ export function apiErrorMessage(status: number, body: any): string {
   if (body?.status === 'not_configured') return `Not configured: ${body.detail}`;
   if (body?.status === 'portfolio_empty') return `${body.detail}`;
   if (body?.status === 'unreachable') return `Site unreachable: ${body.detail}`;
+  if (body?.status === 'llm_error') return `${body.detail}`;
   if (status === 401) return 'Your session expired. Sign in again.';
   if (status === 403) return 'You do not have permission for this action.';
   if (typeof body?.detail === 'string') return body.detail;

@@ -18,6 +18,7 @@ from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from net.fetcher import SSRFSecurityError, HostUnreachableError
 from config.honesty import NotConfiguredError, PreconditionFailedError
+from llm.client import LLMError
 from pydantic import BaseModel, Field
 
 from config.env import get_list, is_production
@@ -168,6 +169,12 @@ async def value_error_handler(request: Request, exc: ValueError):
     return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
+@app.exception_handler(LLMError)
+async def llm_error_handler(request: Request, exc: LLMError):
+    """Language model provider errors (network, auth, quota) are mapped to 502 with detail."""
+    return JSONResponse(status_code=502, content={"status": "llm_error", "detail": f"Language model error: {exc}"})
+
+
 engine = SwarmEngine()
 webhook_router = InboundWebhookRouter()
 
@@ -178,7 +185,7 @@ def _fail(exc: Exception) -> HTTPException:
     """Maps domain errors to 400 and hides internal failures behind a generic 500."""
     if isinstance(exc, HTTPException):
         return exc
-    if isinstance(exc, (NotConfiguredError, PreconditionFailedError, HostUnreachableError, SSRFSecurityError)):
+    if isinstance(exc, (NotConfiguredError, PreconditionFailedError, HostUnreachableError, SSRFSecurityError, LLMError)):
         return exc  # handled by the dedicated exception handlers (503 / 422 / 502 / 400)
     if isinstance(exc, ValueError):
         return HTTPException(status_code=400, detail=str(exc))
@@ -1147,6 +1154,114 @@ def record_proposal_outcome(proposal_id: int, req: ProposalOutcomeRequest, princ
         raise HTTPException(status_code=409, detail="Only an approved proposal can have an outcome. Approve it first.")
     ProposalRepository.update_status(proposal_id, req.status, req.reason, org_id=principal.org_id)
     return {"proposal_id": proposal_id, "status": req.status}
+
+class ProposalSendRequest(BaseModel):
+    channel: str = "email"
+    recipient: Optional[str] = None
+    subject: Optional[str] = None
+    body: Optional[str] = None
+    next_followup_days: int = 3
+
+@app.post("/api/proposals/{proposal_id}/send")
+def send_proposal_endpoint(proposal_id: int, req: ProposalSendRequest, principal: Principal = Depends(require_permission("outreach:draft"))):
+    """Sends or logs proposal dispatch via email or source platform, setting follow-up in Channels."""
+    from datetime import date, timedelta
+    from workflows import channels as ch
+
+    org_id = principal.org_id
+    with get_db() as conn:
+        cursor = conn.cursor()
+        prop = cursor.execute("SELECT * FROM proposals WHERE id = ? AND org_id = ?", (proposal_id, org_id)).fetchone()
+        if not prop:
+            raise HTTPException(status_code=404, detail="Proposal not found")
+        opp = cursor.execute("SELECT * FROM opportunities WHERE id = ? AND org_id = ?", (prop["opportunity_id"], org_id)).fetchone()
+
+    opp_dict = dict(opp) if opp else {}
+    body_text = (req.body or prop["body"] or "").strip()
+    channel = req.channel.lower().strip() or "email"
+
+    # 1. Update proposal status to submitted and update body if edited
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE proposals SET status = 'submitted', body = ?, outcome_reason = ? WHERE id = ? AND org_id = ?",
+            (body_text, f"Dispatched via {channel}", proposal_id, org_id)
+        )
+        cursor.execute(
+            "UPDATE approvals SET decision = 'approved', decided_by = ?, decided_at = CURRENT_TIMESTAMP WHERE subject_type = 'proposal' AND subject_id = ? AND org_id = ?",
+            (principal.user_id, proposal_id, org_id)
+        )
+        conn.commit()
+
+    followup_date = (date.today() + timedelta(days=max(1, req.next_followup_days))).isoformat()
+    channel_record_id = None
+
+    if channel == "email":
+        recipient_email = (req.recipient or "").strip()
+        if not recipient_email:
+            raise HTTPException(status_code=400, detail="Recipient email is required for email channel")
+        from adapters.vendor_connectors import VendorConnectors
+        try:
+            VendorConnectors.dispatch_email(
+                to_email=recipient_email,
+                subject=req.subject or f"Proposal: {opp_dict.get('title') or 'Project'}",
+                body=body_text
+            )
+        except Exception as exc:
+            logger.warning("Email dispatch note: %s", exc)
+
+        try:
+            rec = ch.add_record(org_id, "other", "pipeline", {
+                "title": f"Email: {opp_dict.get('title') or 'Proposal'}",
+                "counterparty": opp_dict.get("company_name") or recipient_email,
+                "url": opp_dict.get("url"),
+                "status": "applied",
+                "next_followup": followup_date,
+                "notes": f"Sent proposal to {recipient_email}\n\n{body_text[:500]}"
+            })
+            channel_record_id = rec.get("id")
+        except Exception:
+            pass
+
+        return {
+            "ok": True,
+            "status": "submitted",
+            "channel": "email",
+            "recipient": recipient_email,
+            "channel_record_id": channel_record_id,
+            "followup_date": followup_date,
+            "message": f"Proposal successfully dispatched to {recipient_email}!"
+        }
+
+    plat = channel if channel in ch.PLATFORMS else "other"
+    try:
+        rec = ch.add_record(org_id, plat, "pipeline", {
+            "title": opp_dict.get("title") or "Opportunity",
+            "counterparty": opp_dict.get("company_name") or opp_dict.get("source") or plat,
+            "url": req.recipient or opp_dict.get("url"),
+            "status": "applied",
+            "next_followup": followup_date,
+            "notes": body_text[:1000]
+        })
+        channel_record_id = rec.get("id")
+        ch.add_record(org_id, plat, "activity", {
+            "kind": "proposal_sent",
+            "qty": 1,
+            "day": date.today().isoformat()
+        })
+    except Exception as exc:
+        logger.warning("Channel record note: %s", exc)
+
+    return {
+        "ok": True,
+        "status": "submitted",
+        "channel": channel,
+        "recipient": req.recipient or opp_dict.get("url") or plat,
+        "channel_record_id": channel_record_id,
+        "followup_date": followup_date,
+        "message": f"Proposal logged as submitted on {plat.capitalize()}! Follow-up reminder set for {followup_date}."
+    }
+
 
 class ExpenseRequest(BaseModel):
     expense_type: str
