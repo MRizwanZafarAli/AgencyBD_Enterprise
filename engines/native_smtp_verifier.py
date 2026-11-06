@@ -50,13 +50,15 @@ class NativeSMTPVerifier:
         if not is_valid_hostname(domain):
             return []
         try:
-            res = subprocess.run(["nslookup", "-q=mx", domain], capture_output=True, text=True, timeout=3)
+            import sys, shutil
+            nslookup_bin = shutil.which("nslookup") or ("C:\\Windows\\System32\\nslookup.exe" if sys.platform == "win32" else "nslookup")
+            res = subprocess.run([nslookup_bin, "-q=mx", domain], capture_output=True, text=True, timeout=5)
             for line in res.stdout.splitlines():
                 if "mail exchanger =" in line.lower():
-                    parts = line.split("=")
+                    parts = re.split(r"mail exchanger\s*=\s*", line, flags=re.IGNORECASE)
                     if len(parts) > 1:
-                        host = parts[1].strip().split()[-1].rstrip(".")
-                        if is_valid_hostname(host):
+                        host = parts[1].strip().split()[0].rstrip(".")
+                        if is_valid_hostname(host) and host not in mx_hosts:
                             mx_hosts.append(host)
         except Exception:
             pass

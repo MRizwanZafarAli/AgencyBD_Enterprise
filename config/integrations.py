@@ -176,7 +176,7 @@ TESTS: Dict[str, Callable[[str], Tuple[Optional[bool], str]]] = {
     "BRAVE_SEARCH_API_KEY": lambda k: _result(_get("https://api.search.brave.com/res/v1/web/search?q=test&count=1", {"X-Subscription-Token": k, "Accept": "application/json"}), bad_codes=(401, 403, 422)),
     "NVD_API_KEY": lambda k: _result(_get("https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=1", {"apiKey": k})),
     "GITHUB_TOKEN": lambda k: _result(_get("https://api.github.com/rate_limit", {"Authorization": f"Bearer {k}", "User-Agent": "AgencyBD", "Accept": "application/vnd.github+json"}), bad_codes=(401, 403)),
-    "ANTHROPIC_API_KEY": lambda k: _result(_get("https://api.anthropic.com/v1/models", {"x-api-key": k, "anthropic-version": "2023-06-01"})),
+    "ANTHROPIC_API_KEY": lambda k: (True, "Mock AI model provider active.") if k.lower() in ("mock", "test", "demo") else _result(_get("https://api.anthropic.com/v1/models", {"x-api-key": k, "anthropic-version": "2023-06-01"})),
 }
 
 

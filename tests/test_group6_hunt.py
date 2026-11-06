@@ -21,14 +21,14 @@ FIX = Path(__file__).parent / "fixtures"
 # ------------------------------------------------------------------ connectors (real recorded data)
 
 def test_reddit_keeps_only_hiring_posts_and_reads_budgets():
-    items = parse_feed((FIX / "reddit_forhire.xml").read_text())
+    items = parse_feed((FIX / "reddit_forhire.xml").read_text(encoding="utf-8"))
     assert items and all(i.source == "reddit" and i.url.startswith("https://www.reddit.com/") for i in items)
     assert not any(i.title.lower().startswith("for hire") for i in items)
     assert any(i.budget_max == 1500.0 for i in items)   # "$1,500 Fixed"
 
 
 def test_github_keeps_only_issues_with_a_stated_dollar_reward():
-    items = parse_issues(json.loads((FIX / "github_bounty.json").read_text()))
+    items = parse_issues(json.loads((FIX / "github_bounty.json").read_text(encoding="utf-8")))
     assert items and all(i.budget_min and i.budget_min > 0 and i.url.startswith("https://github.com/") for i in items)
 
 
