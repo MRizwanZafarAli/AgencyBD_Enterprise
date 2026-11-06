@@ -10,7 +10,10 @@ from database.models import LeadRepository
 from routers.system import build_checks
 from security.auth import Principal, require_permission
 from workflows import channels as ch
+from workflows import chase as chase_mod
+from workflows import partners as partners_mod
 from workflows import client_notes as cn
+from alertdesk import engine as alert_engine
 from workflows.inbox import WorkItemRepository
 
 router = APIRouter(prefix="/api/today", tags=["Today"])
@@ -45,6 +48,7 @@ def today_summary(principal: Principal = Depends(require_permission("leads:read"
     due = sum(c["followups_due"] for c in channels)
     waiting = [c for c in channels if c["unanswered"]]
     tasks = cn.followups(org)["due"]
+    waiting_msgs = alert_engine.list_messages(org, "new", limit=50)
     missing = [c for c in build_checks(org) if c["status"] == "missing" and c["required"]]
 
     focus: List[Dict[str, Any]] = []
@@ -53,10 +57,23 @@ def today_summary(principal: Principal = Depends(require_permission("leads:read"
     cve = next((w for w in items if w["kind"] == "new_cve"), None)
     if cve:
         focus.append({"priority": 90, "title": cve["title"], "detail": "A reason to get in touch. Confirm the real patch level first.", "target": {"surface": "clients", "lead_id": cve["entity_id"]}})
+    if waiting_msgs:
+        m = waiting_msgs[0]
+        focus.append({"priority": 99, "title": f"{len(waiting_msgs)} client message{'s' if len(waiting_msgs) != 1 else ''} waiting for a reply" + (f": {m['sender']} on {m['platform']}" if len(waiting_msgs) == 1 else ""),
+                      "detail": "A fast answer is what clients notice most.", "target": {"surface": "channels"}})
     if tasks:
         first = tasks[0]
         focus.append({"priority": 88, "title": f"{len(tasks)} client follow-up{'s' if len(tasks) != 1 else ''} due" + (f": {first['body'][:60]} ({first['company']})" if len(tasks) == 1 else ""),
                       "detail": "Tasks you set on client pages.", "target": {"surface": "clients", "lead_id": first["lead_id"]}})
+    chase_list = chase_mod.to_chase(org)
+    if chase_list:
+        c0 = chase_list[0]
+        focus.append({"priority": 87, "title": f"{len(chase_list)} client{'s' if len(chase_list) != 1 else ''} to chase" + (f": {c0['company']}" if len(chase_list) == 1 else f", starting with {c0['company']} ({c0['stage_label'].lower()})"),
+                      "detail": "Gone quiet with no follow-up planned. Set a date or follow up now.", "target": {"surface": "clients", "lead_id": c0["lead_id"]}})
+    partner_attn = [p for p in partners_mod.list_partners(org)["partners"] if p["attention"]]
+    if partner_attn:
+        focus.append({"priority": 70, "title": f"{len(partner_attn)} partner{'s need' if len(partner_attn) != 1 else ' needs'} a nudge" + (f": {partner_attn[0]['name']}" if len(partner_attn) == 1 else ""),
+                      "detail": partner_attn[0]["attention"], "target": {"surface": "clients", "tab": "partners"}})
     if waiting:
         focus.append({"priority": 85, "title": "Reply to " + ", ".join(f"{c['label']} ({c['unanswered']})" for c in waiting[:3]), "detail": "Fast replies are what buyers notice.", "target": {"surface": "channels"}})
     if due:
@@ -69,6 +86,66 @@ def today_summary(principal: Principal = Depends(require_permission("leads:read"
     focus.sort(key=lambda f: -f["priority"])
 
     return {"kpis": {"new_leads": leads, "audits": audits, "emails_sent": sent, "replies": replies, "pending_approvals": pending, "open_tasks": len(items), "hot_leads": hot,
-                     "pipeline_value": pipe["total_pipeline_value"], "win_rate_percent": pipe["win_rate_percent"], "unvalued_deals": pipe["unvalued_deals_count"], "client_followups_due": len(tasks)},
+                     "pipeline_value": pipe["total_pipeline_value"], "win_rate_percent": pipe["win_rate_percent"], "unvalued_deals": pipe["unvalued_deals_count"], "client_followups_due": len(tasks), "client_messages_waiting": len(waiting_msgs), "clients_to_chase": len(chase_list)},
             "focus": focus[:3], "activity": activity, "channels": channels,
             "note": "Weekly numbers compare the last 7 days with the 7 days before. Pipeline value counts only values you entered."}
+
+
+@router.get("/scorecard")
+def scorecard(principal: Principal = Depends(require_permission("leads:read"))) -> Dict[str, Any]:
+    from workflows import scorecard as sc
+    return sc.scorecard(principal.org_id)
+
+
+@router.get("/briefing")
+def today_briefing(principal: Principal = Depends(require_permission("leads:read"))) -> Dict[str, Any]:
+    """Automated Daily BD Executive Briefing: synthesizes pipeline, tasks, intent and top actions."""
+    org = principal.org_id
+    summary = today_summary(principal)
+    kpis = summary["kpis"]
+    focus = summary["focus"]
+    channels = summary["channels"]
+
+    from datetime import datetime, timezone
+    today_str = datetime.now(timezone.utc).strftime("%A, %B %d, %Y")
+
+    with get_db() as db:
+        # Check recent corporate visitor signals
+        visitor_count = _count(db, "SELECT COUNT(*) FROM visitor_intent_events WHERE org_id = ? AND created_at >= datetime('now', '-24 hours')", (org,))
+
+    pipe_val = kpis["pipeline_value"] or 0
+    val_str = f"${int(pipe_val):,}" if pipe_val else "$0"
+    win_rate = f"{kpis['win_rate_percent']}%" if kpis['win_rate_percent'] is not None else "N/A"
+
+    lines = [
+        f"# ⚡ AgencyBD Executive Morning Briefing",
+        f"**Date:** {today_str} | **Workspace:** {org}",
+        "",
+        f"### 📊 Pipeline & Revenue Velocity",
+        f"- **Active Pipeline Value:** {val_str} ({kpis.get('unvalued_deals', 0)} unvalued in play)",
+        f"- **Historical Win Rate:** {win_rate}",
+        f"- **Overdue Follow-ups:** {kpis.get('client_followups_due', 0)} client tasks due",
+        f"- **Pending Approval Queue:** {kpis.get('pending_approvals', 0)} outbound drafts waiting",
+        f"- **Website Intent Signals:** {visitor_count} website visits recorded in the last 24h (companies are not identified)",
+        "",
+        f"### 🎯 Top 3 Priority Actions for Today"
+    ]
+
+    for i, f in enumerate(focus, 1):
+        lines.append(f"{i}. **{f['title']}** — {f['detail']}")
+
+    lines.append("")
+    lines.append(f"### 🚀 Channel Pacing")
+    for c in channels[:3]:
+        lines.append(f"- **{c['label']}:** {c.get('streak_days', 0)}d routine streak | {c.get('followups_due', 0)} follow-ups due")
+
+    return {
+        "headline": f"Daily Briefing: {today_str}",
+        "date": today_str,
+        "pipeline_value_str": val_str,
+        "followups_due": kpis.get("client_followups_due", 0),
+        "pending_approvals": kpis.get("pending_approvals", 0),
+        "overnight_visitors": visitor_count,
+        "focus_items": focus,
+        "markdown": "\n".join(lines)
+    }

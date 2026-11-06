@@ -6,7 +6,7 @@ import { apiFetch } from '../../lib/api';
 /* Small design-system layer. Semantic slate classes flip automatically between the dark and light themes (see index.css). */
 
 export const field =
-  'w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500';
+  'w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500';
 
 type Tone = 'neutral' | 'good' | 'warn' | 'bad' | 'info' | 'accent';
 const TONES: Record<Tone, string> = {
@@ -19,7 +19,7 @@ const TONES: Record<Tone, string> = {
 };
 
 export const Badge: FC<{ tone?: Tone; children: ReactNode; title?: string }> = ({ tone = 'neutral', children, title }) => (
-  <span title={title} className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium border ${TONES[tone]}`}>{children}</span>
+  <span title={title} className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${TONES[tone]}`}>{children}</span>
 );
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -35,8 +35,8 @@ export const Button: FC<ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Va
 }) => (
   <button
     {...rest}
-    className={`inline-flex items-center justify-center gap-1.5 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
-      small ? 'text-xs px-2.5 py-1.5' : 'text-sm px-3.5 py-2'
+    className={`inline-flex items-center justify-center gap-1.5 rounded-full font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+      small ? 'text-xs px-3 py-1.5' : 'text-sm px-4 py-2'
     } ${VARIANTS[variant]} ${className}`}
   >
     {children}
@@ -44,23 +44,43 @@ export const Button: FC<ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Va
 );
 
 export const Card: FC<{ children: ReactNode; className?: string }> = ({ children, className = '' }) => (
-  <section className={`bento-tile rounded-2xl p-4 sm:p-5 ${className}`}>{children}</section>
+  <section className={`bento-tile rounded-3xl p-4 sm:p-6 ${className}`}>{children}</section>
 );
 
 export const PageHeader: FC<{ title: string; subtitle?: string; actions?: ReactNode }> = ({ title, subtitle, actions }) => (
-  <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
+  <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
     <div>
-      <h1 className="text-xl font-semibold text-white tracking-tight">{title}</h1>
-      {subtitle && <p className="text-sm text-slate-400 mt-1 max-w-2xl">{subtitle}</p>}
+      <span className="eyebrow mb-3" aria-hidden="true">AgencyBD</span>
+      <h1 className="text-3xl sm:text-4xl font-semibold text-white tracking-tight leading-[1.1]">{title}</h1>
+      {subtitle && <p className="text-sm sm:text-base text-slate-400 mt-2 max-w-2xl">{subtitle}</p>}
     </div>
     {actions && <div className="flex gap-2">{actions}</div>}
   </div>
 );
 
+/** Counts up to a whole number once, then stays put. Shows the final value at once for people who asked for less motion. */
+export const CountUp: FC<{ to: number }> = ({ to }) => {
+  const reduce = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (reduce) return;
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / 900);
+      setN(Math.round(to * (1 - Math.pow(1 - t, 3))));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [to, reduce]);
+  return <>{(reduce ? to : n).toLocaleString()}</>;
+};
+
 export const Stat: FC<{ label: string; value: ReactNode; hint?: string }> = ({ label, value, hint }) => (
-  <div className="bento-tile rounded-2xl p-4">
-    <div className="text-xs text-slate-400">{label}</div>
-    <div className="text-2xl font-semibold text-white tabular mt-1">{value}</div>
+  <div className="bento-tile rounded-3xl p-5">
+    <div className="text-xs font-medium text-slate-400">{label}</div>
+    <div className="text-3xl font-semibold text-white tabular mt-1.5 tracking-tight">{typeof value === 'number' && Number.isInteger(value) ? <CountUp to={value} /> : value}</div>
     {hint && <div className="text-[11px] text-slate-500 mt-1">{hint}</div>}
   </div>
 );
@@ -80,16 +100,16 @@ export const Skeletons: FC<{ rows?: number }> = ({ rows = 4 }) => (
 );
 
 export const Tabs: FC<{ tabs: Array<{ id: string; label: string; count?: number }>; active: string; onChange: (id: string) => void }> = ({ tabs, active, onChange }) => (
-  <div role="tablist" className="flex flex-wrap gap-1 border-b border-slate-800 mb-5">
+  <div role="tablist" className="inline-flex flex-wrap gap-1 p-1 mb-6 rounded-full border border-slate-800 bg-slate-950">
     {tabs.map((t) => (
       <button
         key={t.id}
         role="tab"
         aria-selected={active === t.id}
         onClick={() => onChange(t.id)}
-        className={`px-3.5 py-2 text-sm -mb-px border-b-2 ${active === t.id ? 'border-indigo-500 text-white font-medium' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+        className={`px-4 py-1.5 text-sm rounded-full transition-colors duration-300 ${active === t.id ? 'bg-indigo-600 text-white font-medium' : 'text-slate-400 hover:text-white'}`}
       >
-        {t.label}{t.count !== undefined && <span className="ml-1.5 text-[11px] text-slate-500 tabular">{t.count}</span>}
+        {t.label}{t.count !== undefined && <span className="ml-1.5 text-[11px] opacity-80 tabular">{t.count}</span>}
       </button>
     ))}
   </div>

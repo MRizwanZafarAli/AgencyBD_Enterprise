@@ -7,7 +7,7 @@ export const ThemeProvider: FC<{ children: ReactNode }> = ({ children }) => {
     if (typeof window === 'undefined') return 'dark';
     const stored = localStorage.getItem('agencybd_theme');
     if (stored === 'light' || stored === 'dark') return stored;
-    return 'light';                                   // the gold and white look is the default; the toggle and a stored choice still win
+    return 'light';                                   // the warm paper look is the default; the toggle and a stored choice still win
   });
 
   useEffect(() => {

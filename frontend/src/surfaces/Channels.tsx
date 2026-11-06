@@ -4,12 +4,13 @@ import { Card, PageHeader, Skeletons, Tabs } from '../components/ui';
 import { ErrorBanner } from '../components/shared/ErrorBanner';
 import { ChannelPanel } from '../components/channels/ChannelPanel';
 import { QuickLog } from '../components/channels/QuickLog';
+import { ClientMessages } from '../components/alerts/ClientMessages';
 import type { Catalog } from '../components/channels/types';
 import { useApi } from '../lib/hooks';
 
 interface Overview { platforms: Array<{ platform: string; open: number; followups_due: number; unanswered: number }> }
 
-export const Channels: FC<{ active: string; onActive: (id: string) => void; quick?: { text: string; n: number } | null }> = ({ active, onActive: setActive, quick }) => {
+export const Channels: FC<{ active: string; onActive: (id: string) => void; quick?: { text: string; n: number } | null; onOpenAlerts?: () => void }> = ({ active, onActive: setActive, quick, onOpenAlerts }) => {
   const [version, setVersion] = useState(0);
   const catalog = useApi<Catalog>('/api/channels/platforms');
   const overview = useApi<Overview>('/api/channels/overview');
@@ -20,6 +21,7 @@ export const Channels: FC<{ active: string; onActive: (id: string) => void; quic
   return (
     <div className="space-y-5">
       <PageHeader title="Channels" subtitle="Your control centre for LinkedIn and freelance sites. You work on each site in your own browser. This page keeps your pipeline, routine, templates and response times." />
+      <ClientMessages onOpenAlerts={onOpenAlerts} />
       <ErrorBanner message={catalog.error} />
       {catalog.loading && !catalog.data ? <Skeletons rows={3} /> : current && catalog.data && (
         <>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Download, Plus } from 'lucide-react';
 import { FollowupsPanel } from './FollowupsPanel';
+import { ChasePanel } from './ChasePanel';
 import { Badge, Button, Card, EmptyState, Skeletons, Stat, SuggestInput, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { send, useApi } from '../../lib/hooks';
@@ -61,6 +62,7 @@ export const PipelineBoard: FC<{ onOpen: (leadId: number) => void }> = ({ onOpen
         <Stat label="Won / lost" value={d ? `${d.won_deals_count} / ${d.lost_deals_count}` : '–'} />
         <Stat label="Win rate" value={d ? (d.win_rate_percent === null ? 'n/a' : `${d.win_rate_percent}%`) : '–'} hint="Won ÷ (won + lost); n/a until something closes" />
       </div>
+      <ChasePanel onOpenClient={onOpen} />
       <FollowupsPanel onOpenClient={onOpen} />
       <div className="flex flex-wrap justify-between items-center gap-2">
         <p className="text-xs text-slate-500 max-w-2xl">{d?.projection_note}</p>

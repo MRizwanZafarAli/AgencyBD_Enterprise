@@ -1,33 +1,36 @@
 @import "tailwindcss";
 
 /* ==============================================================================
-   AgencyBD design system: "Gilded Glass"
-   Golden yellow and white, with Apple-style frosted glass. Two themes (light is the default, dark is warm graphite).
+   AgencyBD design system: "Ink & Teal"
+   Near-black ink on a warm paper canvas, one confident teal accent, big soft cards, pill buttons and scroll-driven motion.
+   Two themes: light (default, warm paper) and dark (zinc ink).
 
    How it works
    - Every component already uses the semantic classes `slate-*`, `indigo-*` and `text-white`. This file re-points those tokens, so there is no
-     per-page colour code: gold is the "indigo" accent, and the slate scale is a warm neutral that inverts between themes
-     (50 = strongest text ... 500 = muted text ... 800/700 = hairlines ... 900/950 = glass surfaces).
+     per-page colour code: teal is the "indigo" accent, and the slate scale is a neutral that inverts between themes
+     (50 = strongest text ... 500 = muted text ... 800/700 = hairlines ... 900/950 = card surfaces).
    - Unlayered rules beat Tailwind's layered utilities, so overrides below need no !important.
-   - Contrast: text and accent colours were chosen against the worst-case backgrounds (cream, gold-tinted glass) and checked by the axe e2e suite.
-   - Accessibility: `prefers-reduced-transparency` and browsers without backdrop-filter get solid surfaces.
+   - Contrast: text and accent colours were chosen against the worst-case backgrounds and are checked by the axe e2e suite.
+     White on the teal fill is 5.5:1; ink on the bright dark-theme teal is 6.8:1.
+   - Motion: cards rise into view as they scroll in (scroll-driven, no JavaScript, transform only so text never fades). Disabled by
+     `prefers-reduced-motion`. `prefers-reduced-transparency` and browsers without backdrop-filter get solid surfaces.
    ============================================================================== */
 
 @theme {
   --font-sans: "Inter Variable", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono Variable", SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
 
-  /* Brand gold (also exposed as gold-* utilities) */
-  --color-gold-50: #fffbeb;
-  --color-gold-100: #fff3c4;
-  --color-gold-200: #ffe38a;
-  --color-gold-300: #ffd54f;
-  --color-gold-400: #fbc02d;
-  --color-gold-500: #f5b301;
-  --color-gold-600: #d99a00;
-  --color-gold-700: #b07a00;
-  --color-gold-800: #8a5f00;
-  --color-gold-900: #6b4a00;
+  /* Brand teal (also exposed as teal-* utilities) */
+  --color-teal-50: #f0fdfa;
+  --color-teal-100: #ccfbf1;
+  --color-teal-200: #99f6e4;
+  --color-teal-300: #5eead4;
+  --color-teal-400: #2dd4bf;
+  --color-teal-500: #14b8a6;
+  --color-teal-600: #0f766e;
+  --color-teal-700: #0d655e;
+  --color-teal-800: #115e59;
+  --color-teal-900: #134e4a;
 
   --animate-fade-up: fade-up 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
   --animate-scale-in: scale-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -41,109 +44,114 @@
 @keyframes scale-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
 @keyframes pop { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
 @keyframes pulse-glow {
-  0%, 100% { opacity: 0.6; filter: drop-shadow(0 0 12px rgba(245, 179, 1, 0.35)); }
-  50% { opacity: 1; filter: drop-shadow(0 0 24px rgba(245, 179, 1, 0.65)); }
+  0%, 100% { opacity: 0.6; filter: drop-shadow(0 0 12px rgba(45, 212, 191, 0.35)); }
+  50% { opacity: 1; filter: drop-shadow(0 0 24px rgba(45, 212, 191, 0.65)); }
 }
 @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 @keyframes grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes rise { from { transform: translateY(26px) scale(0.985); } to { transform: translateY(0) scale(1); } }
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes dot-ping { 0% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.55); } 70%, 100% { box-shadow: 0 0 0 8px rgba(20, 184, 166, 0); } }
 
 /* ==============================================================================
-   Dark theme: warm graphite with gold
+   Dark theme: zinc ink with bright teal
    ============================================================================== */
 :root {
   color-scheme: dark;
 
   /* neutral scale (text -> surfaces) */
-  --color-white: #fffdf6;
-  --color-slate-50: #fbf8ef;
-  --color-slate-100: #f3eedf;
-  --color-slate-200: #e4dcc6;
-  --color-slate-300: #cfc5a8;
-  --color-slate-400: #b3a785;
-  --color-slate-500: #a09470;
-  --color-slate-600: rgba(255, 236, 170, 0.22);
-  --color-slate-700: rgba(255, 236, 170, 0.18);
-  --color-slate-800: rgba(255, 236, 170, 0.12);
-  --color-slate-900: rgba(36, 31, 19, 0.62);
-  --color-slate-950: rgba(20, 17, 10, 0.66);
+  --color-white: #fafafa;
+  --color-slate-50: #fafafa;
+  --color-slate-100: #f4f4f5;
+  --color-slate-200: #e4e4e7;
+  --color-slate-300: #d4d4d8;
+  --color-slate-400: #a1a1aa;
+  --color-slate-500: #9a9aa5;
+  --color-slate-600: rgba(255, 255, 255, 0.22);
+  --color-slate-700: rgba(255, 255, 255, 0.15);
+  --color-slate-800: rgba(255, 255, 255, 0.09);
+  --color-slate-900: rgba(24, 24, 27, 0.72);
+  --color-slate-950: rgba(12, 12, 14, 0.72);
 
-  /* accent: gold */
-  --color-indigo-300: #fde68a;
-  --color-indigo-400: #fcd34d;
-  --color-indigo-500: #f5b301;
-  --color-indigo-600: #f5b301;
-  --color-indigo-700: #d99a00;
+  /* accent: teal */
+  --color-indigo-300: #99f6e4;
+  --color-indigo-400: #5eead4;
+  --color-indigo-500: #2dd4bf;
+  --color-indigo-600: #2dd4bf;
+  --color-indigo-700: #14b8a6;
 
-  /* status colours keep their meaning; purple becomes copper so the palette stays warm */
-  --color-purple-300: #fdba74;
-  --color-purple-400: #fb923c;
-  --color-purple-500: #ea580c;
-  --color-purple-600: #c2410c;
+  /* status colours keep their meaning; purple becomes violet so charts stay distinguishable from teal */
+  --color-purple-300: #c4b5fd;
+  --color-purple-400: #a78bfa;
+  --color-purple-500: #8b5cf6;
+  --color-purple-600: #6d28d9;
   --color-emerald-600: #047857;
   --color-cyan-600: #0e7490;
   --color-amber-600: #b45309;
 
-  --ink: #1a1405;
-  --on-gold: #1a1405;
-  --focus: #fcd34d;
-  --link: #fcd34d;
+  --ink: #09090b;
+  --on-accent: #04211f;
+  --focus: #5eead4;
+  --link: #5eead4;
+  --accent-rgb: 45, 212, 191;
 
-  /* glass */
-  --glass-bg: rgba(40, 34, 20, 0.52);
-  --glass-bg-strong: rgba(30, 26, 15, 0.84);
-  --glass-sheen: linear-gradient(135deg, rgba(255, 236, 170, 0.10), rgba(255, 236, 170, 0.02) 55%);
-  --glass-border: rgba(255, 236, 170, 0.12);
-  --glass-edge: rgba(255, 236, 170, 0.09);
-  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 16px 40px -12px rgba(0, 0, 0, 0.6);
-  --glass-blur: blur(24px) saturate(170%);
-  --glass-hover-border: rgba(245, 179, 1, 0.55);
-  --glass-hover-shadow: 0 18px 44px -10px rgba(0, 0, 0, 0.65), 0 0 28px rgba(245, 179, 1, 0.16);
-  --btn-glass: rgba(255, 236, 170, 0.07);
-  --btn-glass-hover: rgba(255, 236, 170, 0.14);
-  --scrim: rgba(8, 6, 2, 0.55);
-  --sheet-bg: rgba(24, 20, 12, 0.90);
+  /* surfaces */
+  --glass-bg: rgba(24, 24, 27, 0.62);
+  --glass-bg-strong: rgba(18, 18, 20, 0.94);
+  --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01) 55%);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-edge: rgba(255, 255, 255, 0.06);
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 22px 44px -18px rgba(0, 0, 0, 0.75);
+  --glass-blur: blur(20px) saturate(150%);
+  --glass-hover-border: rgba(45, 212, 191, 0.55);
+  --glass-hover-shadow: 0 24px 48px -14px rgba(0, 0, 0, 0.8), 0 0 32px rgba(45, 212, 191, 0.14);
+  --btn-glass: rgba(255, 255, 255, 0.06);
+  --btn-glass-hover: rgba(255, 255, 255, 0.12);
+  --scrim: rgba(0, 0, 0, 0.55);
+  --sheet-bg: rgba(14, 14, 16, 0.94);
+  --hero-bg: linear-gradient(145deg, #14b8a6 -40%, #0b3b37 38%, #09090b 100%);
+  --hero-ink: #f4f4f5;
 
-  --app-bg: #14110a;
+  --app-bg: #09090b;
   --app-canvas:
-    radial-gradient(900px 520px at 8% -8%, rgba(245, 179, 1, 0.20), transparent 62%),
-    radial-gradient(760px 480px at 96% 4%, rgba(255, 213, 79, 0.12), transparent 58%),
-    radial-gradient(900px 600px at 55% 112%, rgba(217, 154, 0, 0.16), transparent 60%),
-    linear-gradient(180deg, #17130b 0%, #100d07 100%);
-  --scroll-thumb: rgba(255, 236, 170, 0.22);
-  --scroll-thumb-hover: rgba(255, 236, 170, 0.36);
-  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23fcd34d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    radial-gradient(900px 540px at 6% -8%, rgba(45, 212, 191, 0.16), transparent 62%),
+    radial-gradient(760px 480px at 100% 0%, rgba(99, 102, 241, 0.08), transparent 58%),
+    linear-gradient(180deg, #0c0c0f 0%, #09090b 100%);
+  --scroll-thumb: rgba(255, 255, 255, 0.2);
+  --scroll-thumb-hover: rgba(255, 255, 255, 0.34);
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235eead4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
 /* ==============================================================================
-   Light theme (default): white and golden yellow
+   Light theme (default): warm paper, ink and teal
    ============================================================================== */
 [data-theme="light"],
 html.light {
   color-scheme: light;
 
-  --color-white: #1a1405;                 /* "white" text means "strongest text", so it is ink in the light theme */
-  --color-slate-50: #1a1405;
-  --color-slate-100: #231b08;
-  --color-slate-200: #3a2f14;
-  --color-slate-300: #4f4220;
-  --color-slate-400: #6b5c36;             /* 5.4:1 on gold-tinted glass */
-  --color-slate-500: #6f6038;             /* 5.1:1 on gold-tinted glass */
-  --color-slate-600: rgba(138, 95, 0, 0.30);
-  --color-slate-700: rgba(138, 95, 0, 0.24);
-  --color-slate-800: rgba(138, 95, 0, 0.16);
-  --color-slate-900: rgba(255, 255, 255, 0.72);
-  --color-slate-950: rgba(255, 252, 244, 0.62);
+  --color-white: #09090b;                 /* "white" text means "strongest text", so it is ink in the light theme */
+  --color-slate-50: #09090b;
+  --color-slate-100: #18181b;
+  --color-slate-200: #27272a;
+  --color-slate-300: #3f3f46;
+  --color-slate-400: #52525b;             /* 7.6:1 on white */
+  --color-slate-500: #5f5f69;             /* 6.3:1 on white, 5.6:1 on the canvas */
+  --color-slate-600: rgba(9, 9, 11, 0.24);
+  --color-slate-700: rgba(9, 9, 11, 0.15);
+  --color-slate-800: rgba(9, 9, 11, 0.09);
+  --color-slate-900: rgba(255, 255, 255, 0.88);
+  --color-slate-950: rgba(255, 255, 255, 0.7);
 
-  /* accent: bronze for text on white (>= 4.9:1), pure gold for fills */
-  --color-indigo-300: #7a5300;
-  --color-indigo-400: #8a5f00;
-  --color-indigo-500: #e8a900;
-  --color-indigo-600: #f5b301;
-  --color-indigo-700: #d99a00;
+  /* accent: deep teal reads as text on white (5.5:1) and as a fill under white ink */
+  --color-indigo-300: #0b5f58;
+  --color-indigo-400: #0f766e;
+  --color-indigo-500: #0f766e;
+  --color-indigo-600: #0f766e;
+  --color-indigo-700: #0d655e;
 
-  --color-purple-300: #9a3412;
-  --color-purple-400: #9a3412;
+  --color-purple-300: #5b21b6;
+  --color-purple-400: #5b21b6;
   --color-emerald-300: #036649;
   --color-emerald-400: #036649;
   --color-cyan-300: #0a6479;
@@ -153,32 +161,35 @@ html.light {
   --color-rose-300: #be123c;
   --color-rose-400: #be123c;
 
-  --focus: #8a5f00;
-  --link: #7a5300;
+  --on-accent: #ffffff;
+  --focus: #0f766e;
+  --link: #0f766e;
+  --accent-rgb: 15, 118, 110;
 
-  --glass-bg: rgba(255, 255, 255, 0.60);
-  --glass-bg-strong: rgba(255, 253, 247, 0.88);
-  --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0.12) 55%);
-  --glass-border: rgba(255, 255, 255, 0.85);
-  --glass-edge: rgba(176, 122, 0, 0.16);
-  --glass-shadow: 0 1px 2px rgba(120, 80, 0, 0.06), 0 14px 36px -10px rgba(176, 122, 0, 0.28);
-  --glass-blur: blur(24px) saturate(180%);
-  --glass-hover-border: rgba(217, 154, 0, 0.7);
-  --glass-hover-shadow: 0 18px 44px -10px rgba(176, 122, 0, 0.38), 0 0 0 1px rgba(245, 179, 1, 0.25);
-  --btn-glass: rgba(255, 255, 255, 0.55);
-  --btn-glass-hover: rgba(255, 255, 255, 0.9);
-  --scrim: rgba(96, 66, 8, 0.28);
-  --sheet-bg: rgba(255, 252, 244, 0.90);
+  --glass-bg: rgba(255, 255, 255, 0.88);
+  --glass-bg-strong: rgba(255, 255, 255, 0.97);
+  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.55));
+  --glass-border: rgba(9, 9, 11, 0.07);
+  --glass-edge: rgba(255, 255, 255, 1);
+  --glass-shadow: 0 1px 2px rgba(9, 9, 11, 0.05), 0 20px 40px -20px rgba(9, 9, 11, 0.24);
+  --glass-blur: blur(18px) saturate(160%);
+  --glass-hover-border: rgba(15, 118, 110, 0.5);
+  --glass-hover-shadow: 0 26px 50px -18px rgba(9, 9, 11, 0.3), 0 0 0 1px rgba(15, 118, 110, 0.2);
+  --btn-glass: rgba(255, 255, 255, 0.8);
+  --btn-glass-hover: #ffffff;
+  --scrim: rgba(9, 9, 11, 0.32);
+  --sheet-bg: rgba(255, 255, 255, 0.96);
+  --hero-bg: linear-gradient(145deg, #0f766e -30%, #0a2e2b 40%, #09090b 100%);
+  --hero-ink: #f4f4f5;
 
-  --app-bg: #fff8e1;
+  --app-bg: #f2f2f0;
   --app-canvas:
-    radial-gradient(900px 520px at 6% -6%, rgba(255, 205, 64, 0.50), transparent 62%),
-    radial-gradient(780px 480px at 98% 2%, rgba(255, 227, 138, 0.62), transparent 58%),
-    radial-gradient(900px 620px at 52% 114%, rgba(245, 179, 1, 0.32), transparent 62%),
-    linear-gradient(180deg, #fffdf6 0%, #fff6dc 100%);
-  --scroll-thumb: rgba(138, 95, 0, 0.30);
-  --scroll-thumb-hover: rgba(138, 95, 0, 0.48);
-  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238a5f00' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    radial-gradient(900px 520px at 4% -8%, rgba(15, 118, 110, 0.11), transparent 62%),
+    radial-gradient(780px 480px at 100% 0%, rgba(99, 102, 241, 0.06), transparent 58%),
+    linear-gradient(180deg, #f7f7f5 0%, #efefec 100%);
+  --scroll-thumb: rgba(9, 9, 11, 0.24);
+  --scroll-thumb-hover: rgba(9, 9, 11, 0.4);
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230f766e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
 /* ==============================================================================
@@ -199,7 +210,17 @@ body {
   background-color: var(--app-bg);
 }
 
-::selection { background: rgba(245, 179, 1, 0.38); color: inherit; }
+::selection { background: rgba(var(--accent-rgb), 0.28); color: inherit; }
+
+/* Scroll-driven rise: a card eases up as it enters the viewport. Transform only (text never fades, so contrast is always full).
+   Declared before .page-enter / .stagger so those win where they are used. */
+@supports (animation-timeline: view()) {
+  .bento-tile, .bento-tile-interactive, .glass-panel, .glass-card {
+    animation: rise linear backwards;
+    animation-timeline: view();
+    animation-range: entry 0% entry 45%;
+  }
+}
 
 .page-enter { animation: var(--animate-fade-up); }
 .stagger > * { animation: var(--animate-fade-up); }
@@ -212,7 +233,7 @@ body {
 button:active, a.button:active { transform: scale(0.98); }
 
 /* ==============================================================================
-   Glass surfaces: translucent fill, frosted blur, bright top edge, soft gold shadow
+   Surfaces: big soft cards, a bright top edge and a deep soft shadow
    ============================================================================== */
 .bento-tile,
 .bento-tile-interactive,
@@ -225,9 +246,9 @@ button:active, a.button:active { transform: scale(0.98); }
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
-  border-radius: 1.25rem;
-  box-shadow: inset 0 1px 0 0 var(--glass-edge), 0 0 0 0.5px var(--glass-edge), var(--glass-shadow);
-  transition: border-color 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1), transform 180ms cubic-bezier(0.16, 1, 0.3, 1), background-color 180ms ease;
+  border-radius: 1.5rem;
+  box-shadow: inset 0 1px 0 0 var(--glass-edge), var(--glass-shadow);
+  transition: border-color 300ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 300ms cubic-bezier(0.16, 1, 0.3, 1), transform 300ms cubic-bezier(0.16, 1, 0.3, 1), background-color 300ms ease;
 }
 
 .bento-tile-interactive:hover,
@@ -265,7 +286,7 @@ aside { background-image: var(--glass-sheen); }
   border-color: var(--glass-border);
 }
 
-/* Sheets (drawers) and their scrim: frosted panel on a warm veil, not a black overlay */
+/* Sheets (drawers) and their scrim: frosted panel over a soft veil, not a black overlay */
 .scrim {
   background: var(--scrim);
   -webkit-backdrop-filter: blur(8px) saturate(140%);
@@ -276,23 +297,29 @@ aside { background-image: var(--glass-sheen); }
   background-image: var(--glass-sheen);
   -webkit-backdrop-filter: blur(40px) saturate(190%);
   backdrop-filter: blur(40px) saturate(190%);
-  box-shadow: -28px 0 64px -24px rgba(120, 80, 0, 0.40);
+  box-shadow: -28px 0 64px -24px rgba(9, 9, 11, 0.45);
 }
 .glass-sheet-head { background-color: var(--sheet-bg); }
 
 /* ==============================================================================
    Controls
    ============================================================================== */
-/* Gold primary: a lit gold gradient with dark ink (>= 9.9:1), never white-on-yellow */
+/* Teal primary: a pill with a deep teal gradient and white ink (5.5:1). In the dark theme it is bright teal with near-black ink (6.8:1). */
 .bg-indigo-600,
-.bg-indigo-500 { color: var(--on-gold); }
+.bg-indigo-500 { color: var(--on-accent); }
 .bg-indigo-600 *, .bg-indigo-500 * { color: inherit; }
+button.bg-indigo-600, a.bg-indigo-600 { border-radius: 9999px; }
 .bg-indigo-600 {
-  background-image: linear-gradient(180deg, #ffd54f 0%, #f5b301 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 6px 16px -6px rgba(217, 154, 0, 0.7);
+  background-image: linear-gradient(180deg, #0f766e 0%, #0d655e 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 8px 18px -8px rgba(15, 118, 110, 0.8);
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 300ms cubic-bezier(0.16, 1, 0.3, 1), filter 300ms ease;
 }
-.bg-indigo-600:hover { filter: brightness(1.06) saturate(1.05); }
-.bg-indigo-600:disabled, .bg-indigo-600[disabled] { filter: none; }
+:root:not([data-theme="light"]) .bg-indigo-600 {
+  background-image: linear-gradient(180deg, #5eead4 0%, #2dd4bf 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 8px 22px -8px rgba(45, 212, 191, 0.6);
+}
+.bg-indigo-600:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.bg-indigo-600:disabled, .bg-indigo-600[disabled] { filter: none; transform: none; }
 
 /* Saturated status buttons keep white text */
 .bg-rose-600, .bg-rose-700, .bg-emerald-600, .bg-cyan-600, .bg-amber-600, .bg-purple-600 { color: #ffffff; }
@@ -300,24 +327,25 @@ aside { background-image: var(--glass-sheen); }
 
 /* Secondary buttons are glass */
 .glass-btn {
+  border-radius: 9999px;
   background-color: var(--btn-glass);
   -webkit-backdrop-filter: blur(14px) saturate(160%);
   backdrop-filter: blur(14px) saturate(160%);
   border: 1px solid var(--color-slate-700);
   box-shadow: inset 0 1px 0 var(--glass-edge);
-  transition: background-color 150ms ease, border-color 150ms ease;
+  transition: background-color 300ms ease, border-color 300ms ease, transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
-.glass-btn:hover { background-color: var(--btn-glass-hover); border-color: var(--glass-hover-border); }
+.glass-btn:hover { background-color: var(--btn-glass-hover); border-color: var(--glass-hover-border); transform: translateY(-1px); }
 
 input, textarea, select {
-  box-shadow: inset 0 1px 2px rgba(120, 80, 0, 0.10);
+  box-shadow: inset 0 1px 2px rgba(9, 9, 11, 0.08);
 }
 input:focus, textarea:focus, select:focus {
   border-color: var(--color-indigo-500);
-  box-shadow: 0 0 0 3px rgba(245, 179, 1, 0.28);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.28);
 }
 input::placeholder, textarea::placeholder { color: var(--color-slate-500); opacity: 0.55; }     /* clearly an example, never mistaken for a saved value */
-input[type="checkbox"], input[type="radio"] { accent-color: #d99a00; box-shadow: none; }
+input[type="checkbox"], input[type="radio"] { accent-color: #0f766e; box-shadow: none; }
 input[type="search"]::-webkit-search-cancel-button { display: none; }
 
 select {
@@ -335,17 +363,17 @@ select:disabled { cursor: not-allowed; }
 select option { background: var(--glass-bg-strong); color: var(--color-slate-100); }
 
 a { color: inherit; }
-/* base layer: a component that sets focus:outline-none (inputs have their own gold border and glow) wins over this default ring */
+/* base layer: a component that sets focus:outline-none (inputs have their own teal border and glow) wins over this default ring */
 @layer base { :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 8px; } }
 
 /* ==============================================================================
    Detail
    ============================================================================== */
-.glow-indigo { box-shadow: 0 0 28px rgba(245, 179, 1, 0.30); }
+.glow-indigo { box-shadow: 0 0 28px rgba(var(--accent-rgb), 0.30); }
 .glow-emerald { box-shadow: 0 0 28px rgba(16, 185, 129, 0.25); }
 .glow-amber { box-shadow: 0 0 28px rgba(245, 158, 11, 0.25); }
 .glow-cyan { box-shadow: 0 0 28px rgba(6, 182, 212, 0.25); }
-.glow-purple { box-shadow: 0 0 28px rgba(234, 88, 12, 0.25); }
+.glow-purple { box-shadow: 0 0 28px rgba(139, 92, 246, 0.25); }
 
 .badge-shimmer {
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
@@ -355,7 +383,7 @@ a { color: inherit; }
 
 .skeleton {
   border-radius: 0.9rem;
-  background: linear-gradient(90deg, rgba(245, 179, 1, 0.10) 25%, rgba(245, 179, 1, 0.22) 50%, rgba(245, 179, 1, 0.10) 75%);
+  background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.08) 25%, rgba(var(--accent-rgb), 0.18) 50%, rgba(var(--accent-rgb), 0.08) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s linear infinite;
 }
@@ -364,8 +392,8 @@ a { color: inherit; }
 .tabular { font-variant-numeric: tabular-nums; }
 
 /* Maps: dark tiles only in the dark theme */
-[data-theme="dark"] .leaflet-tile-pane, html.dark .leaflet-tile-pane { filter: invert(100%) hue-rotate(180deg) brightness(92%) contrast(88%) sepia(0.25); }
-[data-theme="light"] .leaflet-tile-pane, html.light .leaflet-tile-pane { filter: sepia(0.18) saturate(1.05); }
+[data-theme="dark"] .leaflet-tile-pane, html.dark .leaflet-tile-pane { filter: invert(100%) hue-rotate(180deg) brightness(92%) contrast(88%) sepia(0.1); }
+[data-theme="light"] .leaflet-tile-pane, html.light .leaflet-tile-pane { filter: saturate(0.9); }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -376,16 +404,67 @@ a { color: inherit; }
    Accessibility fallbacks
    ============================================================================== */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  :root { --glass-bg: rgba(40, 34, 20, 0.92); }
-  [data-theme="light"], html.light { --glass-bg: rgba(255, 253, 247, 0.96); }
+  :root { --glass-bg: rgba(24, 24, 27, 0.94); }
+  [data-theme="light"], html.light { --glass-bg: rgba(255, 255, 255, 0.98); }
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  :root { --glass-bg: rgba(36, 31, 19, 0.97); --glass-bg-strong: rgb(30, 26, 15); --color-slate-900: rgb(36, 31, 19); --color-slate-950: rgb(20, 17, 10); }
-  [data-theme="light"], html.light { --glass-bg: rgba(255, 255, 255, 0.98); --glass-bg-strong: rgb(255, 253, 247); --color-slate-900: rgb(255, 255, 255); --color-slate-950: rgb(255, 252, 244); }
+  :root { --glass-bg: rgba(24, 24, 27, 0.97); --glass-bg-strong: rgb(18, 18, 20); --color-slate-900: rgb(24, 24, 27); --color-slate-950: rgb(12, 12, 14); }
+  [data-theme="light"], html.light { --glass-bg: rgba(255, 255, 255, 0.99); --glass-bg-strong: rgb(255, 255, 255); --color-slate-900: rgb(255, 255, 255); --color-slate-950: rgb(250, 250, 250); }
   * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0ms !important; transition-duration: 1ms !important; }
+  *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0ms !important; transition-duration: 1ms !important; animation-timeline: auto !important; }
 }
+
+/* ==============================================================================
+   Signature pieces
+   ============================================================================== */
+/* Eyebrow: a small pill with a live dot, above page titles */
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.28rem 0.8rem 0.28rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.75rem; font-weight: 600; letter-spacing: 0.01em;
+  color: var(--color-indigo-400);
+  background-color: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 1px 0 var(--glass-edge), 0 6px 14px -8px rgba(9, 9, 11, 0.25);
+}
+.eyebrow::before { content: ""; width: 0.45rem; height: 0.45rem; border-radius: 9999px; background: var(--color-indigo-500); animation: dot-ping 2.4s ease-out infinite; }
+
+/* Hero card: the one dark, high-contrast card on a page, with a teal light in the corner */
+.hero-card {
+  position: relative; overflow: hidden;
+  background: var(--hero-bg);
+  color: var(--hero-ink);
+  border-radius: 1.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 30px 60px -28px rgba(9, 9, 11, 0.7);
+}
+.hero-card::after {
+  content: ""; position: absolute; inset: auto -10% -45% auto; width: 60%; aspect-ratio: 1; border-radius: 9999px; pointer-events: none;
+  background: radial-gradient(circle, rgba(45, 212, 191, 0.28), transparent 65%);
+}
+/* Inside the hero the dark palette always applies, so existing text and accent classes stay readable in the light theme too */
+.hero-card {
+  color-scheme: dark;
+  --color-white: #fafafa; --color-slate-50: #fafafa; --color-slate-100: #f4f4f5; --color-slate-200: #e4e4e7; --color-slate-300: #d4d4d8;
+  --color-slate-400: #b4b4bd; --color-slate-500: #a9a9b3;
+  --color-slate-600: rgba(255, 255, 255, 0.22); --color-slate-700: rgba(255, 255, 255, 0.16); --color-slate-800: rgba(255, 255, 255, 0.11);
+  --color-slate-900: rgba(255, 255, 255, 0.07); --color-slate-950: rgba(0, 0, 0, 0.32);
+  --color-indigo-300: #99f6e4; --color-indigo-400: #5eead4; --color-indigo-500: #2dd4bf; --color-indigo-600: #2dd4bf;
+  --on-accent: #04211f; --focus: #5eead4; --btn-glass: rgba(255, 255, 255, 0.08); --btn-glass-hover: rgba(255, 255, 255, 0.16);
+}
+.hero-card .eyebrow { background-color: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.16); box-shadow: none; }
+.hero-card .hero-accent { color: #5eead4; }
+.hero-card .hero-muted { color: #b4b4bd; }
+
+/* A slow marquee strip (used for the capability ribbon) */
+.marquee { overflow: hidden; mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
+.marquee-track { display: flex; width: max-content; gap: 2.5rem; animation: marquee 38s linear infinite; }
+.marquee:hover .marquee-track { animation-play-state: paused; }
+
+/* Big headings: tight, confident */
+h1 { letter-spacing: -0.025em; }

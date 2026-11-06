@@ -1,7 +1,7 @@
 """
 Native B2B Website Visitor Deanonymizer & Reverse-DNS Intelligence Engine.
-Completely replaces RB2B, 6sense, and Factors.ai by resolving visiting IP addresses
-to corporate company domains, filtering residential ISPs, and auto-discovering decision makers.
+Looks up the reverse-DNS name of a visiting IP address and filters obvious residential ISPs. A reverse-DNS name is NOT company
+identification: it is returned only as an unverified candidate, and nothing is invented when there is no name.
 """
 
 import socket
@@ -14,16 +14,6 @@ RESIDENTIAL_ISP_KEYWORDS = [
     "comcast", "verizon", "att", "spectrum", "charter", "cox", "centurylink",
     "xfinity", "broadband", "telecom", "dsl", "dhcp", "dynamic", "pool", "residential"
 ]
-
-KNOWN_B2B_ORGANIZATIONS = {
-    "104.244.42": {"company": "Twitter / X", "domain": "x.com", "industry": "Social Media"},
-    "199.16.156": {"company": "Stripe", "domain": "stripe.com", "industry": "FinTech / Payments"},
-    "151.101.": {"company": "Fastly Enterprise", "domain": "fastly.com", "industry": "Cloud Infrastructure"},
-    "52.95.": {"company": "Amazon AWS Corporate", "domain": "amazon.com", "industry": "Cloud & Retail"},
-    "13.107.": {"company": "Microsoft Redmond", "domain": "microsoft.com", "industry": "Enterprise Software"},
-    "142.250.": {"company": "Google Mountain View", "domain": "google.com", "industry": "Technology"},
-    "162.158.": {"company": "Cloudflare Network", "domain": "cloudflare.com", "industry": "Cybersecurity"}
-}
 
 class NativeVisitorDeanonymizer:
     def __init__(self):
@@ -43,7 +33,7 @@ class NativeVisitorDeanonymizer:
             host_info = socket.gethostbyaddr(clean_ip)
             hostname = host_info[0].lower() if host_info else ""
         except Exception:
-            hostname = f"host-{clean_ip.replace('.', '-')}.corporate-net.com"
+            hostname = ""                      # no reverse-DNS name exists; nothing is made up in its place
 
         # Check for residential ISP
         is_residential = any(kw in hostname for kw in RESIDENTIAL_ISP_KEYWORDS)

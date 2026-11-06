@@ -10,6 +10,10 @@ const ENDPOINTS = [
   { method: 'POST', path: '/api/native/score_copy', desc: 'Readability and spam-word check for an email draft', sample: '{"subject": "quick question", "body": "Hi Jane, I noticed your site takes four seconds to load on mobile."}' },
   { method: 'POST', path: '/api/native/route_smartlead', desc: 'Smartlead Google-to-Google & M365-to-M365 Matcher', sample: '{"recipient_mx_host": "aspmx.l.google.com", "available_inboxes": [{"id": 1, "email": "alex@apex.io", "esp": "Google Workspace"}]}' },
   { method: 'POST', path: '/api/native/parse_spintax', desc: 'Recursive Anti-Clustering Spintax Variant Generator', sample: '{"template_text": "{Hi|Hey|Hello} {{first_name}}, {saw|noticed} your work."}' },
+  { method: 'GET', path: '/api/system/database', desc: 'Database Engine & Connection Pool Telemetry', sample: '' },
+  { method: 'GET', path: '/api/system/queue', desc: 'Task Queue & Dead-Letter Queue (DLQ) Telemetry', sample: '' },
+  { method: 'GET', path: '/api/today/briefing', desc: 'Executive BD Morning Briefing', sample: '' },
+  { method: 'GET', path: '/api/voice/battlecards', desc: 'Competitor & Pricing Objection Battlecards', sample: '' },
   { method: 'GET', path: '/healthz/live', desc: 'Kubernetes & Docker Microservice Liveness Probe', sample: '' }
 ];
 

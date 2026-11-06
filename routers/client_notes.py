@@ -60,3 +60,10 @@ def delete_note(lead_id: int, note_id: int, principal: Principal = Depends(WRITE
 @router.get("/api/followups")
 def followups(principal: Principal = Depends(READ)):
     return cn.followups(principal.org_id)
+
+
+@router.get("/api/chase")
+def chase(principal: Principal = Depends(READ)) -> Dict[str, Any]:
+    """Clients in a live stage that went quiet with no follow-up planned, closest to a decision first."""
+    from workflows import chase as ch
+    return {"items": ch.to_chase(principal.org_id), "quiet_after_days": ch.QUIET_AFTER_DAYS}
