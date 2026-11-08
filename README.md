@@ -63,3 +63,6 @@ egress filter proxy. Sending passes an ordered guard chain (jurisdiction, suppre
 More in `docs/OPERATIONS.md`, `docs/ENTERPRISE_PLAN.md`, `docs/AUDIT_REPORT.md`.
 
 See `docs/GROWTH_PLAYBOOK.md` for every way to find clients, from the fast wins to the long shots.
+
+## License
+Proprietary. Copyright (c) 2026 Future Builders. All rights reserved. See [LICENSE](LICENSE). Contributors: read [CONTRIBUTING.md](CONTRIBUTING.md) first, because everything you write for this project belongs to the Owner.

@@ -1,0 +1,32 @@
+Proprietary Software License
+
+Copyright (c) 2026 Future Builders. All rights reserved.
+
+This software and its source code, documentation and related materials (the "Software") are the
+confidential and proprietary property of Future Builders ("the Owner").
+
+1. No license is granted by default. Except as the Owner agrees in a signed written agreement, you may
+   not use, copy, modify, merge, publish, distribute, sublicense, sell, host, or make the Software
+   available to others, in whole or in part, in source or compiled form.
+
+2. Authorised use. People who are employed or engaged by the Owner, or who have the Owner's written
+   permission, may use and modify the Software only for the Owner's business and only as that permission
+   allows. Everything they write for the Software belongs to the Owner (see CONTRIBUTING.md).
+
+3. Third-party components. The Software depends on open-source packages (for example FastAPI, React,
+   Vite, Tailwind CSS, Leaflet, Lucide). Each remains under its own license, which is not changed by this
+   one. This license applies only to the Owner's own code and materials.
+
+4. Confidentiality. Keep the source code, credentials, customer data and any non-public documentation
+   confidential. Do not publish them or put them in public repositories, forums or AI tools that retain
+   or train on what you send.
+
+5. No warranty. The Software is provided "as is", without warranty of any kind, express or implied,
+   including merchantability, fitness for a particular purpose and non-infringement. To the fullest
+   extent permitted by law, the Owner is not liable for any claim, damages or other liability arising
+   from the Software or its use.
+
+6. Termination. Any permission ends automatically if you break these terms. On request you must stop
+   using the Software and delete every copy you hold.
+
+To ask for permission or a commercial license, contact the Owner.
