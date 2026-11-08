@@ -14,7 +14,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { id: 'sending', label: 'Sending and policy', group: 'Connections', hint: 'Mailboxes, approvals, daily caps', keywords: 'mailbox smtp email approval autonomy policy cap warmup send stop', icon: Mail },
   { id: 'dns', label: 'Domain DNS', group: 'Connections', hint: 'SPF, DKIM, DMARC', keywords: 'spf dkim dmarc domain deliverability records', icon: Globe },
   { id: 'unsub', label: 'Unsubscribe list', group: 'Connections', hint: 'People you must not email', keywords: 'suppression opt out gdpr compliance can-spam block list', icon: MailX },
-  { id: 'team', label: 'Team and keys', group: 'Access and data', hint: 'Roles and sign-in keys', keywords: 'users roles permissions rbac invite revoke admin api keys team members', icon: Users },
+  { id: 'team', label: 'Access and passwords', group: 'Access and data', hint: 'Roles and tier passwords', keywords: 'users roles permissions rbac password passwords sign in login tier admin team members', icon: Users },
   { id: 'security', label: 'Security and session', group: 'Access and data', hint: 'Who you are signed in as', keywords: 'session sign out permissions role password key hygiene kill switch stop sending', icon: ShieldCheck },
   { id: 'data', label: 'Data and export', group: 'Access and data', hint: 'Your records, CSV, backups', keywords: 'export csv download backup restore gdpr data portability records database', icon: Database },
   { id: 'prefs', label: 'Appearance and shortcuts', group: 'Preferences', hint: 'Light or dark, keyboard', keywords: 'theme dark light mode teal colour keyboard shortcuts motion transparency', icon: Palette },

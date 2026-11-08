@@ -18,7 +18,7 @@ echo "======================================================================"
 if [ ! -f .env ] || grep -q "^AGENCYBD_JWT_SECRET=replace" .env; then
     echo "🔐 Generating secrets (first run)..."
     python3 scripts/generate_secrets.py
-    echo "   Create your first API key with: python3 scripts/create_admin_key.py"
+    echo "   Set the sign-in passwords with: python3 scripts/set_passwords.py"
 fi
 
 # 1. Kill any existing instances on the ports

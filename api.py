@@ -40,7 +40,7 @@ from security.auth import (
     scoped_org,
 )
 from core.metrics import MetricsManager
-from database.db import create_api_key_record, list_api_keys, revoke_api_key_record, get_db
+from database.db import get_db
 from analytics.financial_ledger import FinancialLedger
 from analytics.ab_testing_cohorts import SpintaxABOptimizer
 from tasks.task_queue import TaskQueueEngine
@@ -98,14 +98,14 @@ app = FastAPI(
     openapi_url="/openapi.json" if _docs_enabled else None,
 )
 
-# Credentials travel in headers (X-API-Key / Bearer), never cookies, so credentialed CORS is not needed.
+# Credentials travel in the Authorization header (Bearer session token), never cookies, so credentialed CORS is not needed.
 # Browsers may only call the API from the origins listed in AGENCYBD_CORS_ORIGINS.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_list("AGENCYBD_CORS_ORIGINS", "http://localhost:5173,http://localhost:8001"),
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-API-Key"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
@@ -206,7 +206,7 @@ def _owned_lead(lead_id: int, principal: Principal) -> Dict[str, Any]:
 
 @app.get("/api/auth/me")
 def whoami(principal: Principal = Depends(get_current_principal)):
-    """Returns the identity behind the presented credential (used by the UI to validate a key)."""
+    """Returns the identity behind the presented session token (used by the UI to validate a session)."""
     return {
         "user_id": principal.user_id,
         "org_id": principal.org_id,
@@ -239,7 +239,7 @@ def legacy_health_check():
 
 @app.get("/metrics")
 def prometheus_metrics(principal: Principal = Depends(require_permission("metrics:read"))):
-    """Prometheus scrape endpoint. Scrape with `authorization: {credentials: <JWT>}` or an X-API-Key header."""
+    """Prometheus scrape endpoint. Scrape with `authorization: {credentials: <JWT>}`."""
     data = MetricsManager.export_prometheus_metrics()
     return Response(content=data, media_type="text/plain; version=0.0.4; charset=utf-8")
 
@@ -518,32 +518,7 @@ def retry_dead_letter_task(req: RetryTaskRequest, principal: Principal = Depends
     success = TaskQueueEngine.retry_dead_letter(req.task_id, org_id=org)
     return {"task_id": req.task_id, "requeued": success}
 
-# ==================== Zero-Trust Key Management (super_admin only) ====================
-
-class CreateKeyRequest(BaseModel):
-    name: str
-    user_id: str
-    role: str = "growth_lead"
-    org_id: Optional[str] = None
-
-class RevokeKeyRequest(BaseModel):
-    key_id: int
-    org_id: Optional[str] = None
-
-@app.post("/api/security/create_key")
-def create_api_key_endpoint(req: CreateKeyRequest, principal: Principal = Depends(require_permission("apikeys:manage"))):
-    if req.role not in ROLE_PERMISSIONS:
-        raise HTTPException(status_code=400, detail=f"Unknown role. Valid roles: {sorted(ROLE_PERMISSIONS)}")
-    org_id = scoped_org(principal, req.org_id)
-    plaintext_key = create_api_key_record(name=req.name, user_id=req.user_id, role=req.role, org_id=org_id)
-    return {
-        "status": "created",
-        "api_key": plaintext_key,
-        "name": req.name,
-        "role": req.role,
-        "org_id": org_id,
-        "note": "Copy this key now. It will never be shown again in plaintext."
-    }
+# ==================== Webhook signing secret ====================
 
 @app.post("/api/security/webhook_secret")
 def rotate_webhook_secret(principal: Principal = Depends(require_permission("webhooks:manage"))):
@@ -552,15 +527,6 @@ def rotate_webhook_secret(principal: Principal = Depends(require_permission("web
     secret = WebhookSecrets.rotate(principal.org_id)
     return {"org_id": principal.org_id, "webhook_secret": secret,
             "note": "Copy this now; it cannot be shown again. Sign f'{timestamp}.{raw_body}' with HMAC-SHA256 and send X-AgencyBD-Org, X-AgencyBD-Timestamp and X-AgencyBD-Signature."}
-
-@app.get("/api/security/list_keys")
-def list_api_keys_endpoint(org_id: Optional[str] = None, principal: Principal = Depends(require_permission("apikeys:manage"))):
-    return {"keys": list_api_keys(org_id=scoped_org(principal, org_id))}
-
-@app.post("/api/security/revoke_key")
-def revoke_api_key_endpoint(req: RevokeKeyRequest, principal: Principal = Depends(require_permission("apikeys:manage"))):
-    revoked = revoke_api_key_record(req.key_id, scoped_org(principal, req.org_id))
-    return {"revoked": revoked, "key_id": req.key_id}
 
 # ==================== Native Replacement Engines (Zero-Cost / No API Keys) ====================
 
@@ -1305,9 +1271,11 @@ from routers.workspace import router as workspace_router
 app.include_router(workspace_router)
 from routers.alerts import router as alerts_router
 from routers.leadfinder import router as leadfinder_router
+from routers.auth import router as auth_router
 from routers.partners import router as partners_router
 app.include_router(alerts_router)
 app.include_router(leadfinder_router)
+app.include_router(auth_router)
 app.include_router(partners_router)
 app.include_router(outbound_router)
 app.include_router(compliance_router)

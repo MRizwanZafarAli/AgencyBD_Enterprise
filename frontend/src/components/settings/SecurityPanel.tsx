@@ -6,7 +6,7 @@ import type { Me } from '../../lib/api';
 
 const HYGIENE = [
   'Your key is kept for this browser tab only and disappears when you close it.',
-  'Give each person their own key under Team and keys, with the lowest role that does the job.',
+  'Give each person the password of the lowest tier that does the job, and change it under Access and passwords when someone leaves.',
   'Revoke a key the day someone leaves. A revoked key stops working immediately.',
   'Never paste a key into a chat, an email or a shared document. Anyone with it acts as you.',
   'Integration keys and mailbox passwords are encrypted here and are never shown again after saving.',
@@ -27,7 +27,7 @@ export const SecurityPanel: FC<{ me: Me; onSignOut: () => void }> = ({ me, onSig
       </Card>
       <Card>
         <h2 className="text-sm font-semibold text-white mb-1">What you can do</h2>
-        {all ? <p className="text-sm text-slate-300">Everything. This is an administrator key, so keep it private and give teammates their own keys with narrower roles.</p> : (
+        {all ? <p className="text-sm text-slate-300">Everything. This is the administrator tier, so keep its password private and give teammates the password of a narrower tier.</p> : (
           <dl className="grid gap-2 sm:grid-cols-2 text-xs">{groups.map(([g, acts]) => <div key={g} className="rounded-lg border border-slate-800 p-2.5"><dt className="font-medium text-slate-100 capitalize">{g}</dt><dd className="text-slate-400 mt-0.5">{acts.join(', ')}</dd></div>)}</dl>)}
       </Card>
       <Card>

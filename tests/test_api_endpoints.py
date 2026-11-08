@@ -36,9 +36,8 @@ PROTECTED_ROUTES = [
     ("GET", "/api/analytics/spintax_cohorts"),
     ("GET", "/api/tasks/dead_letters"),
     ("POST", "/api/tasks/retry_dead_letter"),
-    ("POST", "/api/security/create_key"),
-    ("GET", "/api/security/list_keys"),
-    ("POST", "/api/security/revoke_key"),
+    ("GET", "/api/auth/passwords"),
+    ("POST", "/api/auth/password"),
     ("POST", "/api/native/verify_email"),
     ("POST", "/api/native/fingerprint_tech"),
     ("POST", "/api/native/deanonymize_visitor"),
@@ -97,7 +96,7 @@ def test_anonymous_requests_are_rejected(client, method, path):
 
 
 def test_forged_key_rejected(client):
-    res = client.get("/api/leads", headers={"X-API-Key": "agy_live_not_a_real_key"})
+    res = client.get("/api/leads", headers={"X-API-Key": "agy_live_not_a_real_key"})      # keys are not a credential any more
     assert res.status_code == 401
 
 
@@ -132,43 +131,10 @@ def test_role_permissions_enforced(client, make_key):
     assert client.get("/api/metrics", headers=sdr).status_code == 403
 
 
-def test_key_management_is_super_admin_only(client, make_key):
-    body = {"name": "k", "user_id": "u", "role": "growth_lead"}
-    assert client.post("/api/security/create_key", json=body, headers=make_key("growth_lead")).status_code == 403
-    assert client.get("/api/security/list_keys", headers=make_key("growth_lead")).status_code == 403
-    assert client.post("/api/security/create_key", json=body, headers=make_key("super_admin")).status_code == 200
+def test_the_old_key_endpoints_are_gone(client, admin_headers):
+    for method, path in (("POST", "/api/security/create_key"), ("GET", "/api/security/list_keys"), ("POST", "/api/security/revoke_key")):
+        assert client.request(method, path, headers=admin_headers, json={}).status_code in (404, 405)
 
-
-def test_security_keys_endpoints(client, admin_headers):
-    create_res = client.post("/api/security/create_key", headers=admin_headers, json={
-        "name": "Integration Test Key",
-        "user_id": "test_runner",
-        "role": "growth_lead",
-        "org_id": "org_api_test"
-    })
-    assert create_res.status_code == 200
-    new_key = create_res.json()["api_key"]
-    assert new_key.startswith("agy_live_")
-
-    # The new key authenticates, bound to the org it was minted for
-    me = client.get("/api/auth/me", headers={"X-API-Key": new_key}).json()
-    assert me["org_id"] == "org_api_test" and me["role"] == "growth_lead"
-
-    listed = client.get("/api/security/list_keys?org_id=org_api_test", headers=admin_headers)
-    assert listed.status_code == 200
-    key_id = listed.json()["keys"][0]["id"]
-    assert "key_hash" not in listed.json()["keys"][0]
-
-    revoke = client.post("/api/security/revoke_key", headers=admin_headers,
-                         json={"key_id": key_id, "org_id": "org_api_test"})
-    assert revoke.json()["revoked"] is True
-    assert client.get("/api/auth/me", headers={"X-API-Key": new_key}).status_code == 401
-
-
-def test_create_key_rejects_unknown_role(client, admin_headers):
-    res = client.post("/api/security/create_key", headers=admin_headers,
-                      json={"name": "k", "user_id": "u", "role": "root"})
-    assert res.status_code == 400
 
 
 # ---------------- Tenant isolation ----------------

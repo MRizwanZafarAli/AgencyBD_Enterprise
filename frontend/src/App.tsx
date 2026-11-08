@@ -15,7 +15,7 @@ import { Channels } from './surfaces/Channels';
 import { SECTION_LABEL } from './components/settings/sections';
 import { BrowserDock } from './components/channels/BrowserDock';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
-import { apiFetch, getApiKey, clearApiKey, verifyKey, UNAUTHORIZED_EVENT } from './lib/api';
+import { apiFetch, getToken, clearToken, verifySession, UNAUTHORIZED_EVENT } from './lib/api';
 import type { Me } from './lib/api';
 import { useApi } from './lib/hooks';
 import { useA11yLabels } from './lib/useA11yLabels';
@@ -33,7 +33,7 @@ export const ALLOWED_SURFACES: Record<string, Surface[]> = {
 
 export function App() {
   const [me, setMe] = useState<Me | null>(null);
-  const [checking, setChecking] = useState<boolean>(() => getApiKey() !== null);
+  const [checking, setChecking] = useState<boolean>(() => getToken() !== null);
   const [authNotice, setAuthNotice] = useState('');
   const [surface, setSurface] = useState<Surface>('today');
   const [settingsSection, setSettingsSection] = useState('setup');
@@ -51,11 +51,11 @@ export function App() {
 
   // Restore a session for this tab, and return to sign-in whenever the API answers 401.
   useEffect(() => {
-    const stored = getApiKey();
+    const stored = getToken();
     if (stored) {
-      verifyKey(stored).then((identity) => (identity ? setMe(identity) : clearApiKey())).catch(() => undefined).finally(() => setChecking(false));
+      verifySession(stored).then((identity) => (identity ? setMe(identity) : clearToken())).catch(() => undefined).finally(() => setChecking(false));
     }
-    const onUnauthorized = () => { setMe(null); setAuthNotice('Your session expired or the key was revoked. Please sign in again.'); };
+    const onUnauthorized = () => { setMe(null); setAuthNotice('Your session ended. This happens after 12 hours or when the password of your tier is changed. Please sign in again.'); };
     window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
   }, []);
@@ -140,7 +140,7 @@ export function App() {
     <div className="min-h-screen text-slate-100 flex font-sans antialiased">
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:z-[70] focus:top-2 focus:left-2 focus:bg-indigo-600 focus:text-white focus:px-3 focus:py-2 focus:rounded-lg">Skip to content</a>
       <Sidebar active={surface} onNavigate={navigate} badge={inbox.data?.count} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen} identity={me} onSignOut={() => { clearApiKey(); setMe(null); setAuthNotice(''); }} onPalette={() => setPaletteSignal((n) => n + 1)} onHelp={() => setHelpOpen(true)} onDock={() => setDockOpen(true)} halted={halted} />
+        setMobileMenuOpen={setMobileMenuOpen} identity={me} onSignOut={() => { clearToken(); setMe(null); setAuthNotice(''); }} onPalette={() => setPaletteSignal((n) => n + 1)} onHelp={() => setHelpOpen(true)} onDock={() => setDockOpen(true)} halted={halted} />
       <div className="flex-1 min-w-0 flex flex-col">
         {halted && <div role="alert" className="bg-rose-600 text-white text-xs text-center py-1.5 px-3">Sending is stopped for this workspace, including scheduled emails. Use Resume sending in the header to continue.</div>}
         <Header halted={halted} onToggleHalt={toggleHalt} setMobileMenuOpen={setMobileMenuOpen} onPalette={() => setPaletteSignal((n) => n + 1)} crumbs={crumbs} />
@@ -152,7 +152,7 @@ export function App() {
               {surface === 'clients' && <Clients openLead={openLead} setOpenLead={setOpenLead} identity={me} />}
               {surface === 'channels' && allowedSurfaces.includes('channels') && <Channels active={channel} onActive={setChannel} quick={seed.quicklog ? { text: seed.quicklog, n: seed.n } : null} onOpenAlerts={() => goSettings('alerts')} />}
               {surface === 'tools' && <Tools onOpenClient={openClient} />}
-              {surface === 'settings' && allowedSurfaces.includes('settings') && <Settings me={me} section={settingsSection} setSection={setSettingsSection} onSignOut={() => { clearApiKey(); setMe(null); setAuthNotice(''); }} />}
+              {surface === 'settings' && allowedSurfaces.includes('settings') && <Settings me={me} section={settingsSection} setSection={setSettingsSection} onSignOut={() => { clearToken(); setMe(null); setAuthNotice(''); }} />}
             </div>
           </ErrorBoundary>
         </main>

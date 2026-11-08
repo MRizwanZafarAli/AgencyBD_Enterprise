@@ -23,11 +23,11 @@ os.environ.setdefault("AGENCYBD_SKIP_DOTENV", "1")   # tests never read the deve
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
-from database.db import get_db, init_db, create_api_key_record  # noqa: E402
+from database.db import get_db, init_db  # noqa: E402
 
 TABLES_TO_CLEAR = [
     "meeting_bookings", "inbound_replies", "outreach_sequences", "decision_makers",
-    "tech_audits", "leads", "suppression_vault", "audit_trail", "api_keys",
+    "tech_audits", "leads", "suppression_vault", "audit_trail", "access_passwords", "login_attempts",
     "financial_ledger", "ab_test_cohorts", "task_queue", "portfolio_assets", "proposals", "approvals", "opportunities", "policies", "policy_decisions", "agent_runs", "mailboxes", "outreach_events",
     "work_items", "lead_scores", "channel_records", "client_notes", "agency_profile", "alert_settings", "alert_state", "client_messages", "alert_attempts", "lead_searches", "lead_hits", "partners", "partner_events", "integration_keys", "vuln_cache", "job_runs", "org_controls", "discovery_runs", "mailbox_credentials", "email_verifications", "outbound_drafts", "sequences", "sequence_enrollments", "webhook_secrets",
     "audit_runs", "audit_findings", "evidence", "companies", "people", "signals", "services", "tech_audits",
@@ -69,10 +69,10 @@ def clean_test_database():
 
 @pytest.fixture
 def make_key():
-    """Factory: make_key(role, org_id) -> request headers carrying a fresh API key."""
+    """Factory: make_key(role, org_id) -> request headers carrying a signed session for that tier (tests skip the password step)."""
     def _make(role: str = "growth_lead", org_id: str = "org_default", user_id: str = "test_user"):
-        raw = create_api_key_record(name=f"test-{role}", user_id=user_id, role=role, org_id=org_id)
-        return {"X-API-Key": raw}
+        from security.auth import SecurityService
+        return {"Authorization": f"Bearer {SecurityService.create_jwt_token(user_id=user_id, org_id=org_id, role=role)}"}
     return _make
 
 
