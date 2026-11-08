@@ -139,9 +139,9 @@ export const Sidebar: FC<SidebarProps> = (p) => (
 );
 
 /** Phone-only bottom tab bar (the sidebar becomes a drawer below 1024px). */
-export const MobileTabBar: FC<{ active: Surface; onNavigate: (s: Surface) => void; badge?: number }> = ({ active, onNavigate, badge }) => (
+export const MobileTabBar: FC<{ active: Surface; onNavigate: (s: Surface) => void; badge?: number; identity?: Me | null }> = ({ active, onNavigate, badge, identity }) => (
   <nav aria-label="Mobile" className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-slate-800 bg-slate-950/95 backdrop-blur flex pb-[env(safe-area-inset-bottom)]">
-    {[...WORKSPACE, ...UTILITIES, ...ADMIN].map((i) => (
+    {[...WORKSPACE, ...UTILITIES, ...ADMIN].filter((i) => (identity?.role === 'auditor' ? i.id === 'today' || i.id === 'clients' || i.id === 'tools' : identity?.role !== 'super_admin' && i.id === 'settings' ? false : true)).map((i) => (
       <button key={i.id} onClick={() => onNavigate(i.id)} aria-current={active === i.id ? 'page' : undefined} aria-label={i.label}
         className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium ${active === i.id ? 'text-indigo-300' : 'text-slate-500'}`}>
         {i.icon}<span>{i.label}</span>

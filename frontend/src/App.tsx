@@ -96,7 +96,7 @@ export function App() {
           </div>
         </main>
       </div>
-      <MobileTabBar active={surface} onNavigate={navigate} badge={inbox.data?.count} />
+      <MobileTabBar active={surface} onNavigate={navigate} badge={inbox.data?.count} identity={me} />
       <CommandPalette onNavigate={fromPalette} onText={fromText} openSignal={paletteSignal} />
       <BrowserDock open={dockOpen} onClose={() => setDockOpen(false)} onChannel={(id) => { setChannel(id); setSurface('channels'); }} />
       <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
