@@ -2,26 +2,105 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 
-const KEY = process.env.E2E_KEY ?? '';
+const PASSWORDS: Record<string, string> = JSON.parse(process.env.E2E_PASSWORDS ?? '{}');
+const PASSWORD = PASSWORDS.super_admin ?? '';
 const SURFACES = ['Today', 'Find', 'Clients', 'Channels', 'Tools', 'Settings'];
+const TIER_LABEL: Record<string, string> = { super_admin: 'Super admin', growth_lead: 'Growth lead', sdr_rep: 'Sales rep', auditor: 'Auditor' };
 
-async function signIn(page: Page) {
+async function signInAs(page: Page, role: string) {
   await page.goto('/');
-  await page.getByPlaceholder('agy_live_…').fill(KEY);
-  await page.getByRole('button', { name: 'Connect' }).click();
+  await page.getByLabel('Tier').selectOption(role);
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORDS[role]);
+  await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.locator('#main')).toBeVisible();
 }
+const signIn = (page: Page) => signInAs(page, 'super_admin');
 
-test.beforeAll(() => { if (!KEY) throw new Error('E2E_KEY is required (scripts/e2e.sh sets it)'); });
+/** A session token for direct API calls in tests (sign in over HTTP, exactly as the screen does). */
+async function sessionHeaders(request: import('@playwright/test').APIRequestContext) {
+  const r = await request.post('/api/auth/login', { data: { role: 'super_admin', password: PASSWORD } });
+  return { Authorization: `Bearer ${(await r.json()).token}` };
+}
 
-test('a wrong key is rejected and no key is shipped in the page source', async ({ page, request }) => {
+test.beforeAll(() => { if (!PASSWORD) throw new Error('E2E_PASSWORDS is required (scripts/e2e.sh sets it)'); });
+
+test('a wrong password is refused plainly, and no password is shipped in the page source', async ({ page, request }) => {
   await page.goto('/');
-  await page.getByPlaceholder('agy_live_…').fill('agy_live_' + '0'.repeat(48));
-  await page.getByRole('button', { name: 'Connect' }).click();
+  await page.getByLabel('Password', { exact: true }).fill('definitely-not-the-password-1');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'That tier and password do not match.' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Main' })).toHaveCount(0);
   const html = await (await request.get('/')).text();
   const bundles = [...html.matchAll(/assets\/[^"']+\.js/g)].map((m) => m[0]);
-  for (const b of bundles) expect(await (await request.get('/' + b)).text()).not.toMatch(/agy_live_[0-9a-f]{32,}/);
+  for (const b of bundles) {
+    const code = await (await request.get('/' + b)).text();
+    for (const pw of Object.values(PASSWORDS)) expect(code).not.toContain(pw);
+    expect(code).not.toMatch(/agy_live_[0-9a-f]{32,}/);
+  }
+});
+
+test('sign-in: the tier list, the show and hide button, and that the password box hides what you type', async ({ page }) => {
+  await page.goto('/');
+  const tier = page.getByLabel('Tier');
+  await expect(tier.locator('option')).toHaveText(['Super admin', 'Growth lead', 'Sales rep', 'Auditor']);
+  const box = page.getByLabel('Password', { exact: true });
+  await box.fill('typed-secret');
+  await expect(box).toHaveAttribute('type', 'password');
+  await page.getByRole('button', { name: 'Show password' }).click();
+  await expect(box).toHaveAttribute('type', 'text');
+  await page.getByRole('button', { name: 'Hide password' }).click();
+  await expect(box).toHaveAttribute('type', 'password');
+  await expect(page.getByRole('button', { name: 'Sign in' })).toBeEnabled();
+});
+
+for (const [role, hidden] of [['growth_lead', ['Settings']], ['sdr_rep', ['Settings']], ['auditor', ['Find', 'Channels', 'Settings']]] as Array<[string, string[]]>) {
+  test(`each tier gets its own screens: ${TIER_LABEL[role]} signs in with its own password`, async ({ page }) => {
+    await signInAs(page, role);
+    const nav = page.getByRole('navigation', { name: 'Main' });
+    await expect(nav.getByRole('button', { name: /^Today/ })).toBeVisible();
+    for (const h of hidden) await expect(nav.getByRole('button', { name: new RegExp(`^${h}`) })).toHaveCount(0);
+  });
+}
+
+test('one tier password does not open another tier', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Tier').selectOption('super_admin');
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORDS.auditor);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'do not match' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Main' })).toHaveCount(0);
+});
+
+test('access and passwords: the super admin changes a tier password, the old one stops working, and it is changed back', async ({ page }) => {
+  await signIn(page);
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /^Settings/ }).click();
+  await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Access and passwords' }).click();
+  await expect(page.getByRole('heading', { name: 'Tier passwords' })).toBeVisible();
+  await expect(page.getByText('Password set')).toHaveCount(4);
+  const fresh = 'Brand-New_Phrase-Of-Seven7!';
+  await page.getByRole('button', { name: 'Change password for Auditor' }).click();
+  await page.getByLabel('New password').fill('aaaaaaaaaaaaaaaa');
+  await page.getByLabel('Type it again').fill('aaaaaaaaaaaaaaaa');
+  await page.getByRole('button', { name: 'Save password' }).click();
+  await expect(page.getByRole('alert')).toBeVisible();                                              // too repetitive: refused with a reason
+  await page.getByLabel('New password').fill(PASSWORDS.growth_lead);
+  await page.getByLabel('Type it again').fill(PASSWORDS.growth_lead);
+  await page.getByRole('button', { name: 'Save password' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Another tier already uses this password' })).toBeVisible();
+  await page.getByLabel('New password').fill(fresh);
+  await page.getByLabel('Type it again').fill(fresh);
+  await page.getByRole('button', { name: 'Save password' }).click();
+  await expect(page.getByRole('status').filter({ hasText: /Password for Auditor changed/ })).toBeVisible();
+
+  const old = await page.request.post('/api/auth/login', { data: { role: 'auditor', password: PASSWORDS.auditor } });
+  expect(old.status()).toBe(401);
+  expect((await page.request.post('/api/auth/login', { data: { role: 'auditor', password: fresh } })).status()).toBe(200);
+
+  await page.getByRole('button', { name: 'Change password for Auditor' }).click();                  // put it back so the other tests still work
+  await page.getByLabel('New password').fill(PASSWORDS.auditor);
+  await page.getByLabel('Type it again').fill(PASSWORDS.auditor);
+  await page.getByRole('button', { name: 'Save password' }).click();
+  await expect(page.getByRole('status').filter({ hasText: /Password for Auditor changed/ })).toBeVisible();
 });
 
 test('four surfaces, command palette and no console errors anywhere', async ({ page }) => {
@@ -32,9 +111,10 @@ test('four surfaces, command palette and no console errors anywhere', async ({ p
   await signIn(page);
   for (const s of SURFACES) {
     await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: new RegExp(`^${s}`) }).click();
-    await expect(page.getByRole('heading', { level: 1, name: s })).toBeVisible();
+    // Today's page title is the dashboard of the signed-in tier (for example "Workspace Operations & Governance"), so only its presence is checked there
+    await expect((s === 'Today' ? page.getByRole('heading', { level: 1 }).first() : page.getByRole('heading', { level: 1, name: s }))).toBeVisible();
   }
-  for (const section of ['Setup', 'Services and proof', 'Sending and policy', 'Domain DNS', 'Unsubscribe list', 'Team and keys', 'Developer', 'How it works']) {
+  for (const section of ['Setup', 'Services and proof', 'Sending and policy', 'Domain DNS', 'Unsubscribe list', 'Access and passwords', 'Developer', 'How it works']) {
     await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: section }).click();
     await page.waitForTimeout(400);
   }
@@ -95,7 +175,7 @@ test('local search shows ranked results, a detail drawer with reasons, and saves
 });
 
 test('a client page shows honest empty states and never invents a contact', async ({ page, request }) => {
-  const lead = await (await request.post('/api/pipeline/deals/create', { headers: { 'X-API-Key': KEY }, data: { company_name: 'E2E Client Co', domain: 'e2e-client.example' } })).json();
+  const lead = await (await request.post('/api/pipeline/deals/create', { headers: await sessionHeaders(request), data: { company_name: 'E2E Client Co', domain: 'e2e-client.example' } })).json();
   await signIn(page);
   await page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /^Clients/ }).click();
   await page.getByRole('button', { name: /E2E Client Co/ }).click();
@@ -122,7 +202,7 @@ test('integrations: a key is saved masked, never shown again, and can be removed
 });
 
 test('find on their website lists what the site publishes with sources, and only offers Add when an email is published', async ({ page, request }) => {
-  const lead = await (await request.post('/api/pipeline/deals/create', { headers: { 'X-API-Key': KEY }, data: { company_name: 'Finder Co', domain: 'finder.example' } })).json();
+  const lead = await (await request.post('/api/pipeline/deals/create', { headers: await sessionHeaders(request), data: { company_name: 'Finder Co', domain: 'finder.example' } })).json();
   await page.route(`**/api/clients/${lead.id}/find_contacts`, (route) => route.fulfill({ json: { pages_checked: ['https://finder.example/team'], company_linkedin: null,
     linkedin_search_url: 'https://www.linkedin.com/search/results/people/?keywords=finder', limitations: ['A published email is not a verified one.'],
     candidates: [{ kind: 'person', name: 'Jane Doe', title: 'Chief Executive Officer', email: 'jane@finder.example', linkedin_url: null, source_url: 'https://finder.example/team', evidence: 'name and title shown together on the team page; email published beside the person' },
@@ -236,7 +316,7 @@ test('account menu lives in the sidebar and signs out', async ({ page }) => {
   await page.getByRole('button', { name: 'Account menu' }).click();
   await expect(page.getByRole('menuitem', { name: /Keyboard shortcuts/ })).toBeVisible();
   await page.getByRole('menuitem', { name: 'Sign out' }).click();
-  await expect(page.getByPlaceholder('agy_live_…')).toBeVisible();
+  await expect(page.getByLabel('Tier')).toBeVisible();
 });
 
 for (const [name, size] of [['phone', { width: 375, height: 812 }], ['tablet', { width: 820, height: 1180 }]] as const) {
@@ -310,12 +390,15 @@ test('channels: linkedin builds plain search links and a 300 character counter',
   await expect(page.getByText(/\/300/).first()).toBeVisible();
 });
 
-test('today: shows a focus list, week-over-week numbers without invented percentages, and channels', async ({ page }) => {
+test('today: the focus strip comes first, then the tier dashboard with real numbers and no invented health claim', async ({ page }) => {
   await signIn(page);
   await expect(page.getByRole('heading', { name: /Good (morning|afternoon|evening)/ })).toBeVisible();
-  await expect(page.getByText('New prospects', { exact: true })).toBeVisible();
-  await expect(page.getByText('last 7 days').first()).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Channels' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Workspace Operations & Governance' })).toBeVisible();
+  await expect(page.getByText('Total Commercial Pipeline')).toBeVisible();
+  await expect(page.getByText('Setup checks')).toBeVisible();                                             // read from the live system checks
+  await expect(page.getByText('From the live system checks')).toBeVisible();
+  await expect(page.getByText('100% OK')).toHaveCount(0);                                                  // the earlier hard-coded "API health" is gone
+  await expect(page.getByText('174 endpoints')).toHaveCount(0);
 });
 
 test('browser dock lists every site and opens pages in one docked window', async ({ page }) => {
@@ -676,7 +759,7 @@ async function openSettings(page: Page, section?: string) {
 test('settings: sections are grouped, searchable, and Enter opens the best match', async ({ page }) => {
   await openSettings(page);
   const nav = page.getByRole('navigation', { name: 'Settings sections' });
-  for (const s of ['Setup', 'Agency profile', 'Services and proof', 'Integrations and keys', 'Sending and policy', 'Domain DNS', 'Unsubscribe list', 'Team and keys', 'Security and session', 'Data and export', 'Appearance and shortcuts', 'Developer', 'How it works'])
+  for (const s of ['Setup', 'Agency profile', 'Services and proof', 'Integrations and keys', 'Sending and policy', 'Domain DNS', 'Unsubscribe list', 'Access and passwords', 'Security and session', 'Data and export', 'Appearance and shortcuts', 'Developer', 'How it works'])
     await expect(nav.getByRole('button', { name: s })).toBeVisible();
   await expect(nav.getByText('Connections')).toBeVisible();
   const search = page.getByRole('searchbox', { name: 'Find a setting' });
@@ -743,7 +826,7 @@ test('settings: the theme can be chosen here, and security shows who you are and
   await expect(page.getByText(/super admin · workspace/)).toBeVisible();
   await expect(page.getByText('Everything.', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: 'Sign out' }).click();
-  await expect(page.getByRole('button', { name: 'Connect' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
 });
 
 for (const theme of ['light', 'dark'] as const) {

@@ -24,7 +24,9 @@ Staging must use its own sending domains and mailboxes; never point staging at p
 ## Runbook
 - **Bounce alert:** press Stop sending, check the list source and verifier, resume only after fixing.
 - **Scheduler failing:** `agencybd_background_failures_total{job="scheduler"}`; read the log lines with `event` and `trace_id`; the scheduler resumes automatically.
-- **Leaked key:** revoke it in Settings > Team and keys, then rotate with `scripts/create_admin_key.py`.
+- **Leaked password:** change that tier's password in Settings > Access and passwords (or run `scripts/set_passwords.py --role <tier>` on the server). Everyone in that tier is signed out at once.
+- **Locked out / forgot every password:** on the server run `python scripts/set_passwords.py`; it replaces passwords without needing the old ones.
+- **Too many wrong tries:** the address is locked for 15 minutes; wait it out. The lockout is kept in the database table `login_attempts`, so restarting the server does not clear it.
 - **Interrupted discovery run:** shown as failed after 15 minutes; just start a new one.
 - **Database growth:** the vulnerability cache and discovery runs can be pruned safely (`vuln_cache`, `discovery_runs`).
 

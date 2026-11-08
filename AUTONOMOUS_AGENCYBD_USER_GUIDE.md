@@ -149,10 +149,12 @@ Toggled with a single click via the **"Show All 18 Studio Tools"** button in the
 
 ## 5. Security & Sovereign Authentication
 
-- **Sign-in key**: create one with `python scripts/create_admin_key.py` (shown once; store it in a password manager). No key is ever shipped in the app or this guide.
-- **Session Storage Only**: Keys live exclusively in browser `sessionStorage` and are never exposed in localStorage, URLs, or client logs.
-- **Sign-in**: paste your key at the sign-in gate; it is verified against the server.
-- **Revocation & Roles**: Enterprise RBAC allows issuing role-scoped keys (`super_admin`, `admin`, `auditor`, `growth_lead`) with instant HMAC revocation.
+- **Tier passwords**: there are four tiers (`super_admin`, `growth_lead`, `sdr_rep`, `auditor`) and each has its own secret password. Set them on the server with `python scripts/set_passwords.py` (typing is hidden; `--generate` makes strong random ones and shows them once). No password is ever shipped in the app or this guide, and there are no defaults: until you set them, nobody can sign in.
+- **Rules**: at least 12 characters, no two tiers may share a password, and obvious choices (the tier name, common words) are refused. Passwords are stored only as a salted PBKDF2 hash, so they can be replaced but never read back.
+- **Signing in**: choose your tier and type its password. You get a session that lasts 12 hours and ends when the browser tab closes. The session lives only in `sessionStorage`, never in localStorage, URLs or logs.
+- **Guessing is throttled**: five wrong tries lock that address out for 15 minutes, and a right password cannot skip the wait.
+- **Changing passwords**: the super admin can set any tier under Settings, Access and passwords. Anyone can change their own tier's password by giving the current one. Changing a password signs out everyone in that tier at once.
+- **No API keys**: the old `X-API-Key` sign-in was removed, and an `X-API-Key` header opens nothing.
 
 ---
 

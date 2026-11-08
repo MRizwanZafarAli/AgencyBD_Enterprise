@@ -160,21 +160,29 @@ def init_db():
     """)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_lead ON audit_trail (lead_id);")
 
-    # 9. Zero-Trust API Key Vault
+    # 9. Access passwords: one per tier (role) and workspace. Only a salted PBKDF2 hash is stored, never the password.
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS api_keys (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        key_hash TEXT NOT NULL UNIQUE,
-        prefix TEXT NOT NULL,
-        name TEXT NOT NULL,
-        user_id TEXT NOT NULL,
+    CREATE TABLE IF NOT EXISTS access_passwords (
         org_id TEXT NOT NULL DEFAULT 'org_default',
-        role TEXT NOT NULL DEFAULT 'growth_lead',
-        revoked BOOLEAN DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        role TEXT NOT NULL,
+        pw_hash TEXT NOT NULL,
+        salt TEXT NOT NULL,
+        iterations INTEGER NOT NULL,
+        updated_at REAL NOT NULL,          -- epoch seconds; sessions issued before this moment stop working
+        updated_by TEXT,
+        PRIMARY KEY (org_id, role)
     );
     """)
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_api_key_hash ON api_keys (key_hash);")
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS login_attempts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ip TEXT NOT NULL,
+        role TEXT,
+        ok INTEGER NOT NULL DEFAULT 0,
+        at REAL NOT NULL
+    );
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_login_attempts ON login_attempts (ip, at);")
 
     # 10. Financial Ledger & Cost Attribution
     cursor.execute("""
@@ -973,41 +981,4 @@ def add_entity_to_suppression(email_or_domain: str, entity_type: str = "email", 
         """, (target_hash, entity_type, reason))
         c.commit()
 
-def create_api_key_record(name: str, user_id: str, role: str = "growth_lead", org_id: str = "org_default") -> str:
-    """Generates an API key, stores its SHA-256 hash in database, and returns the plaintext key once."""
-    from security.auth import SecurityService, ROLE_PERMISSIONS
-    if role not in ROLE_PERMISSIONS:
-        raise ValueError(f"Unknown role '{role}'. Valid roles: {sorted(ROLE_PERMISSIONS)}")
-    raw_key = SecurityService.generate_api_key()
-    key_hash = SecurityService.hash_api_key(raw_key)
-    prefix = raw_key[:12] + "..."
-
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO api_keys (key_hash, prefix, name, user_id, org_id, role, revoked)
-            VALUES (?, ?, ?, ?, ?, ?, 0)
-        """, (key_hash, prefix, name, user_id, org_id, role))
-        conn.commit()
-    return raw_key
-
-def list_api_keys(org_id: str = "org_default") -> list:
-    """Lists non-sensitive metadata for registered API keys."""
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT id, prefix, name, user_id, org_id, role, revoked, created_at
-            FROM api_keys
-            WHERE org_id = ?
-            ORDER BY id DESC
-        """, (org_id,))
-        return [dict(r) for r in cursor.fetchall()]
-
-def revoke_api_key_record(key_id: int, org_id: str = "org_default") -> bool:
-    """Revokes an API key instantly."""
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute("UPDATE api_keys SET revoked = 1 WHERE id = ? AND org_id = ?", (key_id, org_id))
-        conn.commit()
-        return cursor.rowcount > 0
 

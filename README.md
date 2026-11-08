@@ -38,7 +38,7 @@ they publish, each with its source page. Nothing is guessed. Saved contacts star
 ```bash
 pip install -r requirements.txt
 python3 scripts/generate_secrets.py          # writes strong secrets to .env
-python3 scripts/create_admin_key.py          # prints your sign-in key once
+python3 scripts/set_passwords.py            # sets the secret password of each tier (typing is hidden)
 cd frontend && npm ci && npm run build && cd ..
 python3 -m uvicorn api:app --port 8001       # app + API at http://localhost:8001
 ```

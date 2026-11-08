@@ -48,7 +48,8 @@ const Kpi: FC<{ label: string; p: Pair }> = ({ label, p }) => (
   </div>
 );
 
-export const TodayOverview: FC<{ onGo: (s: Surface, opts?: { leadId?: number; section?: string }) => void }> = ({ onGo }) => {
+/** The greeting, the morning briefing and the ranked focus list. With `focusOnly` it stops there (the role dashboards bring their own numbers). */
+export const TodayOverview: FC<{ onGo: (s: Surface, opts?: { leadId?: number; section?: string }) => void; focusOnly?: boolean }> = ({ onGo, focusOnly }) => {
   const [now] = useState(() => new Date());
   const sum = useApi<TodaySummary>('/api/today/summary');
   const briefing = useApi<BriefingData>('/api/today/briefing');
@@ -86,7 +87,7 @@ export const TodayOverview: FC<{ onGo: (s: Surface, opts?: { leadId?: number; se
                   <Badge tone="accent">Live Radar</Badge>
                 </div>
                 <p className="text-slate-400 text-xs mt-0.5">
-                  <span className="text-slate-200 font-medium">{briefing.data.pipeline_value_str}</span> active pipeline · <span className="text-slate-200 font-medium">{briefing.data.followups_due}</span> client follow-ups due · <span className="text-slate-200 font-medium">{briefing.data.overnight_visitors}</span> corporate visits detected
+                  <span className="text-slate-200 font-medium">{briefing.data.pipeline_value_str}</span> active pipeline · <span className="text-slate-200 font-medium">{briefing.data.followups_due}</span> client follow-ups due · <span className="text-slate-200 font-medium">{briefing.data.overnight_visitors}</span> website visits recorded
                 </p>
               </div>
             </div>
@@ -131,7 +132,7 @@ export const TodayOverview: FC<{ onGo: (s: Surface, opts?: { leadId?: number; se
           </ol>)}
       </section>
 
-      {d && (
+      {d && !focusOnly && (
         <>
           <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
             <Kpi label="New prospects" p={d.kpis.new_leads} />

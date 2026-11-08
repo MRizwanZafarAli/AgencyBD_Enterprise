@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { ArrowRight, Cpu, KeyRound } from 'lucide-react';
-import { setApiKey, verifyKey } from '../../lib/api';
-import type { Me } from '../../lib/api';
+import { ArrowRight, Cpu, Eye, EyeOff, LockKeyhole } from 'lucide-react';
+import { loadTiers, login } from '../../lib/api';
+import type { Me, Tier } from '../../lib/api';
 
 const RIBBON = ['Lead Finder', 'Alert Desk', 'Site Clinic', 'Fixed-price offers', 'Chase today', 'Partner tracker', 'Weekly scorecard', 'Reply drafts', 'Pipeline'];
 
@@ -11,26 +11,34 @@ interface AuthGateProps {
   notice?: string;
 }
 
+const FALLBACK: Tier[] = [
+  { role: 'super_admin', label: 'Super admin', available: true }, { role: 'growth_lead', label: 'Growth lead', available: true },
+  { role: 'sdr_rep', label: 'Sales rep', available: true }, { role: 'auditor', label: 'Auditor', available: true },
+];
+
 export const AuthGate: FC<AuthGateProps> = ({ onAuthenticated, notice }) => {
-  const [key, setKey] = useState('');
+  const [tiers, setTiers] = useState<Tier[]>(FALLBACK);
+  const [anySet, setAnySet] = useState(true);
+  const [role, setRole] = useState('growth_lead');
+  const [password, setPassword] = useState('');
+  const [show, setShow] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    loadTiers().then((t) => { if (!t) return; setTiers(t.tiers); setAnySet(t.any_set); const first = t.tiers.find((x) => x.available); if (first) setRole((r) => (t.tiers.find((x) => x.role === r && x.available) ? r : first.role)); });
+  }, []);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError('');
     try {
-      const me = await verifyKey(key.trim());
-      if (!me) {
-        setError('That API key was rejected. Check it or ask an admin for a new one.');
-        return;
-      }
-      setApiKey(key.trim());
-      setKey('');
+      const me = await login(role, password);
+      setPassword('');
       onAuthenticated(me);
-    } catch {
-      setError('Could not reach the API. Is the backend running on :8001?');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Sign-in failed.');
     } finally {
       setBusy(false);
     }
@@ -62,32 +70,45 @@ export const AuthGate: FC<AuthGateProps> = ({ onAuthenticated, notice }) => {
           </div>
           <div>
             <h1 className="text-3xl font-semibold text-white tracking-tight">Welcome back</h1>
-            <p className="text-sm text-slate-400 mt-1.5">Sign in with your API key</p>
+            <p className="text-sm text-slate-400 mt-1.5">Choose your tier and type its password</p>
           </div>
           {notice && <div className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3">{notice}</div>}
+          {!anySet && <div role="alert" className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3">No passwords are set yet. On the server, run <code className="font-mono">python scripts/set_passwords.py</code>, then reload this page.</div>}
           <label className="block space-y-2">
-            <span className="text-xs font-medium text-slate-400 flex items-center space-x-1"><KeyRound className="h-3 w-3" /><span>X-API-Key</span></span>
-            <input
-              type="password"
-              autoComplete="off"
-              spellCheck={false}
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              placeholder="agy_live_…"
-              className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 font-mono text-sm focus:outline-none focus:border-indigo-500"
-            />
+            <span className="text-xs font-medium text-slate-400">Tier</span>
+            <select value={role} onChange={(e) => setRole(e.target.value)} aria-label="Tier" className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-sm focus:outline-none focus:border-indigo-500">
+              {tiers.map((t) => <option key={t.role} value={t.role}>{t.label}</option>)}
+            </select>
+          </label>
+          <label className="block space-y-2">
+            <span className="text-xs font-medium text-slate-400 flex items-center space-x-1"><LockKeyhole className="h-3 w-3" /><span>Password</span></span>
+            <div className="relative">
+              <input
+                type={show ? 'text' : 'password'}
+                autoComplete="current-password"
+                spellCheck={false}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Your tier's password"
+                className="w-full rounded-2xl bg-slate-900 border border-slate-800 pl-4 pr-12 py-3 text-sm focus:outline-none focus:border-indigo-500"
+              />
+              <button type="button" onClick={() => setShow((v) => !v)} aria-label={show ? 'Hide password' : 'Show password'} aria-pressed={show}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full text-slate-400 hover:text-white">
+                {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </label>
           {error && <div className="text-xs text-rose-300" role="alert">{error}</div>}
           <button
             type="submit"
-            disabled={busy || key.trim().length < 12}
+            disabled={busy || !anySet || password.length < 1}
             className="w-full rounded-full bg-indigo-600 disabled:opacity-40 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2"
           >
-            {busy ? 'Verifying…' : <>Connect<ArrowRight className="h-4 w-4" /></>}
+            {busy ? 'Checking…' : <>Sign in<ArrowRight className="h-4 w-4" /></>}
           </button>
 
           <p className="text-[11px] text-slate-500">
-            Keys are issued with <code className="font-mono">python scripts/create_admin_key.py</code>. The key is kept for this browser tab only.
+            Each tier has its own secret password, set on the server with <code className="font-mono">python scripts/set_passwords.py</code>. Five wrong tries lock you out for 15 minutes. Your session lasts 12 hours and ends with this browser tab.
           </p>
         </form>
       </div>

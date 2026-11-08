@@ -67,7 +67,7 @@ export const AdminDashboard: FC<{
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
                 Logged in as <strong className="text-slate-200">{identity.user_id}</strong> ({identity.org_id}).
-                Master control over 174 endpoints, security keys, outbound switches, and agency pipeline.
+                Master control over every setting, tier passwords, outbound switches and the agency pipeline.
               </p>
             </div>
           </div>
@@ -91,10 +91,12 @@ export const AdminDashboard: FC<{
         </div>
 
         <div className="bento-tile rounded-2xl p-4 border border-slate-800 bg-slate-900/60">
-          <div className="text-xs text-slate-400">System API Health</div>
-          <div className="text-2xl font-semibold text-emerald-400 tabular mt-1">100% OK</div>
-          <div className="text-[11px] text-slate-400 mt-1">174 endpoints · 13 routers</div>
-          <div className="text-[11px] text-slate-500">All tests & boundaries clean</div>
+          <div className="text-xs text-slate-400">Setup checks</div>
+          <div className={`text-2xl font-semibold tabular mt-1 ${sys.data ? (sys.data.required_missing === 0 ? 'text-emerald-400' : 'text-amber-400') : 'text-slate-400'}`}>
+            {!sys.data ? '…' : sys.data.required_missing === 0 ? 'All set' : `${sys.data.required_missing} to fix`}
+          </div>
+          <div className="text-[11px] text-slate-400 mt-1">{sys.data ? (sys.data.ready_to_send_email ? 'Ready to send email' : 'Not ready to send email yet') : 'Reading the live checks'}</div>
+          <div className="text-[11px] text-slate-500">From the live system checks</div>
         </div>
 
         <div className="bento-tile rounded-2xl p-4 border border-slate-800 bg-slate-900/60">
@@ -227,8 +229,8 @@ export const AdminDashboard: FC<{
           className="p-3.5 text-left rounded-xl border border-slate-800 hover:border-indigo-500/60 bg-slate-900/40 hover:bg-slate-900/80 transition"
         >
           <Key className="h-4 w-4 text-amber-400 mb-2" />
-          <div className="font-medium text-white">API Keys & RBAC</div>
-          <div className="text-[11px] text-slate-400">Generate and revoke team keys</div>
+          <div className="font-medium text-white">Access & passwords</div>
+          <div className="text-[11px] text-slate-400">Set and change tier passwords</div>
         </button>
 
         <button

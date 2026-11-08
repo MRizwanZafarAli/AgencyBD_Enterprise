@@ -2,11 +2,12 @@
 Authentication, authorization and tenant scoping for AgencyBD_Enterprise.
 
 Credentials
-  * ``X-API-Key`` : opaque key; only its SHA-256 is stored (see ``api_keys`` table).
-  * ``Authorization: Bearer <jwt>`` : HS256 token signed with AGENCYBD_JWT_SECRET.
+  * A person signs in with the secret password of their tier (see ``security/passwords.py``) and receives a short-lived
+    ``Authorization: Bearer <jwt>`` token, an HS256 token signed with AGENCYBD_JWT_SECRET.
+  * API keys no longer exist: an ``X-API-Key`` header is ignored.
 
-There are no built-in or default credentials. Mint the first super-admin key with
-``python scripts/create_admin_key.py``.
+There are no built-in or default credentials. Set the first passwords with ``python scripts/set_passwords.py``.
+A token stops working when its tier's password is changed after the token was issued.
 
 Authorization is role based. Permissions always come from the server-side
 ROLE_PERMISSIONS table for the credential's role, never from token claims.
@@ -22,7 +23,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
 
 import jwt
-from fastapi import Header, HTTPException, Depends
+from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 
@@ -34,11 +35,10 @@ JWT_SECRET_KEY = get_secret("AGENCYBD_JWT_SECRET")
 JWT_ALGORITHM = "HS256"
 JWT_ISSUER = "agencybd-enterprise"
 JWT_AUDIENCE = "agencybd-api"
-JWT_EXPIRATION_HOURS = 24
+JWT_EXPIRATION_HOURS = 12
 PBKDF2_ITERATIONS = 600_000
 
 DEFAULT_ORG_ID = "org_default"
-API_KEY_PREFIX = "agy_live"
 
 # Role -> permission mapping. "*" is the super-admin wildcard.
 ROLE_PERMISSIONS: Dict[str, List[str]] = {
@@ -91,7 +91,7 @@ class Principal(BaseModel):
     org_id: str
     role: str
     permissions: List[str]
-    auth_method: str  # "api_key" or "jwt"
+    auth_method: str  # always "jwt": a session issued after a password sign-in
 
 
 class SecurityService:
@@ -113,16 +113,6 @@ class SecurityService:
         """Constant-time verification of password against stored PBKDF2 hash."""
         computed_hash, _ = SecurityService.hash_password(password, salt)
         return hmac.compare_digest(computed_hash, stored_hash)
-
-    @staticmethod
-    def generate_api_key(prefix: str = API_KEY_PREFIX) -> str:
-        """Generates a 192-bit cryptographically secure API key."""
-        return f"{prefix}_{secrets.token_hex(24)}"
-
-    @staticmethod
-    def hash_api_key(api_key: str) -> str:
-        """One-way SHA-256 hash for storage. Keys are high-entropy, so a fast hash is appropriate."""
-        return hashlib.sha256(api_key.encode("utf-8")).hexdigest()
 
     @staticmethod
     def create_jwt_token(
@@ -171,48 +161,32 @@ security_bearer = HTTPBearer(auto_error=False)
 _AUTH_HEADERS = {"WWW-Authenticate": "Bearer"}
 
 
-def _principal_from_api_key(raw_key: str) -> Principal:
-    from database.db import get_db
-
-    key_hash = SecurityService.hash_api_key(raw_key.strip())
+def _session_is_current(org_id: str, role: str, issued_at: float) -> bool:
+    """False when this tier's password was changed after the token was issued (so old sessions end at once)."""
+    from security import passwords
     try:
-        with get_db() as conn:
-            row = conn.execute(
-                "SELECT user_id, org_id, role, revoked FROM api_keys WHERE key_hash = ?",
-                (key_hash,)
-            ).fetchone()
+        changed = passwords.updated_at(role, org_id)
     except Exception:
-        logger.exception("API key lookup failed")
+        logger.exception("session check failed")
         raise HTTPException(status_code=503, detail="Authentication backend unavailable")
-
-    if not row or row["revoked"] or row["role"] not in ROLE_PERMISSIONS:
-        raise HTTPException(status_code=401, detail="Invalid or revoked API Key", headers=_AUTH_HEADERS)
-
-    return Principal(
-        user_id=row["user_id"],
-        org_id=row["org_id"],
-        role=row["role"],
-        permissions=ROLE_PERMISSIONS[row["role"]],
-        auth_method="api_key"
-    )
+    return changed is None or issued_at >= changed
 
 
 def get_current_principal(
-    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
     auth_creds: Optional[HTTPAuthorizationCredentials] = Depends(security_bearer)
 ) -> Principal:
-    """Resolves the caller from X-API-Key or a Bearer JWT; otherwise 401."""
-    if x_api_key:
-        return _principal_from_api_key(x_api_key)
-
+    """Resolves the caller from a Bearer session token; otherwise 401. An X-API-Key header is not a credential."""
     if auth_creds and auth_creds.credentials:
         payload = SecurityService.decode_jwt_token(auth_creds.credentials)
         role = payload.get("role")
         if role not in ROLE_PERMISSIONS:
             raise HTTPException(status_code=401, detail="Invalid JWT token", headers=_AUTH_HEADERS)
+        org = payload.get("org_id") or DEFAULT_ORG_ID
+        if not _session_is_current(org, role, float(payload["iat"])):
+            raise HTTPException(status_code=401, detail="This session ended because the password was changed. Sign in again.", headers=_AUTH_HEADERS)
         return Principal(
             user_id=str(payload["sub"]),
-            org_id=payload.get("org_id") or DEFAULT_ORG_ID,
+            org_id=org,
             role=role,
             permissions=ROLE_PERMISSIONS[role],
             auth_method="jwt"
@@ -220,7 +194,7 @@ def get_current_principal(
 
     raise HTTPException(
         status_code=401,
-        detail="Authentication required. Provide 'X-API-Key' header or 'Authorization: Bearer <token>'.",
+        detail="Sign in required. Send 'Authorization: Bearer <token>' from POST /api/auth/login.",
         headers=_AUTH_HEADERS
     )
 
