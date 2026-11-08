@@ -14,12 +14,22 @@ import { Tools } from './surfaces/Tools';
 import { Channels } from './surfaces/Channels';
 import { SECTION_LABEL } from './components/settings/sections';
 import { BrowserDock } from './components/channels/BrowserDock';
+import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { apiFetch, getApiKey, clearApiKey, verifyKey, UNAUTHORIZED_EVENT } from './lib/api';
 import type { Me } from './lib/api';
 import { useApi } from './lib/hooks';
 import { useA11yLabels } from './lib/useA11yLabels';
 import { useSidebarState } from './lib/useSidebarState';
 import { useShortcuts } from './lib/useShortcuts';
+
+const DEFAULT_SURFACES: Surface[] = ['today'];
+
+export const ALLOWED_SURFACES: Record<string, Surface[]> = {
+  super_admin: ['today', 'find', 'clients', 'channels', 'tools', 'settings'],
+  growth_lead: ['today', 'find', 'clients', 'channels', 'tools'],
+  sdr_rep: ['today', 'find', 'clients', 'channels', 'tools'],
+  auditor: ['today', 'clients', 'tools'],
+};
 
 export function App() {
   const [me, setMe] = useState<Me | null>(null);
@@ -50,6 +60,15 @@ export function App() {
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
   }, []);
 
+  // Enforce role-based allowed surfaces whenever identity or surface changes
+  useEffect(() => {
+    if (!me) return;
+    const allowed = ALLOWED_SURFACES[me.role] ?? DEFAULT_SURFACES;
+    if (!allowed.includes(surface)) {
+      setSurface('today');
+    }
+  }, [me, surface]);
+
   // The stop-sending switch lives on the server, so it also stops scheduled sends.
   useEffect(() => {
     if (!me) return;
@@ -63,13 +82,53 @@ export function App() {
     if (res.ok) setHalted((await res.json()).halted); else window.alert('Your role may not change this switch.');
   };
 
-  const navigate = (s: Surface) => setSurface(s);
-  const fromPalette = (c: Command) => { setSurface(c.surface); if (c.section) setSettingsSection(c.section); };
-  const openClient = (id: number) => { setSurface('clients'); setOpenLead(id); };
-  const fromText = (kind: 'find' | 'quicklog', text: string) => { setSeed({ [kind]: text, n: Date.now() }); setSurface(kind === 'find' ? 'find' : 'channels'); };
-  const goSettings = (section = 'setup') => { setSettingsSection(section); setSurface('settings'); };
+  const allowedSurfaces: Surface[] = me ? (ALLOWED_SURFACES[me.role] ?? DEFAULT_SURFACES) : DEFAULT_SURFACES;
 
-  useShortcuts({ enabled: !!me, onNavigate: setSurface, onToggleSidebar: toggleCollapsed, onHelp: () => setHelpOpen((v) => !v) });
+  const navigate = (s: Surface) => {
+    if (allowedSurfaces.includes(s)) {
+      setSurface(s);
+    } else {
+      setSurface('today');
+    }
+  };
+
+  const fromPalette = (c: Command) => {
+    if (allowedSurfaces.includes(c.surface)) {
+      setSurface(c.surface);
+      if (c.section) setSettingsSection(c.section);
+    } else {
+      setSurface('today');
+    }
+  };
+
+  const openClient = (id: number) => { setSurface('clients'); setOpenLead(id); };
+
+  const fromText = (kind: 'find' | 'quicklog', text: string) => {
+    const targetSurface = kind === 'find' ? 'find' : 'channels';
+    if (!allowedSurfaces.includes(targetSurface)) {
+      setSurface('today');
+      return;
+    }
+    setSeed({ [kind]: text, n: Date.now() });
+    setSurface(targetSurface);
+  };
+
+  const goSettings = (section = 'setup') => {
+    if (!allowedSurfaces.includes('settings')) {
+      setSurface('today');
+      return;
+    }
+    setSettingsSection(section);
+    setSurface('settings');
+  };
+
+  useShortcuts({
+    enabled: !!me,
+    onNavigate: navigate,
+    onToggleSidebar: toggleCollapsed,
+    onHelp: () => setHelpOpen((v) => !v),
+    allowedSurfaces,
+  });
 
   if (checking) return <div className="min-h-screen" />;
   if (!me) return <AuthGate onAuthenticated={setMe} notice={authNotice} />;
@@ -86,18 +145,20 @@ export function App() {
         {halted && <div role="alert" className="bg-rose-600 text-white text-xs text-center py-1.5 px-3">Sending is stopped for this workspace, including scheduled emails. Use Resume sending in the header to continue.</div>}
         <Header halted={halted} onToggleHalt={toggleHalt} setMobileMenuOpen={setMobileMenuOpen} onPalette={() => setPaletteSignal((n) => n + 1)} crumbs={crumbs} />
         <main id="main" className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-[1400px] w-full mx-auto">
-          <div key={surface} className="page-enter">
-            {surface === 'today' && <Today onOpenClient={openClient} onSettings={(section) => goSettings(section ?? 'setup')} onGo={navigate} />}
-            {surface === 'find' && <Find onOpenClient={openClient} onAddGoogleKey={() => goSettings('keys')} seed={seed.find ? { text: seed.find, n: seed.n } : null} />}
-            {surface === 'clients' && <Clients openLead={openLead} setOpenLead={setOpenLead} />}
-            {surface === 'channels' && <Channels active={channel} onActive={setChannel} quick={seed.quicklog ? { text: seed.quicklog, n: seed.n } : null} onOpenAlerts={() => goSettings('alerts')} />}
-            {surface === 'tools' && <Tools onOpenClient={openClient} />}
-            {surface === 'settings' && <Settings me={me} section={settingsSection} setSection={setSettingsSection} onSignOut={() => { clearApiKey(); setMe(null); setAuthNotice(''); }} />}
-          </div>
+          <ErrorBoundary fallbackTitle="Application Workspace Encountered an Issue" onReset={() => setSurface('today')}>
+            <div key={surface} className="page-enter">
+              {surface === 'today' && <Today identity={me} onOpenClient={openClient} onSettings={(section) => goSettings(section ?? 'setup')} onGo={navigate} onSearch={(q) => fromText('find', q)} />}
+              {surface === 'find' && allowedSurfaces.includes('find') && <Find onOpenClient={openClient} onAddGoogleKey={() => goSettings('keys')} seed={seed.find ? { text: seed.find, n: seed.n } : null} />}
+              {surface === 'clients' && <Clients openLead={openLead} setOpenLead={setOpenLead} identity={me} />}
+              {surface === 'channels' && allowedSurfaces.includes('channels') && <Channels active={channel} onActive={setChannel} quick={seed.quicklog ? { text: seed.quicklog, n: seed.n } : null} onOpenAlerts={() => goSettings('alerts')} />}
+              {surface === 'tools' && <Tools onOpenClient={openClient} />}
+              {surface === 'settings' && allowedSurfaces.includes('settings') && <Settings me={me} section={settingsSection} setSection={setSettingsSection} onSignOut={() => { clearApiKey(); setMe(null); setAuthNotice(''); }} />}
+            </div>
+          </ErrorBoundary>
         </main>
       </div>
-      <MobileTabBar active={surface} onNavigate={navigate} badge={inbox.data?.count} />
-      <CommandPalette onNavigate={fromPalette} onText={fromText} openSignal={paletteSignal} />
+      <MobileTabBar active={surface} onNavigate={navigate} badge={inbox.data?.count} identity={me} />
+      <CommandPalette onNavigate={fromPalette} onText={fromText} openSignal={paletteSignal} allowedSurfaces={allowedSurfaces} />
       <BrowserDock open={dockOpen} onClose={() => setDockOpen(false)} onChannel={(id) => { setChannel(id); setSurface('channels'); }} />
       <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>

@@ -3,9 +3,15 @@ import type { FC } from 'react';
 import { Search } from 'lucide-react';
 import { COMMANDS } from './commands';
 import type { Command } from './commands';
+import type { Surface } from '../../types';
 
 /** ⌘K / Ctrl+K quick navigation. `openSignal` lets the header button open it. */
-export const CommandPalette: FC<{ onNavigate: (c: Command) => void; onText: (kind: 'find' | 'quicklog', text: string) => void; openSignal: number }> = ({ onNavigate, onText, openSignal }) => {
+export const CommandPalette: FC<{
+  onNavigate: (c: Command) => void;
+  onText: (kind: 'find' | 'quicklog', text: string) => void;
+  openSignal: number;
+  allowedSurfaces?: Surface[];
+}> = ({ onNavigate, onText, openSignal, allowedSurfaces }) => {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const [cursor, setCursor] = useState(0);
@@ -23,16 +29,29 @@ export const CommandPalette: FC<{ onNavigate: (c: Command) => void; onText: (kin
   }, []);
   useEffect(() => { if (open) input.current?.focus(); }, [open]);
 
-  const matches = useMemo(() => COMMANDS.filter((c) => `${c.label} ${c.hint}`.toLowerCase().includes(q.toLowerCase())), [q]);
+  const availableCommands = useMemo(
+    () => COMMANDS.filter((c) => !allowedSurfaces || allowedSurfaces.includes(c.surface)),
+    [allowedSurfaces]
+  );
+
+  const matches = useMemo(
+    () => availableCommands.filter((c) => `${c.label} ${c.hint}`.toLowerCase().includes(q.toLowerCase())),
+    [availableCommands, q]
+  );
+
   const go = (c: Command) => { onNavigate(c); setOpen(false); };
   const text = q.trim();
   const looksLikeLog = /\b(upwork|fiverr|linkedin|freelancer|peopleperhour|pph|contra|toptal|guru|applied|proposal|bid)\b/i.test(text);
+  const canFind = !allowedSurfaces || allowedSurfaces.includes('find');
+  const canChannel = !allowedSurfaces || allowedSurfaces.includes('channels');
+
   type Item = { key: string; label: string; hint: string; act: () => void };
   const items: Item[] = [
     ...matches.map((c): Item => ({ key: c.id, label: c.label, hint: c.hint, act: () => go(c) })),
-    ...(text.length >= 3 ? [{ key: 'ask-find', label: `Search for “${text}”`, hint: 'understands typos, skills, cities, budgets', act: () => { onText('find', text); setOpen(false); } }] : []),
-    ...(text.length >= 3 && looksLikeLog ? [{ key: 'ask-log', label: `Log “${text}” as an application`, hint: 'opens Channels with a draft to confirm', act: () => { onText('quicklog', text); setOpen(false); } }] : []),
+    ...(canFind && text.length >= 3 ? [{ key: 'ask-find', label: `Search for “${text}”`, hint: 'understands typos, skills, cities, budgets', act: () => { onText('find', text); setOpen(false); } }] : []),
+    ...(canChannel && text.length >= 3 && looksLikeLog ? [{ key: 'ask-log', label: `Log “${text}” as an application`, hint: 'opens Channels with a draft to confirm', act: () => { onText('quicklog', text); setOpen(false); } }] : []),
   ];
+
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[15vh] px-4" role="dialog" aria-modal="true" aria-label="Command palette">
