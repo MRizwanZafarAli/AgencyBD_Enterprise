@@ -60,6 +60,9 @@ const SidebarBody: FC<SidebarProps & { collapsed: boolean; inDrawer?: boolean }>
   }, []);
   const go = (s: Surface) => { p.onNavigate(s); p.setMobileMenuOpen(false); };
   const initials = p.identity.user_id.slice(0, 2).toUpperCase();
+  const role = p.identity.role;
+  const workspaceItems = WORKSPACE.filter((i) => (role === 'auditor' ? i.id === 'today' || i.id === 'clients' : true));
+  const adminItems = ADMIN.filter(() => role === 'super_admin');
 
   return (
     <div className="flex flex-col h-full">
@@ -79,9 +82,9 @@ const SidebarBody: FC<SidebarProps & { collapsed: boolean; inDrawer?: boolean }>
       </div>
 
       <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 pb-3 pt-1">
-        <Group title="Workspace" collapsed={collapsed}>{WORKSPACE.map((i) => <NavButton key={i.id} item={i} active={p.active === i.id} collapsed={collapsed} badge={i.id === 'today' ? p.badge : undefined} onClick={() => go(i.id)} />)}</Group>
+        <Group title="Workspace" collapsed={collapsed}>{workspaceItems.map((i) => <NavButton key={i.id} item={i} active={p.active === i.id} collapsed={collapsed} badge={i.id === 'today' ? p.badge : undefined} onClick={() => go(i.id)} />)}</Group>
         <Group title="Utilities" collapsed={collapsed}>{UTILITIES.map((i) => <NavButton key={i.id} item={i} active={p.active === i.id} collapsed={collapsed} onClick={() => go(i.id)} />)}</Group>
-        <Group title="Admin" collapsed={collapsed}>{ADMIN.map((i) => <NavButton key={i.id} item={i} active={p.active === i.id} collapsed={collapsed} onClick={() => go(i.id)} />)}</Group>
+        {adminItems.length > 0 && <Group title="Admin" collapsed={collapsed}>{adminItems.map((i) => <NavButton key={i.id} item={i} active={p.active === i.id} collapsed={collapsed} onClick={() => go(i.id)} />)}</Group>}
       </nav>
 
       <div className={`px-3 pb-2 ${collapsed ? 'px-2' : ''}`}>

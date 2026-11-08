@@ -87,7 +87,7 @@ export function App() {
         <Header halted={halted} onToggleHalt={toggleHalt} setMobileMenuOpen={setMobileMenuOpen} onPalette={() => setPaletteSignal((n) => n + 1)} crumbs={crumbs} />
         <main id="main" className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-[1400px] w-full mx-auto">
           <div key={surface} className="page-enter">
-            {surface === 'today' && <Today onOpenClient={openClient} onSettings={(section) => goSettings(section ?? 'setup')} onGo={navigate} />}
+            {surface === 'today' && <Today identity={me} onOpenClient={openClient} onSettings={(section) => goSettings(section ?? 'setup')} onGo={navigate} />}
             {surface === 'find' && <Find onOpenClient={openClient} onAddGoogleKey={() => goSettings('keys')} seed={seed.find ? { text: seed.find, n: seed.n } : null} />}
             {surface === 'clients' && <Clients openLead={openLead} setOpenLead={setOpenLead} />}
             {surface === 'channels' && <Channels active={channel} onActive={setChannel} quick={seed.quicklog ? { text: seed.quicklog, n: seed.n } : null} />}
