@@ -1,12 +1,12 @@
 # Contributing to AgencyBD
 
-This is proprietary software owned by Future Builders (see `LICENSE`). Only people the Owner has engaged or approved may contribute.
+This is proprietary software owned by VectraForge (see `LICENSE`). Only people the Owner has engaged or approved may contribute.
 
 ## Who owns what you write
 By opening a pull request or pushing a commit you confirm that:
 
 1. **You wrote it yourself**, or you have the right to contribute it. You did not copy code from a project whose license does not allow that, from a former employer, or from a client.
-2. **It belongs to the Owner.** All rights in your contribution are assigned to Future Builders. If the law of your country does not allow assigning them, you grant the Owner an exclusive, worldwide, perpetual, irrevocable, royalty-free license to use, change, sublicense and sell it, with no further payment.
+2. **It belongs to the Owner.** All rights in your contribution are assigned to VectraForge. If the law of your country does not allow assigning them, you grant the Owner an exclusive, worldwide, perpetual, irrevocable, royalty-free license to use, change, sublicense and sell it, with no further payment.
 3. **You keep no right to reuse it** in a way that competes with the Owner. You may still use your general skills and knowledge.
 4. If your contract with the Owner (employment or contractor agreement) says more, that contract also applies.
 
