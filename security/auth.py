@@ -65,6 +65,7 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         "outbound:manage"
     ],
     "sdr_rep": [
+        "pipeline:run",
         "leads:read",
         "leads:write",
         "leads:create",

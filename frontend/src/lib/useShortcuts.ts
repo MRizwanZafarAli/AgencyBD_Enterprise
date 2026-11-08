@@ -14,8 +14,14 @@ const typing = (t: EventTarget | null) => {
 };
 
 /** Linear-style keyboard navigation. Ignored while typing and when a modifier key is held. */
-export function useShortcuts(opts: { onNavigate: (s: Surface) => void; onToggleSidebar: () => void; onHelp: () => void; enabled: boolean }): void {
-  const { onNavigate, onToggleSidebar, onHelp, enabled } = opts;
+export function useShortcuts(opts: {
+  onNavigate: (s: Surface) => void;
+  onToggleSidebar: () => void;
+  onHelp: () => void;
+  enabled: boolean;
+  allowedSurfaces?: Surface[];
+}): void {
+  const { onNavigate, onToggleSidebar, onHelp, enabled, allowedSurfaces } = opts;
   useEffect(() => {
     if (!enabled) return;
     let pending = false;
@@ -26,7 +32,12 @@ export function useShortcuts(opts: { onNavigate: (s: Surface) => void; onToggleS
       if (pending) {
         pending = false;
         window.clearTimeout(timer);
-        if (CHORDS[k]) { e.preventDefault(); onNavigate(CHORDS[k]); }
+        if (CHORDS[k]) {
+          if (!allowedSurfaces || allowedSurfaces.includes(CHORDS[k])) {
+            e.preventDefault();
+            onNavigate(CHORDS[k]);
+          }
+        }
         return;
       }
       if (k === 'g') { pending = true; timer = window.setTimeout(() => { pending = false; }, 1200); }
@@ -35,5 +46,5 @@ export function useShortcuts(opts: { onNavigate: (s: Surface) => void; onToggleS
     };
     window.addEventListener('keydown', onKey);
     return () => { window.removeEventListener('keydown', onKey); window.clearTimeout(timer); };
-  }, [enabled, onNavigate, onToggleSidebar, onHelp]);
+  }, [enabled, onNavigate, onToggleSidebar, onHelp, allowedSurfaces]);
 }

@@ -1102,7 +1102,7 @@ def scan_radar_endpoint(principal: Principal = Depends(require_permission("pipel
     return OpportunityRadarEngine().scan_all_sources(limit_per_source=10, org_id=org)
 
 @app.post("/api/proposals/draft")
-def draft_proposal_endpoint(req: DraftProposalRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
+def draft_proposal_endpoint(req: DraftProposalRequest, principal: Principal = Depends(require_permission("outreach:draft"))):
     try:
         return ProposalAgent.draft_proposal(
             opportunity_id=req.opportunity_id,

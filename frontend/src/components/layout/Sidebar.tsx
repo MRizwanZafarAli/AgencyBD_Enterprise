@@ -60,6 +60,9 @@ const SidebarBody: FC<SidebarProps & { collapsed: boolean; inDrawer?: boolean }>
   }, []);
   const go = (s: Surface) => { p.onNavigate(s); p.setMobileMenuOpen(false); };
   const initials = p.identity.user_id.slice(0, 2).toUpperCase();
+  const role = p.identity.role;
+  const workspaceItems = WORKSPACE.filter((i) => (role === 'auditor' ? i.id === 'today' || i.id === 'clients' : true));
+  const adminItems = ADMIN.filter(() => role === 'super_admin');
 
   return (
     <div className="flex flex-col h-full">
@@ -79,9 +82,9 @@ const SidebarBody: FC<SidebarProps & { collapsed: boolean; inDrawer?: boolean }>
       </div>
 
       <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 pb-3 pt-1">
-        <Group title="Workspace" collapsed={collapsed}>{WORKSPACE.map((i) => <NavButton key={i.id} item={i} active={p.active === i.id} collapsed={collapsed} badge={i.id === 'today' ? p.badge : undefined} onClick={() => go(i.id)} />)}</Group>
+        <Group title="Workspace" collapsed={collapsed}>{workspaceItems.map((i) => <NavButton key={i.id} item={i} active={p.active === i.id} collapsed={collapsed} badge={i.id === 'today' ? p.badge : undefined} onClick={() => go(i.id)} />)}</Group>
         <Group title="Utilities" collapsed={collapsed}>{UTILITIES.map((i) => <NavButton key={i.id} item={i} active={p.active === i.id} collapsed={collapsed} onClick={() => go(i.id)} />)}</Group>
-        <Group title="Admin" collapsed={collapsed}>{ADMIN.map((i) => <NavButton key={i.id} item={i} active={p.active === i.id} collapsed={collapsed} onClick={() => go(i.id)} />)}</Group>
+        {adminItems.length > 0 && <Group title="Admin" collapsed={collapsed}>{adminItems.map((i) => <NavButton key={i.id} item={i} active={p.active === i.id} collapsed={collapsed} onClick={() => go(i.id)} />)}</Group>}
       </nav>
 
       <div className={`px-3 pb-2 ${collapsed ? 'px-2' : ''}`}>
@@ -136,9 +139,9 @@ export const Sidebar: FC<SidebarProps> = (p) => (
 );
 
 /** Phone-only bottom tab bar (the sidebar becomes a drawer below 1024px). */
-export const MobileTabBar: FC<{ active: Surface; onNavigate: (s: Surface) => void; badge?: number }> = ({ active, onNavigate, badge }) => (
+export const MobileTabBar: FC<{ active: Surface; onNavigate: (s: Surface) => void; badge?: number; identity?: Me | null }> = ({ active, onNavigate, badge, identity }) => (
   <nav aria-label="Mobile" className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-slate-800 bg-slate-950/95 backdrop-blur flex pb-[env(safe-area-inset-bottom)]">
-    {[...WORKSPACE, ...UTILITIES, ...ADMIN].map((i) => (
+    {[...WORKSPACE, ...UTILITIES, ...ADMIN].filter((i) => (identity?.role === 'auditor' ? i.id === 'today' || i.id === 'clients' || i.id === 'tools' : identity?.role !== 'super_admin' && i.id === 'settings' ? false : true)).map((i) => (
       <button key={i.id} onClick={() => onNavigate(i.id)} aria-current={active === i.id ? 'page' : undefined} aria-label={i.label}
         className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium ${active === i.id ? 'text-indigo-300' : 'text-slate-500'}`}>
         {i.icon}<span>{i.label}</span>
