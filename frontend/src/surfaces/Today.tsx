@@ -10,8 +10,9 @@ export const Today: FC<{
   onOpenClient: (leadId: number) => void;
   onSettings: (section?: string) => void;
   onGo: (s: Surface) => void;
+  onSearch?: (q: string) => void;
   identity?: Me | null;
-}> = ({ onOpenClient, onSettings, onGo, identity }) => {
+}> = ({ onOpenClient, onSettings, onGo, onSearch, identity }) => {
   const role = identity?.role || 'super_admin';
 
   if (!identity) {
@@ -23,7 +24,7 @@ export const Today: FC<{
   }
 
   if (role === 'sdr_rep') {
-    return <SdrDashboard identity={identity} onGo={onGo} onOpenClient={onOpenClient} />;
+    return <SdrDashboard identity={identity} onGo={onGo} onOpenClient={onOpenClient} onSearch={onSearch} />;
   }
 
   if (role === 'growth_lead') {

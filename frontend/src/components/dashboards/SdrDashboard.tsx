@@ -24,7 +24,8 @@ export const SdrDashboard: FC<{
   identity: Me;
   onGo: (s: Surface) => void;
   onOpenClient: (leadId: number) => void;
-}> = ({ identity, onGo, onOpenClient }) => {
+  onSearch?: (q: string) => void;
+}> = ({ identity, onGo, onOpenClient, onSearch }) => {
   const sum = useApi<TodaySummary>('/api/today/summary');
   const opps = useApi<Opp[]>('/api/opportunities');
   const d = sum.data;
@@ -33,7 +34,11 @@ export const SdrDashboard: FC<{
 
   const handleQuickSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
+    const q = searchQuery.trim();
+    if (q) {
+      if (onSearch) onSearch(q);
+      else onGo('find');
+    } else {
       onGo('find');
     }
   };
