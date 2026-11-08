@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import type { FC } from 'react';
-import { Check, Copy, Download, FileText, GitCompare, Loader2, RefreshCw, Stethoscope, UserPlus } from 'lucide-react';
+import { Check, Copy, Download, FileText, GitCompare, Loader2, Presentation, RefreshCw, Stethoscope, UserPlus, Video } from 'lucide-react';
 import { Badge, Button, Card, Drawer, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
+import { VideoStoryboardDrawer } from '../shared/VideoStoryboardDrawer';
+import type { VideoStoryboardData } from '../shared/VideoStoryboardDrawer';
 import { openProtected } from '../../lib/api';
 import { send } from '../../lib/hooks';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
@@ -26,6 +28,8 @@ export const SiteClinic: FC<{ initial?: string; autoRun?: boolean; onOpenClient:
   const [chart, setChart] = useState<Chart | null>(null);
   const [options, setOptions] = useState<Resolve | null>(null);
   const [teardown, setTeardown] = useState<{ markdown: string; filename: string } | null>(null);
+  const [offer, setOffer] = useState<{ markdown: string; filename: string; needs: string[] } | null>(null);
+  const [storyboard, setStoryboard] = useState<VideoStoryboardData | null>(null);
   const [note, setNote] = useState('');
   const [copied, setCopied] = useState(false);
   const busy = step >= 0 && step < STEPS.length;
@@ -64,9 +68,21 @@ export const SiteClinic: FC<{ initial?: string; autoRun?: boolean; onOpenClient:
   const domain = chart?.resolve.domain ?? '';
   const saveClient = () => act(async () => { const lead = await send<{ id: number }>('/api/pipeline/deals/create', 'POST', { company_name: chart!.resolve.name, domain }); onOpenClient(lead.id); });
   const report = () => act(async () => { const r = await send<{ html_filename: string; pdf_filename: string | null }>('/api/reports/client', 'POST', { domain, output_format: 'both' }); await openProtected(`/api/reports/view/${r.pdf_filename ?? r.html_filename}`); });
+  const openDeck = () => act(async () => { const r = await send<{ html_filename: string; pdf_filename: string | null; view_url: string }>('/api/reports/deck', 'POST', { domain, output_format: 'both' }); await openProtected(r.view_url); });
+  const openVideoStoryboard = () => act(async () => {
+    const r = await send<VideoStoryboardData>('/api/native/generate_video_storyboard', 'POST', {
+      prospect_name: 'Founder / CTO',
+      company_name: chart!.resolve.name,
+      domain,
+      lcp_score: null,
+      proof_point: null
+    });
+    setStoryboard(r);
+  });
   const openTeardown = () => act(async () => setTeardown(await get<{ markdown: string; filename: string }>(`/api/companies/${chart!.resolve.company_id}/teardown`)));
-  const copy = async () => { if (!teardown) return; try { await navigator.clipboard.writeText(teardown.markdown); setCopied(true); window.setTimeout(() => setCopied(false), 1600); } catch { setNote('Copy was blocked by the browser; use Download.'); } };
-  const download = () => { if (!teardown) return; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([teardown.markdown], { type: 'text/markdown' })); a.download = teardown.filename; a.click(); URL.revokeObjectURL(a.href); };
+  const openOffer = () => act(async () => setOffer(await get<{ markdown: string; filename: string; needs: string[] }>(`/api/companies/${chart!.resolve.company_id}/offer`)));
+  const copy = async (doc: { markdown: string } | null = teardown) => { if (!doc) return; try { await navigator.clipboard.writeText(doc.markdown); setCopied(true); window.setTimeout(() => setCopied(false), 1600); } catch { setNote('Copy was blocked by the browser; use Download.'); } };
+  const download = (doc: { markdown: string; filename: string } | null = teardown) => { if (!doc) return; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([doc.markdown], { type: 'text/markdown' })); a.download = doc.filename; a.click(); URL.revokeObjectURL(a.href); };
 
   return (
     <div className="space-y-5">
@@ -105,7 +121,10 @@ export const SiteClinic: FC<{ initial?: string; autoRun?: boolean; onOpenClient:
                 {chart.audit?.status && chart.audit.status !== 'completed' && <Badge tone="warn">{chart.audit.status}</Badge>}</div>
               <Button small onClick={() => examine(chart.target, domain)} disabled={busy}><RefreshCw className="h-3.5 w-3.5" />Re-examine</Button>
               <Button small onClick={openTeardown} disabled={chart.audit?.status !== 'completed'}><FileText className="h-3.5 w-3.5" />Teardown</Button>
+              <Button small onClick={openOffer} disabled={chart.audit?.status !== 'completed'}><FileText className="h-3.5 w-3.5" />Offer</Button>
               <Button small onClick={report} disabled={chart.audit?.status !== 'completed'}><Download className="h-3.5 w-3.5" />PDF report</Button>
+              <Button small onClick={openDeck} disabled={chart.audit?.status !== 'completed'}><Presentation className="h-3.5 w-3.5 text-amber-400" />Executive deck</Button>
+              <Button small onClick={openVideoStoryboard} disabled={chart.audit?.status !== 'completed'}><Video className="h-3.5 w-3.5 text-purple-400" />Video script</Button>
               <Button small onClick={() => onHandoff('compare', domain)}><GitCompare className="h-3.5 w-3.5" />Compare</Button>
               <Button small variant="primary" onClick={saveClient}><UserPlus className="h-3.5 w-3.5" />Save as client</Button>
             </div>
@@ -118,9 +137,32 @@ export const SiteClinic: FC<{ initial?: string; autoRun?: boolean; onOpenClient:
         </>)}
 
       <Drawer open={teardown !== null} title="Website teardown" onClose={() => setTeardown(null)} wide>
-        <div className="flex gap-2 mb-3"><Button small onClick={copy}>{copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}{copied ? 'Copied' : 'Copy'}</Button><Button small onClick={download}><Download className="h-3.5 w-3.5" />Download .md</Button></div>
+        <div className="flex flex-wrap gap-2 mb-3">
+          <Button small onClick={() => copy()}>{copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}{copied ? 'Copied' : 'Copy'}</Button>
+          <Button small onClick={() => download()}><Download className="h-3.5 w-3.5" />Download .md</Button>
+          <Button small onClick={openDeck} variant="primary"><Presentation className="h-3.5 w-3.5" />Open presentation deck</Button>
+        </div>
         <pre className="text-xs text-slate-200 whitespace-pre-wrap font-mono leading-relaxed">{teardown?.markdown}</pre>
       </Drawer>
+
+      <Drawer open={offer !== null} title="Fixed-price offer" onClose={() => setOffer(null)} wide>
+        {offer && offer.needs.length > 0 && (
+          <div className="mb-3 p-3 rounded-xl border border-amber-500/40 bg-amber-950/30 text-xs text-amber-200">
+            <p className="font-medium mb-1">Fill these in before you send it. The app never makes up a price or a date.</p>
+            <ul className="list-disc pl-4 space-y-0.5">{offer.needs.map((n) => <li key={n}>{n}</li>)}</ul>
+          </div>)}
+        <div className="flex flex-wrap gap-2 mb-3">
+          <Button small onClick={() => copy(offer)}>{copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}{copied ? 'Copied' : 'Copy'}</Button>
+          <Button small onClick={() => download(offer)}><Download className="h-3.5 w-3.5" />Download .md</Button>
+        </div>
+        <pre className="text-xs text-slate-200 whitespace-pre-wrap font-mono leading-relaxed">{offer?.markdown}</pre>
+      </Drawer>
+
+      <VideoStoryboardDrawer
+        open={storyboard !== null}
+        onClose={() => setStoryboard(null)}
+        storyboard={storyboard}
+      />
     </div>
   );
 };

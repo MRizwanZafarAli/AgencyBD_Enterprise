@@ -1,3 +1,4 @@
+import { matchesQuery } from '../../lib/textMatch';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FC } from 'react';
 import {
@@ -140,9 +141,7 @@ export const FindJobs: FC<{ types?: string[]; preset?: JobsPreset | null }> = ({
     (!minBudget || (o.budget_max ?? -1) >= Number(minBudget)) &&
     (!maxBudget || (o.budget_max != null && o.budget_max <= Number(maxBudget))) &&
     (!remoteOnly || /remote|anywhere|worldwide/i.test(`${o.title} ${o.description ?? ''}`)) &&
-    (!q || `${o.title} ${o.company_name ?? ''} ${o.description ?? ''}`.toLowerCase().includes(q.toLowerCase()))
-  ), [opps.data, types, source, minFit, q, minBudget, maxBudget, remoteOnly]);
-
+    matchesQuery(`${o.title} ${o.company_name ?? ''} ${o.description ?? ''}`, q)), [opps.data, types, source, minFit, q, minBudget, maxBudget, remoteOnly]);
   const sourceNames = useMemo(() => Array.from(new Set((opps.data ?? []).filter((o) => !types || types.includes(o.type)).map((o) => o.source))).sort(), [opps.data, types]);
 
   const detectedEmails = useMemo(() => {

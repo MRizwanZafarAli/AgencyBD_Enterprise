@@ -68,7 +68,7 @@ const SidebarBody: FC<SidebarProps & { collapsed: boolean; inDrawer?: boolean }>
     <div className="flex flex-col h-full">
       <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between px-4'} h-14 shrink-0 border-b border-slate-800/80`}>
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="h-8 w-8 rounded-lg bg-indigo-600 text-white text-xs font-bold flex items-center justify-center shrink-0">BD</div>
+          <div className="h-9 w-9 rounded-2xl bg-indigo-600 text-white text-xs font-bold flex items-center justify-center shrink-0">BD</div>
           {!collapsed && <div className="min-w-0"><div className="text-sm font-semibold text-white leading-tight">AgencyBD</div><div className="text-[11px] text-slate-500 truncate leading-tight">{p.identity.org_id}</div></div>}
         </div>
       </div>

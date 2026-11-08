@@ -28,6 +28,16 @@ def _types(item: Dict[str, Any]) -> List[str]:
     return [t] if isinstance(t, str) else [str(x) for x in t]
 
 
+def looks_js_rendered(soup: BeautifulSoup, words: int) -> bool:
+    """True when the page is an app shell: almost no server-rendered text but script bundles or a mount point. Such a page's real content only exists
+    in a browser, so a short word count says nothing about the site (Next.js, React, Wix and Squarespace all look like this to a plain fetch)."""
+    if words >= 60:
+        return False
+    scripts = len(soup.find_all("script", src=True))
+    mount = soup.find(id=lambda i: i in ("root", "__next", "app", "__nuxt", "___gatsby", "svelte"))
+    return scripts >= 2 or bool(mount) or bool(soup.find("noscript"))
+
+
 def extract_profile(html: str, url: str = "") -> Dict[str, Any]:
     soup = BeautifulSoup(html or "", "html.parser")
 
@@ -66,6 +76,8 @@ def extract_profile(html: str, url: str = "") -> Dict[str, Any]:
         "org_jsonld": {k: org.get(k) for k in ("name", "description", "telephone", "email", "url") if org.get(k)} | ({"address": address} if address else {}),
         "schema_types": sorted({t for i in jsonld for t in _types(i)}),
         "social_profiles": socials[:12],
-        "is_parked": bool(PARKED.search(text[:6000])) or len(text.split()) < 15,
+        # Parked needs positive evidence. A near-empty page is only "parked" if it is not an app shell (no script bundles or mount point).
+        "is_parked": bool(PARKED.search(text[:6000])) or (len(text.split()) < 15 and not looks_js_rendered(soup, len(text.split()))),
         "word_count": len(text.split()),
+        "js_rendered": looks_js_rendered(soup, len(text.split())),
     }

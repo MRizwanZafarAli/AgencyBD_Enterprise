@@ -253,3 +253,70 @@ def test_rescan_runs_at_most_once_per_day(monkeypatch):
     assert rescan.run_if_due() is None
     import time
     assert rescan.run_if_due(now=time.time() + 25 * 3600) is not None
+
+
+# ------------------------------------------------------------------ site changes the nightly re-check reports
+
+def _fake_site(monkeypatch, status="completed", checks=()):
+    from auditors.engine import WebsiteDoctorEngine
+    findings = [{"category": "security", "check_id": c, "severity": "high", "finding": text, "estimated_impact": "Visitors see a browser warning.", "fix": "x", "evidence_value": "v", "service_id": "security_hardening"} for c, text in checks]
+    monkeypatch.setattr(WebsiteDoctorEngine, "run_audit", classmethod(lambda cls, d, company_id=None, org_id="x": {"status": status, "findings": findings}))
+
+
+def test_a_certificate_that_just_started_failing_is_reported_once(monkeypatch):
+    from workflows import rescan
+    from workflows.inbox import WorkItemRepository
+    _lead_with_baseline("org_sc1")
+    _fake_site(monkeypatch, checks=[("tls_certificate_expiring", "The certificate expires in 9 days."), ("missing_csp", "No CSP.")])
+    out = rescan.rescan_org("org_sc1", delay=0)
+    assert [a["kind"] for a in out["alerts"]] == ["site_change"] and "9 days" in out["alerts"][0]["what"]
+    item = WorkItemRepository.list_open("org_sc1")[0]
+    assert item["kind"] == "site_change" and item["priority"] == 75 and "Confirm it yourself" in item["detail"]
+    assert rescan.rescan_org("org_sc1", delay=0)["alerts"] == []                 # the same problem is not reported every night
+
+
+def test_a_problem_that_was_already_known_is_not_news(monkeypatch):
+    from database.models import AuditRunRepository, CompanyRepository, EvidenceRepository, LeadRepository
+    from workflows import rescan
+    LeadRepository.create_or_get_lead("Old", "old.example", source_channel="x", org_id="org_sc2")
+    c = CompanyRepository.create_or_get("Old", "old.example", org_id="org_sc2")
+    ev = EvidenceRepository.record_evidence("audit", c["id"], "x", "v", "auditors.security", "https://old.example", 1.0, "org_sc2")
+    AuditRunRepository.record_run(domain="old.example", overall_score=50, summary="s", company_id=c["id"], org_id="org_sc2", status="completed",
+                                  findings=[{"category": "security", "check_id": "no_https", "severity": "critical", "finding": "Plain HTTP.", "fix": "x", "estimated_impact": "i",
+                                             "service_id": "security_hardening", "evidence_value": "v", "confidence": 0.9, "evidence_id": ev["id"]}])
+    _fake_site(monkeypatch, checks=[("no_https", "Plain HTTP.")])
+    assert rescan.rescan_org("org_sc2", delay=0)["alerts"] == []
+
+
+def test_an_outage_is_reported_only_after_two_misses_in_a_row_and_a_good_check_resets_it(monkeypatch):
+    from workflows import rescan
+    from workflows.inbox import WorkItemRepository
+    _lead_with_baseline("org_sc3")
+    _fake_site(monkeypatch, status="unreachable")
+    assert rescan.rescan_org("org_sc3", delay=0)["alerts"] == []                 # one miss: could be a blip
+    _fake_site(monkeypatch)                                                       # it came back
+    rescan.rescan_org("org_sc3", delay=0)
+    _fake_site(monkeypatch, status="unreachable")
+    assert rescan.rescan_org("org_sc3", delay=0)["alerts"] == []                 # the count started again from one
+    out = rescan.rescan_org("org_sc3", delay=0)                                  # second miss in a row
+    assert out["alerts"][0]["what"] == "the website is down"
+    item = WorkItemRepository.list_open("org_sc3")[0]
+    assert item["priority"] == 88 and "Open it yourself first" in item["detail"]
+    assert rescan.rescan_org("org_sc3", delay=0)["alerts"] == []                 # still down: no second item while the first is open
+
+
+def test_a_site_that_refuses_robots_is_never_called_down(monkeypatch):
+    from workflows import rescan
+    _lead_with_baseline("org_sc4")
+    _fake_site(monkeypatch, status="blocked")
+    for _ in range(3):
+        assert rescan.rescan_org("org_sc4", delay=0)["alerts"] == []
+
+
+def test_the_phone_message_names_what_changed(monkeypatch):
+    from alertdesk import engine as desk
+    from workflows import rescan
+    sent = []
+    monkeypatch.setattr(desk, "tell", lambda org, text, title="", now=None: (sent.append((org, text, title)) or (True, "ok")))
+    rescan._notify({"org_id": "o", "alerts": [{"company": "Acme", "kind": "site_change", "what": "the website is down"}, {"company": "Beta", "kind": "cve", "cve": "CVE-2026-1", "kev": True}]})
+    assert "2 saved client(s) changed" in sent[0][1] and "Acme: the website is down" in sent[0][1] and "Beta: CVE-2026-1 (exploited in the wild)" in sent[0][1]

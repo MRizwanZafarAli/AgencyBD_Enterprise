@@ -10,7 +10,7 @@ export const Preferences: FC = () => {
   const { theme, setTheme } = useTheme();
   const reducedMotion = media('(prefers-reduced-motion: reduce)');
   const reducedTransparency = media('(prefers-reduced-transparency: reduce)');
-  const options = [{ id: 'light' as const, label: 'Light', hint: 'White and golden yellow', icon: Sun }, { id: 'dark' as const, label: 'Dark', hint: 'Warm graphite and gold', icon: Moon }];
+  const options = [{ id: 'light' as const, label: 'Light', hint: 'Warm paper, ink and teal', icon: Sun }, { id: 'dark' as const, label: 'Dark', hint: 'Zinc ink and bright teal', icon: Moon }];
   return (
     <div className="space-y-5">
       <Card>

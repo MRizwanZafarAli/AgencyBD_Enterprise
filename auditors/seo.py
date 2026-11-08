@@ -76,7 +76,8 @@ class SEOAuditor:
                                   "Use exactly one H1 that states what the business does.", "A clear single H1 helps search engines and screen readers.",
                                   "seo_optimization", f"{len(h1s)} <h1> element(s)."))
         words = len(soup.get_text(" ", strip=True).split())
-        if words < 150:
+        from intel.site_profile import looks_js_rendered
+        if words < 150 and not looks_js_rendered(soup, words):             # an app shell's words are not in the HTML, so a low count proves nothing
             f.append(AuditFinding("seo", "thin_content", "low", f"The homepage has only about {words} words of text.",
                                   "Add useful copy: services, location, proof, FAQs.", "Little text gives search engines little to rank.",
                                   "seo_optimization", f"~{words} words of visible text.", confidence=0.7))

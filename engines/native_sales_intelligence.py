@@ -8,6 +8,13 @@ evaluating question rate against Gong benchmarks, providing competitor battlecar
 import re
 from typing import Dict, Any, List
 
+def _proof() -> str:
+    """The only proof line is a result you recorded in your agency profile together with where it is proven. Nothing is written for you."""
+    from config.settings import settings
+    metric = (getattr(settings.agency, "case_study_metric", None) or "").strip()
+    return metric or "No proven result is recorded yet. Add one with its proof in Settings, Agency profile, and it will appear here."
+
+
 KNOWN_COMPETITORS = [
     "toptal", "accenture", "epam", "cognizant", "infosys", "wipro",
     "bairesdev", "andela", "upwork", "fiverr", "in-house", "internal team", "turing"
@@ -38,7 +45,6 @@ OBJECTION_LIBRARY: Dict[str, Dict[str, Any]] = {
             "around fixed-sprint deliverables with guaranteed milestones. If we can show you a path where "
             "this pays for itself within 60 days by recovering lost conversion, is it worth exploring the scope?"
         ),
-        "portfolio_cite": "In our logistics infrastructure modernization, we cut latency from 4.1s to 1.2s, yielding a 3x increase in peak throughput with zero additional cloud spend.",
         "bridge_question": "What is the economic cost to your team if this problem remains unsolved for another two quarters?"
     },
     "in_house_team": {
@@ -50,7 +56,6 @@ OBJECTION_LIBRARY: Dict[str, Dict[str, Any]] = {
             "We don't replace in-house teams; we act as a force-multiplier sprint pod to knock out the backlog, "
             "infrastructure bottlenecks, and performance debt that your engineers don't have time to touch."
         ),
-        "portfolio_cite": "We partnered with an internal engineering team of 12 at a high-growth SaaS, taking their technical debt off their plate so their core team could launch their flagship feature 4 weeks early.",
         "bridge_question": "What is the #1 project on your tech roadmap that your internal team hasn't been able to prioritize due to daily operational fires?"
     },
     "timing_not_now": {
@@ -62,7 +67,6 @@ OBJECTION_LIBRARY: Dict[str, Dict[str, Any]] = {
             "Usually when founders revisit this 6 months later, the underlying friction has compounded. "
             "What if we deliver a low-impact architecture teardown now, so when your window opens, your team has the exact blueprint ready to execute?"
         ),
-        "portfolio_cite": "Clients who acted proactively prevented a 28% visitor bounce rate spike during peak seasonal traffic.",
         "bridge_question": "What specific milestones does your company need to hit before it makes sense to address this?"
     },
     "send_info": {
@@ -74,7 +78,6 @@ OBJECTION_LIBRARY: Dict[str, Dict[str, Any]] = {
             "So I don't flood your inbox with irrelevant material, which specific area of your tech stack "
             "or conversion funnel is currently causing the most headaches?"
         ),
-        "portfolio_cite": "We tailor every teardown with real, verified measurements from our audit suite rather than generic marketing claims.",
         "bridge_question": "If I put together a 90-second customized video walkthrough of your site's bottlenecks, would you have 2 minutes to review it on Thursday?"
     },
     "competitor_comparison": {
@@ -86,7 +89,6 @@ OBJECTION_LIBRARY: Dict[str, Dict[str, Any]] = {
             "architectural burden, QA, and project management on your shoulders. We operate as an integrated technical partner: "
             "senior architects, guaranteed delivery dates, and direct code-level accountability with zero hourly billing burn."
         ),
-        "portfolio_cite": "Over 60% of our enterprise engagements involve rescuing or refactoring codebases originally outsourced to unverified freelance brokers.",
         "bridge_question": "Have you had experience managing offshore contractors before, and how much founder time did it take to review their PRs?"
     }
 }
@@ -212,7 +214,7 @@ class NativeSalesIntelligence:
                     "label": data["label"],
                     "reframe": data["reframe"],
                     "verbal_counter_script": data["script"],
-                    "grounded_portfolio_cite": data["portfolio_cite"],
+                    "grounded_portfolio_cite": _proof(),
                     "bridge_question": data["bridge_question"],
                     "all_categories": [{"id": k, "label": v["label"]} for k, v in OBJECTION_LIBRARY.items()]
                 }
@@ -226,7 +228,7 @@ class NativeSalesIntelligence:
                 "agency promises in the past. To make sure I'm not making assumptions, what is the single biggest question mark "
                 "holding you back from exploring this?"
             ),
-            "grounded_portfolio_cite": "We provide transparent, milestone-gated deliverables and live staging environments with every sprint.",
+            "grounded_portfolio_cite": _proof(),
             "bridge_question": "If we could eliminate the execution risk completely with a trial milestone, would that make a difference?",
             "all_categories": [{"id": k, "label": v["label"]} for k, v in OBJECTION_LIBRARY.items()]
         }
@@ -240,7 +242,7 @@ class NativeSalesIntelligence:
                 "label": data["label"],
                 "reframe": data["reframe"],
                 "verbal_counter_script": data["script"],
-                "grounded_portfolio_cite": data["portfolio_cite"],
+                "grounded_portfolio_cite": _proof(),
                 "bridge_question": data["bridge_question"]
             })
         return out

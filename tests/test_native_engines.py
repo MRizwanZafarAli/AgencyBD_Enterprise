@@ -207,3 +207,15 @@ def test_catch_all_decoder_gravatar_and_matrix(monkeypatch):
     assert res["candidate_matrix"][0]["email"] == "alex.smith@acme.com"
     assert res["candidate_matrix"][0]["gravatar_active"] is True
 
+
+
+def test_call_intelligence_never_writes_proof_for_you(monkeypatch):
+    from config.settings import settings
+    engine = NativeSalesIntelligence()
+    text = " ".join(str(c) for c in engine.list_battlecards()) + str(engine.simulate_objection("this is too expensive, can you do it cheaper?"))
+    for invented in ("28%", "60%", "4.1s to 1.2s", "3x increase", "team of 12"):
+        assert invented not in text
+    monkeypatch.setattr(settings.agency, "case_study_metric", "")
+    assert "No proven result is recorded yet" in engine.simulate_objection("too expensive")["grounded_portfolio_cite"]
+    monkeypatch.setattr(settings.agency, "case_study_metric", "Cut load time from 4.1 s to 1.3 s for Brightside Dental")
+    assert engine.simulate_objection("too expensive")["grounded_portfolio_cite"] == "Cut load time from 4.1 s to 1.3 s for Brightside Dental"

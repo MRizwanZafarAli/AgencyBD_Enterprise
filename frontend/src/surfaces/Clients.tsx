@@ -3,6 +3,7 @@ import type { FC } from 'react';
 import { PageHeader, Tabs } from '../components/ui';
 import { PipelineBoard } from '../components/clients/Pipeline';
 import { ClientPage } from '../components/clients/ClientPage';
+import { Partners } from '../components/clients/Partners';
 import { SequencesManager } from '../components/modules/SequencesManager';
 import type { Me } from '../lib/api';
 
@@ -15,7 +16,11 @@ export const Clients: FC<{
   const isAuditor = identity?.role === 'auditor';
   const tabs = isAuditor
     ? [{ id: 'pipeline', label: 'Pipeline' }]
-    : [{ id: 'pipeline', label: 'Pipeline' }, { id: 'outreach', label: 'Email sequences' }];
+    : [
+        { id: 'pipeline', label: 'Pipeline' },
+        { id: 'outreach', label: 'Email sequences' },
+        { id: 'partners', label: 'Partners' },
+      ];
 
   return (
     <div>
@@ -30,6 +35,7 @@ export const Clients: FC<{
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
       {tab === 'pipeline' && <PipelineBoard onOpen={setOpenLead} />}
       {!isAuditor && tab === 'outreach' && <SequencesManager />}
+      {!isAuditor && tab === 'partners' && <Partners />}
       <ClientPage leadId={openLead} onClose={() => setOpenLead(null)} />
     </div>
   );

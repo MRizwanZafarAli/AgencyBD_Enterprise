@@ -85,19 +85,29 @@ class _Index:
         return None
 
     def fuzzy(self, phrase: str) -> Optional[Tuple[str, int, str]]:
-        """(canonical, distance, matched phrase) for the closest phrase within the typo budget, else None."""
+        """(canonical, distance, matched phrase) for the closest phrase within the typo budget, else None.
+
+        Short words get one edit, medium words two. Words of 9+ letters get three (restraunt -> restaurant), but only when the first three letters
+        agree and exactly one vocabulary entry is that close, so a long unrelated word is never forced onto a business type or skill."""
         n = len(phrase)
         if n < 4:
             return None
-        budget = 1 if n <= 7 else 2
+        budget = 1 if n <= 7 else 2 if n <= 8 else 3
         best: Optional[Tuple[str, int, str]] = None
+        close: Dict[str, int] = {}                                             # canonical -> best distance, for the 3-edit uniqueness rule
         for cand, canon in self.phrases.items():
             if abs(len(cand) - n) > budget or cand[0] != phrase[0]:        # a typo rarely changes the first letter
                 continue
             for form in _forms(phrase):
                 dist = edit_distance(form, cand)
-                if dist <= budget and (best is None or dist < best[1]):
-                    best = (canon, dist, cand)
+                if dist <= budget:
+                    if dist == 3 and cand[:3] != form[:3]:
+                        continue
+                    close[canon] = min(close.get(canon, 9), dist)
+                    if best is None or dist < best[1]:
+                        best = (canon, dist, cand)
+        if best and best[1] == 3 and len(close) != 1:
+            return None
         return best
 
 

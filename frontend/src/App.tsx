@@ -63,7 +63,7 @@ export function App() {
   // Enforce role-based allowed surfaces whenever identity or surface changes
   useEffect(() => {
     if (!me) return;
-    const allowed = ALLOWED_SURFACES[me.role] ?? ['today'];
+    const allowed = ALLOWED_SURFACES[me.role] ?? DEFAULT_SURFACES;
     if (!allowed.includes(surface)) {
       setSurface('today');
     }
@@ -150,7 +150,7 @@ export function App() {
               {surface === 'today' && <Today identity={me} onOpenClient={openClient} onSettings={(section) => goSettings(section ?? 'setup')} onGo={navigate} onSearch={(q) => fromText('find', q)} />}
               {surface === 'find' && allowedSurfaces.includes('find') && <Find onOpenClient={openClient} onAddGoogleKey={() => goSettings('keys')} seed={seed.find ? { text: seed.find, n: seed.n } : null} />}
               {surface === 'clients' && <Clients openLead={openLead} setOpenLead={setOpenLead} identity={me} />}
-              {surface === 'channels' && allowedSurfaces.includes('channels') && <Channels active={channel} onActive={setChannel} quick={seed.quicklog ? { text: seed.quicklog, n: seed.n } : null} />}
+              {surface === 'channels' && allowedSurfaces.includes('channels') && <Channels active={channel} onActive={setChannel} quick={seed.quicklog ? { text: seed.quicklog, n: seed.n } : null} onOpenAlerts={() => goSettings('alerts')} />}
               {surface === 'tools' && <Tools onOpenClient={openClient} />}
               {surface === 'settings' && allowedSurfaces.includes('settings') && <Settings me={me} section={settingsSection} setSection={setSettingsSection} onSignOut={() => { clearApiKey(); setMe(null); setAuthNotice(''); }} />}
             </div>

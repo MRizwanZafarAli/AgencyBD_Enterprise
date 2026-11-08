@@ -108,3 +108,15 @@ def test_endpoints_require_a_session_and_return_the_parse(client, make_key):
     assert out["run"]["category"] == "dentist" and out["corrections"]
     assert any(s["label"] == "dentist" for s in client.get("/api/search/suggest", headers=h, params={"q": "dent"}).json()["suggestions"])
     assert client.post("/api/search/parse", headers=h, json={"q": "x" * 400}).status_code == 422
+
+
+@pytest.mark.parametrize("text,category", [("restraunts in Dubai", "restaurant"), ("restaraunt Leeds", "restaurant"), ("resteraunts in Lahore", "restaurant"), ("resturant in Cairo", "restaurant")])
+def test_the_most_common_long_word_misspellings_are_understood(text, category):
+    out = parse(text)
+    assert out["intent"] == "local" and out["run"]["category"] == category
+
+
+@pytest.mark.parametrize("word", ["development", "international", "professional", "communication", "approximately", "registration", "performance", "environment"])
+def test_long_ordinary_words_are_never_forced_onto_a_business_type_or_skill(word):
+    from intel.nlp.parser import BUSINESS, SKILL
+    assert BUSINESS.fuzzy(word) is None and SKILL.fuzzy(word) is None

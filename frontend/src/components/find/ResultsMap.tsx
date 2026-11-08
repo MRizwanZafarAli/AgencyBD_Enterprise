@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css';
 
 export interface MapPoint { id: string; name: string; lat: number; lon: number; score: number; label: string }
 
-const colour = (score: number) => (score >= 60 ? '#10b981' : score >= 35 ? '#f5b301' : '#8a7a55');
+const colour = (score: number) => (score >= 60 ? '#10b981' : score >= 35 ? '#14b8a6' : '#71717a');
 
 /** Pins only businesses with real coordinates (never the city centre). OpenStreetMap tiles; click a pin to open the business. */
 export const ResultsMap: FC<{ points: MapPoint[]; onPick: (id: string) => void }> = ({ points, onPick }) => {

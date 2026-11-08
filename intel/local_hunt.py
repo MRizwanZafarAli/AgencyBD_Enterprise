@@ -60,7 +60,7 @@ def _site_signals(site_url: str, name: str) -> Dict[str, Any]:
         issues.append("site is not served over HTTPS")
     if 'name="viewport"' not in html and "name='viewport'" not in html:
         issues.append("no mobile viewport tag (likely not mobile-friendly)")
-    if profile["word_count"] < 120:
+    if profile["word_count"] < 120 and not profile.get("js_rendered"):
         issues.append(f"very little content ({profile['word_count']} words)")
     if not profile["meta_description"]:
         issues.append("no meta description (SEO)")
@@ -188,8 +188,27 @@ def hunt(category: str, city: str, limit: int = 20, provider: Optional[str] = No
 
     with ThreadPoolExecutor(max_workers=6) as pool:
         results = list(pool.map(classify, raw))
-    results.sort(key=lambda r: r["score"], reverse=True)
-    notes = (["OpenStreetMap is community-mapped: 'no website' here means none is recorded, not proven. Check the business before pitching."]
+    # One business with many branches (a gym or coffee chain) is not many prospects: keep one row per website and say how many branches matched.
+    seen: Dict[str, Dict[str, Any]] = {}
+    unique: List[Dict[str, Any]] = []
+    for r in results:
+        d = (r.get("domain") or "").lower().removeprefix("www.")
+        if d and d in seen:
+            seen[d]["branches"] = seen[d].get("branches", 1) + 1
+            continue
+        if d:
+            seen[d] = r
+        unique.append(r)
+    chains = 0
+    for r in unique:
+        if r.get("branches", 1) > 1:
+            chains += 1
+            r["chain"] = True
+            r["score"] = min(r["score"], 15)                              # a national chain's head office is not a small-business client
+            r["issues"] = list(r.get("issues", [])) + [f"matched {r['branches']} branches: likely a chain or franchise"]
+    results = unique
+    results.sort(key=lambda r: (bool(r.get("chain")), -r["score"]))             # independents first by score, then the chains
+    notes = ([f"{chains} chain or franchise result(s) matched several branches and were merged into one row each and ranked low."] if chains else []) + (["OpenStreetMap is community-mapped: 'no website' here means none is recorded, not proven. Check the business before pitching."]
              if provider == "osm" else [])
     expanded = places.expand_search_terms(category)
     if provider == "osm" and len(expanded) > 1 and len(results) > 0 and category.lower() != expanded[1]:

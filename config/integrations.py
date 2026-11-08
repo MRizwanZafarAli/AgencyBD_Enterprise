@@ -43,6 +43,7 @@ PROVIDERS: List[Provider] = [
     Provider("OLLAMA_HOST", "Ollama (local model address)", "AI", "A local model instead of a paid one, e.g. http://localhost:11434.", "https://ollama.com", "Free; runs on your machine", False, _starts("http", "The address")),
     Provider("GOOGLE_PLACES_API_KEY", "Google Places", "Finding prospects", "Google Maps search with ratings, review counts, phone and a verified 'no website'.", "https://console.cloud.google.com/google/maps-apis", "Small free monthly allowance per request type, then paid; needs a billing account"),
     Provider("BRAVE_SEARCH_API_KEY", "Brave Search", "Finding prospects", "Better company-name to website matching.", "https://brave.com/search/api/", "Free plan with limits, then paid"),
+    Provider("COMPANIES_HOUSE_API_KEY", "Companies House (UK)", "Finding prospects", "Newly registered UK companies for the Lead Finder. The register lists name, address and business type only, never a website or email.", "https://developer.company-information.service.gov.uk/get-started", "Free"),
     Provider("SAM_GOV_API_KEY", "SAM.gov", "Finding prospects", "US federal tenders.", "https://sam.gov/content/home", "Free"),
     Provider("GITHUB_TOKEN", "GitHub token", "Finding prospects", "Higher rate limit for the GitHub bounty feed.", "https://github.com/settings/tokens", "Free"),
     Provider("UPWORK_CLIENT_ID", "Upwork client ID", "Finding prospects", "Upwork job feed (needs API access approved by Upwork).", "https://www.upwork.com/developer/keys/apply", "Free, by approval", False),
@@ -57,6 +58,21 @@ PROVIDERS: List[Provider] = [
     Provider("RESEND_API_KEY", "Resend", "Sending", "Email delivery provider.", "https://resend.com/api-keys", "Free tier, then paid"),
     Provider("SENDGRID_API_KEY", "SendGrid", "Sending", "Email delivery provider.", "https://app.sendgrid.com/settings/api_keys", "Free tier, then paid"),
     Provider("SLACK_WEBHOOK_URL", "Slack webhook", "Notifications", "Daily digest and new-vulnerability alerts.", "https://api.slack.com/messaging/webhooks", "Free", True, _starts("https://hooks.slack.com/", "A Slack webhook")),
+    Provider("ALERT_IMAP_HOST", "Alert mailbox: server", "Message alerts", "The IMAP server of the mailbox where Fiverr, Upwork and LinkedIn send your message notifications, for example imap.gmail.com.", "https://support.google.com/mail/answer/7126229", "Free", False,
+             lambda v: None if re.fullmatch(r"[A-Za-z0-9.-]{4,253}", v) and "." in v else "Enter a server name such as imap.gmail.com"),
+    Provider("ALERT_IMAP_USER", "Alert mailbox: address", "Message alerts", "The email address of that mailbox.", "https://support.google.com/mail/answer/7126229", "Free", False,
+             lambda v: None if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", v) else "Enter an email address"),
+    Provider("ALERT_IMAP_PASSWORD", "Alert mailbox: app password", "Message alerts", "An app password, never your normal password. Read-only use: messages are never changed, moved or deleted.", "https://myaccount.google.com/apppasswords", "Free"),
+    Provider("TELEGRAM_BOT_TOKEN", "Telegram bot token", "Message alerts", "Free, official and instant. Create a bot with @BotFather, then send it any message so it can reply to you.", "https://core.telegram.org/bots#how-do-i-create-a-bot", "Free",
+             True, lambda v: None if re.fullmatch(r"\d{6,12}:[A-Za-z0-9_-]{30,}", v) else "A Telegram token looks like 123456789:AAH... (from @BotFather)"),
+    Provider("WHATSAPP_CLOUD_TOKEN", "WhatsApp Cloud API token", "Message alerts", "Meta's official WhatsApp Business Cloud API. Meta changed its pricing in October 2026, so check the current free allowance before relying on it.", "https://developers.facebook.com/docs/whatsapp/cloud-api/get-started", "Free allowance, then per message; check Meta"),
+    Provider("WHATSAPP_PHONE_NUMBER_ID", "WhatsApp phone number ID", "Message alerts", "The ID of your WhatsApp Business test or business number, from the Meta developer console.", "https://developers.facebook.com/docs/whatsapp/cloud-api/get-started", "Free", False,
+             lambda v: None if re.fullmatch(r"\d{8,20}", v) else "The ID is a long number"),
+    Provider("TWILIO_ACCOUNT_SID", "Twilio account SID", "Message alerts", "For real phone calls. A trial account can only call numbers you verified (your own), with a small total allowance.", "https://www.twilio.com/docs/usage/trials", "Free trial, then per minute", False,
+             _starts("AC", "A Twilio account SID")),
+    Provider("TWILIO_AUTH_TOKEN", "Twilio auth token", "Message alerts", "Pairs with the account SID.", "https://console.twilio.com/", "Free trial, then per minute"),
+    Provider("TWILIO_FROM_NUMBER", "Twilio phone number", "Message alerts", "The number the call comes from, in the form +15551234567.", "https://console.twilio.com/", "Free trial, then monthly", False,
+             lambda v: None if re.fullmatch(r"\+\d{8,15}", v) else "Use the international form, for example +15551234567"),
     Provider("HUBSPOT_ACCESS_TOKEN", "HubSpot", "CRM", "Sync deals to HubSpot.", "https://developers.hubspot.com/docs/api/private-apps", "Free CRM available"),
 ]
 BY_NAME = {p.name: p for p in PROVIDERS}
@@ -176,7 +192,8 @@ TESTS: Dict[str, Callable[[str], Tuple[Optional[bool], str]]] = {
     "BRAVE_SEARCH_API_KEY": lambda k: _result(_get("https://api.search.brave.com/res/v1/web/search?q=test&count=1", {"X-Subscription-Token": k, "Accept": "application/json"}), bad_codes=(401, 403, 422)),
     "NVD_API_KEY": lambda k: _result(_get("https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=1", {"apiKey": k})),
     "GITHUB_TOKEN": lambda k: _result(_get("https://api.github.com/rate_limit", {"Authorization": f"Bearer {k}", "User-Agent": "AgencyBD", "Accept": "application/vnd.github+json"}), bad_codes=(401, 403)),
-    "ANTHROPIC_API_KEY": lambda k: (True, "Mock AI model provider active.") if k.lower() in ("mock", "test", "demo") else _result(_get("https://api.anthropic.com/v1/models", {"x-api-key": k, "anthropic-version": "2023-06-01"})),
+    "ANTHROPIC_API_KEY": lambda k: _result(_get("https://api.anthropic.com/v1/models", {"x-api-key": k, "anthropic-version": "2023-06-01"})),
+    "TELEGRAM_BOT_TOKEN": lambda k: _result(_get(f"https://api.telegram.org/bot{k}/getMe"), bad_codes=(400, 401, 403, 404)),
 }
 
 

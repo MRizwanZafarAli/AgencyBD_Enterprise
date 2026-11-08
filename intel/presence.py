@@ -17,7 +17,7 @@ from intel.resolver import CompanyResolver, probe, name_tokens
 from intel.services import ServiceCatalog
 from net.validate import clean_domain
 
-SOCIAL_HOSTS = ("facebook.com", "instagram.com", "linktr.ee", "linktree.com", "twitter.com", "x.com", "linkedin.com", "tiktok.com", "wa.me", "wixsite.com", "business.site")
+SOCIAL_HOSTS = ("facebook.com", "instagram.com", "linktr.ee", "linktree.com", "twitter.com", "x.com", "linkedin.com", "tiktok.com", "wa.me", "wixsite.com", "business.site", "share.google", "g.page", "goo.gl", "maps.app.goo.gl")
 
 
 def _is_social(url: str) -> bool:
@@ -41,7 +41,7 @@ class PresenceRescueEngine:
 
         if provided_domain:
             domain = clean_domain(provided_domain).split(":")[0]
-            result = probe(domain, tokens)
+            result = probe(domain, tokens, timeout=20)
             if result is None:
                 classification, verified, confidence = "domain_unreachable", True, 0.7
                 note("fetch provided domain", f"{domain} could not be reached")
