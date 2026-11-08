@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 import { Target, Search, Sparkles, Radio, ArrowRight, RefreshCw, CheckCircle2, Clock } from 'lucide-react';
 import { Badge, Card, Skeletons, Button } from '../ui';
@@ -43,10 +43,13 @@ export const SdrDashboard: FC<{
     }
   };
 
-  const attention = d?.channels.filter((c) => c.followups_due || c.unanswered) ?? [];
-  const topOpps = (opps.data ?? [])
-    .filter((o) => (o.fit_score ?? 0) >= 0.5)
-    .slice(0, 4);
+  const oppsList = useMemo(() => (Array.isArray(opps.data) ? opps.data : []), [opps.data]);
+  const channelList = useMemo(() => (Array.isArray(d?.channels) ? d.channels : []), [d?.channels]);
+  const attention = useMemo(() => channelList.filter((c) => c.followups_due || c.unanswered), [channelList]);
+  const topOpps = useMemo(
+    () => oppsList.filter((o) => (o.fit_score ?? 0) >= 0.5).slice(0, 4),
+    [oppsList]
+  );
 
   return (
     <div className="space-y-6">
@@ -89,7 +92,7 @@ export const SdrDashboard: FC<{
               className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
             />
           </div>
-          <Button variant="primary" onClick={() => onGo('find')}>
+          <Button variant="primary" onClick={() => (searchQuery.trim() && onSearch ? onSearch(searchQuery.trim()) : onGo('find'))}>
             <Search className="h-3.5 w-3.5" /> Hunt Prospects
           </Button>
           <Button onClick={() => onGo('channels')}>
@@ -102,7 +105,7 @@ export const SdrDashboard: FC<{
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <div className="bento-tile rounded-2xl p-4 border border-slate-800 bg-slate-900/60">
           <div className="text-xs text-slate-400">Total Opportunities</div>
-          <div className="text-2xl font-semibold text-white tabular mt-1">{opps.data?.length ?? '–'}</div>
+          <div className="text-2xl font-semibold text-white tabular mt-1">{oppsList.length}</div>
           <div className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
             <CheckCircle2 className="h-3 w-3" /> Job & tender signals
           </div>
@@ -143,7 +146,7 @@ export const SdrDashboard: FC<{
             </p>
           </div>
           <Button small onClick={() => onGo('find')}>
-            View All ({opps.data?.length ?? 0}) <ArrowRight className="h-3 w-3" />
+            View All ({oppsList.length}) <ArrowRight className="h-3 w-3" />
           </Button>
         </div>
 

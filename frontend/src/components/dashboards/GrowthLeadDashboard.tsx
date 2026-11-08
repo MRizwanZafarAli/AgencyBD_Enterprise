@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 import { TrendingUp, CheckCircle, XCircle, Send, ArrowRight, RefreshCw, Sparkles } from 'lucide-react';
 import { Badge, Card, Skeletons, Button } from '../ui';
@@ -29,6 +29,17 @@ interface Deal {
   company_name?: string;
 }
 
+interface PipelineResponse {
+  stages?: Record<string, Deal[]>;
+  total_pipeline_value?: number;
+  weighted_projected_revenue?: number;
+  active_deals?: number;
+  unvalued_deals?: number;
+  won_deals?: number;
+  lost_deals?: number;
+  total_deals?: number;
+}
+
 export const GrowthLeadDashboard: FC<{
   identity: Me;
   onGo: (s: Surface) => void;
@@ -37,7 +48,7 @@ export const GrowthLeadDashboard: FC<{
 }> = ({ identity, onGo }) => {
   const sum = useApi<TodaySummary>('/api/today/summary');
   const approvals = useApi<PendingApproval[]>('/api/approvals/pending');
-  const deals = useApi<Deal[]>('/api/pipeline/deals');
+  const deals = useApi<PipelineResponse | Deal[]>('/api/pipeline/deals');
   const d = sum.data;
 
   const [actingId, setActingId] = useState<number | null>(null);
@@ -66,7 +77,17 @@ export const GrowthLeadDashboard: FC<{
     }
   };
 
-  const pendingItems = approvals.data ?? [];
+  const pendingItems = Array.isArray(approvals.data) ? approvals.data : [];
+
+  const dealList: Deal[] = useMemo(() => {
+    if (!deals.data) return [];
+    if (Array.isArray(deals.data)) return deals.data;
+    if (typeof deals.data === 'object' && deals.data.stages && typeof deals.data.stages === 'object') {
+      const stagesObj = deals.data.stages as Record<string, Deal[]>;
+      return Object.values(stagesObj).flat();
+    }
+    return [];
+  }, [deals.data]);
 
   return (
     <div className="space-y-6">
@@ -219,18 +240,18 @@ export const GrowthLeadDashboard: FC<{
 
           {deals.loading && !deals.data ? (
             <Skeletons rows={3} />
-          ) : (deals.data ?? []).length === 0 ? (
+          ) : dealList.length === 0 ? (
             <p className="text-xs text-slate-400">No active commercial deals in pipeline.</p>
           ) : (
             <ul className="divide-y divide-slate-800">
-              {(deals.data ?? []).slice(0, 5).map((deal) => (
+              {dealList.slice(0, 5).map((deal) => (
                 <li key={deal.id} className="py-2.5 flex items-center justify-between text-xs">
                   <div>
                     <div className="font-medium text-slate-200">{deal.title}</div>
                     <div className="text-[11px] text-slate-500">{deal.company_name || 'Prospect Company'}</div>
                   </div>
                   <div className="text-right">
-                    <Badge tone="accent">{deal.stage.replace('_', ' ')}</Badge>
+                    <Badge tone="accent">{(deal.stage || 'sourced').replace('_', ' ')}</Badge>
                     <div className="font-mono text-emerald-400 font-semibold mt-0.5">
                       {deal.value ? `$${Math.round(deal.value).toLocaleString()}` : 'Unvalued'}
                     </div>

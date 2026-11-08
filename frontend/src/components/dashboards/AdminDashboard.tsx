@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 import { Server, Key, Users, Settings, Wrench, RefreshCw, Power } from 'lucide-react';
 import { Badge, Card, Skeletons, Button } from '../ui';
@@ -48,6 +48,8 @@ export const AdminDashboard: FC<{
       setHalting(false);
     }
   };
+
+  const checksList = useMemo(() => (Array.isArray(sys.data?.checks) ? sys.data.checks : []), [sys.data?.checks]);
 
   return (
     <div className="space-y-6">
@@ -198,7 +200,7 @@ export const AdminDashboard: FC<{
             <Skeletons rows={3} />
           ) : (
             <div className="space-y-2 text-xs">
-              {(sys.data?.checks ?? []).slice(0, 4).map((c) => (
+              {checksList.slice(0, 4).map((c) => (
                 <div key={c.key} className="flex items-center justify-between py-1.5 border-b border-slate-800">
                   <span className="text-slate-200">{c.label}</span>
                   <Badge tone={c.status === 'ok' ? 'good' : 'warn'}>{c.status.toUpperCase()}</Badge>

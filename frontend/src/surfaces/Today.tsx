@@ -5,6 +5,7 @@ import { AuditorDashboard } from '../components/dashboards/AuditorDashboard';
 import { SdrDashboard } from '../components/dashboards/SdrDashboard';
 import { GrowthLeadDashboard } from '../components/dashboards/GrowthLeadDashboard';
 import { AdminDashboard } from '../components/dashboards/AdminDashboard';
+import { ErrorBoundary } from '../components/shared/ErrorBoundary';
 
 export const Today: FC<{
   onOpenClient: (leadId: number) => void;
@@ -20,23 +21,37 @@ export const Today: FC<{
   }
 
   if (role === 'auditor') {
-    return <AuditorDashboard identity={identity} onGo={onGo} onOpenClient={onOpenClient} />;
+    return (
+      <ErrorBoundary fallbackTitle="Auditor Dashboard Error">
+        <AuditorDashboard identity={identity} onGo={onGo} onOpenClient={onOpenClient} />
+      </ErrorBoundary>
+    );
   }
 
   if (role === 'sdr_rep') {
-    return <SdrDashboard identity={identity} onGo={onGo} onOpenClient={onOpenClient} onSearch={onSearch} />;
+    return (
+      <ErrorBoundary fallbackTitle="SDR Dashboard Error">
+        <SdrDashboard identity={identity} onGo={onGo} onOpenClient={onOpenClient} onSearch={onSearch} />
+      </ErrorBoundary>
+    );
   }
 
   if (role === 'growth_lead') {
     return (
-      <GrowthLeadDashboard
-        identity={identity}
-        onGo={onGo}
-        onOpenClient={onOpenClient}
-        onSettings={onSettings}
-      />
+      <ErrorBoundary fallbackTitle="Growth Lead Dashboard Error">
+        <GrowthLeadDashboard
+          identity={identity}
+          onGo={onGo}
+          onOpenClient={onOpenClient}
+          onSettings={onSettings}
+        />
+      </ErrorBoundary>
     );
   }
 
-  return <AdminDashboard identity={identity} onGo={onGo} onSettings={onSettings} />;
+  return (
+    <ErrorBoundary fallbackTitle="Admin Dashboard Error">
+      <AdminDashboard identity={identity} onGo={onGo} onSettings={onSettings} />
+    </ErrorBoundary>
+  );
 };

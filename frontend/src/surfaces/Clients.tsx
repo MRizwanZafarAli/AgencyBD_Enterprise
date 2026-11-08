@@ -4,15 +4,32 @@ import { PageHeader, Tabs } from '../components/ui';
 import { PipelineBoard } from '../components/clients/Pipeline';
 import { ClientPage } from '../components/clients/ClientPage';
 import { SequencesManager } from '../components/modules/SequencesManager';
+import type { Me } from '../lib/api';
 
-export const Clients: FC<{ openLead: number | null; setOpenLead: (id: number | null) => void }> = ({ openLead, setOpenLead }) => {
+export const Clients: FC<{
+  openLead: number | null;
+  setOpenLead: (id: number | null) => void;
+  identity?: Me | null;
+}> = ({ openLead, setOpenLead, identity }) => {
   const [tab, setTab] = useState('pipeline');
+  const isAuditor = identity?.role === 'auditor';
+  const tabs = isAuditor
+    ? [{ id: 'pipeline', label: 'Pipeline' }]
+    : [{ id: 'pipeline', label: 'Pipeline' }, { id: 'outreach', label: 'Email sequences' }];
+
   return (
     <div>
-      <PageHeader title="Clients" subtitle="Everyone you are working with, from first look to won or lost. Click a client for its audit, contacts and drafts." />
-      <Tabs tabs={[{ id: 'pipeline', label: 'Pipeline' }, { id: 'outreach', label: 'Email sequences' }]} active={tab} onChange={setTab} />
+      <PageHeader
+        title="Clients"
+        subtitle={
+          isAuditor
+            ? 'Monitored accounts, technical audits, and lead profiles for compliance inspection.'
+            : 'Everyone you are working with, from first look to won or lost. Click a client for its audit, contacts and drafts.'
+        }
+      />
+      <Tabs tabs={tabs} active={tab} onChange={setTab} />
       {tab === 'pipeline' && <PipelineBoard onOpen={setOpenLead} />}
-      {tab === 'outreach' && <SequencesManager />}
+      {!isAuditor && tab === 'outreach' && <SequencesManager />}
       <ClientPage leadId={openLead} onClose={() => setOpenLead(null)} />
     </div>
   );

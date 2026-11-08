@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { FC } from 'react';
 import { Shield, CheckCircle2, AlertCircle, FileCheck, ExternalLink, RefreshCw } from 'lucide-react';
 import { Badge, Card, Skeletons, Button } from '../ui';
@@ -17,6 +17,18 @@ interface Lead {
   stage?: string;
   audit?: { score?: number; mobile_friendly?: boolean; slow?: boolean };
 }
+
+const formatDate = (at?: string): string => {
+  if (!at) return '';
+  try {
+    const iso = at.replace(' ', 'T') + (at.includes('Z') || at.includes('+') ? '' : 'Z');
+    const dt = new Date(iso);
+    if (isNaN(dt.getTime())) return at;
+    return dt.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  } catch {
+    return at;
+  }
+};
 
 export const AuditorDashboard: FC<{
   identity: Me;
@@ -53,6 +65,9 @@ export const AuditorDashboard: FC<{
       setChecking(false);
     }
   };
+
+  const leadsList = useMemo(() => (Array.isArray(leads.data) ? leads.data : []), [leads.data]);
+  const activityList = useMemo(() => (Array.isArray(d?.activity) ? d.activity : []), [d?.activity]);
 
   return (
     <div className="space-y-6">
@@ -102,14 +117,14 @@ export const AuditorDashboard: FC<{
 
         <div className="bento-tile rounded-2xl p-4 border border-slate-800 bg-slate-900/60">
           <div className="text-xs text-slate-400">Audit Trail Events</div>
-          <div className="text-2xl font-semibold text-indigo-300 tabular mt-1">{d?.activity.length ?? 0}</div>
+          <div className="text-2xl font-semibold text-indigo-300 tabular mt-1">{activityList.length}</div>
           <div className="text-[11px] text-slate-400 mt-1">System & user actions</div>
           <div className="text-[11px] text-slate-500">Immutable governance trail</div>
         </div>
 
         <div className="bento-tile rounded-2xl p-4 border border-slate-800 bg-slate-900/60">
           <div className="text-xs text-slate-400">Companies In Scope</div>
-          <div className="text-2xl font-semibold text-white tabular mt-1">{leads.data?.length ?? 0}</div>
+          <div className="text-2xl font-semibold text-white tabular mt-1">{leadsList.length}</div>
           <div className="text-[11px] text-slate-400 mt-1">Evaluated for disclosures</div>
           <div className="text-[11px] text-slate-500">Read-only verification</div>
         </div>
@@ -190,7 +205,7 @@ export const AuditorDashboard: FC<{
 
           {leads.loading && !leads.data ? (
             <Skeletons rows={3} />
-          ) : (leads.data ?? []).length === 0 ? (
+          ) : leadsList.length === 0 ? (
             <p className="text-xs text-slate-400">No audited companies in scope yet.</p>
           ) : (
             <div className="overflow-x-auto">
@@ -203,7 +218,7 @@ export const AuditorDashboard: FC<{
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {(leads.data ?? []).slice(0, 5).map((l) => (
+                  {leadsList.slice(0, 5).map((l) => (
                     <tr key={l.id} className="hover:bg-slate-900/40">
                       <td className="py-2 font-medium text-slate-200">{l.company_name}</td>
                       <td className="py-2 text-slate-400">{l.domain || '–'}</td>
@@ -231,21 +246,18 @@ export const AuditorDashboard: FC<{
           </div>
           {sum.loading && !d ? (
             <Skeletons rows={3} />
-          ) : (d?.activity ?? []).length === 0 ? (
+          ) : activityList.length === 0 ? (
             <p className="text-xs text-slate-400">Audit trail log is clear.</p>
           ) : (
             <ul className="space-y-2.5">
-              {(d?.activity ?? []).slice(0, 6).map((a, i) => (
+              {activityList.slice(0, 6).map((a, i) => (
                 <li key={`${a.at}-${i}`} className="flex gap-2 text-xs">
                   <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" aria-hidden="true" />
                   <span className="flex-1 min-w-0 text-slate-300 truncate">
                     {a.what} {a.company ? `· ${a.company}` : ''}
                   </span>
                   <time className="text-slate-500 shrink-0 tabular" dateTime={a.at}>
-                    {new Date(a.at.replace(' ', 'T') + (a.at.includes('Z') || a.at.includes('+') ? '' : 'Z')).toLocaleString(
-                      undefined,
-                      { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }
-                    )}
+                    {formatDate(a.at)}
                   </time>
                 </li>
               ))}
