@@ -210,6 +210,8 @@ class LLMGateway:
     @classmethod
     def _call_ollama(cls, prompt: str, system: Optional[str]) -> Dict[str, Any]:
         host = os.environ["OLLAMA_HOST"].rstrip("/")  # operator-configured, never request-derived
+        if not host.lower().startswith(("http://", "https://")):
+            raise RuntimeError("OLLAMA_HOST must start with http:// or https://")             # never file:// or another scheme
         payload = {"model": os.getenv("OLLAMA_MODEL", "llama3.1:8b"), "prompt": prompt, "stream": False}
         if system:
             payload["system"] = system

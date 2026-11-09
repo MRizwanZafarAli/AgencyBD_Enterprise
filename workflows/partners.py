@@ -90,11 +90,13 @@ def list_partners(org_id: str, today: Optional[date] = None) -> Dict[str, Any]:
 def create(org_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     c = clean(data)
     with get_db() as db:
-        if db.execute("SELECT COUNT(*) FROM partners WHERE org_id = ?", (org_id,)).fetchone()[0] >= LIMIT:
-            raise ValueError(f"You can keep up to {LIMIT} partners.")
-        cur = db.execute("INSERT INTO partners (org_id, name, kind, contact_name, contact_where, website, stage, offer, next_step_date, notes) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                         (org_id, c["name"], c["kind"], c["contact_name"], c["contact_where"], c["website"], c["stage"], c["offer"], c["next_step_date"], c["notes"]))
+        # one statement: the limit check and the insert cannot be split by another request (QA saw 210 saved against a limit of 200)
+        cur = db.execute("INSERT INTO partners (org_id, name, kind, contact_name, contact_where, website, stage, offer, next_step_date, notes) "
+                         "SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM partners WHERE org_id = ?) < ?",
+                         (org_id, c["name"], c["kind"], c["contact_name"], c["contact_where"], c["website"], c["stage"], c["offer"], c["next_step_date"], c["notes"], org_id, LIMIT))
         db.commit()
+        if cur.rowcount == 0:
+            raise ValueError(f"You can keep up to {LIMIT} partners.")
     return get(org_id, cur.lastrowid)
 
 

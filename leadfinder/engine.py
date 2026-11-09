@@ -59,11 +59,12 @@ def _check(name: str, source: str, params: Dict[str, Any], every_hours: int) -> 
 def create_search(org_id: str, name: str, source: str, params: Dict[str, Any], notify: bool = True, every_hours: int = 24) -> Dict[str, Any]:
     clean = _check(name, source, params, every_hours)
     with get_db() as db:
-        if db.execute("SELECT COUNT(*) FROM lead_searches WHERE org_id = ?", (org_id,)).fetchone()[0] >= MAX_SEARCHES:
-            raise ValueError(f"You can keep up to {MAX_SEARCHES} saved searches. Delete one first.")
-        cur = db.execute("INSERT INTO lead_searches (org_id, name, source, params_json, notify, every_hours) VALUES (?, ?, ?, ?, ?, ?)",
-                         (org_id, name.strip(), source, json.dumps(clean), int(notify), every_hours))
+        cur = db.execute("INSERT INTO lead_searches (org_id, name, source, params_json, notify, every_hours) "
+                         "SELECT ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM lead_searches WHERE org_id = ?) < ?",
+                         (org_id, name.strip(), source, json.dumps(clean), int(notify), every_hours, org_id, MAX_SEARCHES))
         db.commit()
+        if cur.rowcount == 0:
+            raise ValueError(f"You can keep up to {MAX_SEARCHES} saved searches. Delete one first.")
         sid = cur.lastrowid
     return get_search(org_id, sid)
 

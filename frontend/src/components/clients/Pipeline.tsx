@@ -11,7 +11,7 @@ interface Deal { id: number; company_name: string; domain: string; deal_value: n
 interface Pipeline {
   active_deals_count: number; won_deals_count: number; lost_deals_count: number; unvalued_deals_count: number; total_pipeline_value: number;
   weighted_projected_revenue: number; win_rate_percent: number | null; projection_note: string;
-  stages: Record<string, { count: number; leads: Deal[] }>;
+  stages: Record<string, { count: number; leads: Deal[]; truncated?: boolean }>;
 }
 
 const STAGES: Array<{ id: string; label: string }> = [
@@ -88,6 +88,7 @@ export const PipelineBoard: FC<{ onOpen: (leadId: number) => void }> = ({ onOpen
         <EmptyState title="No clients yet" hint="Save businesses from Find, or add one by hand. Each one gets a page with its audit, contacts and drafts." />
       ) : d && (
         <div className="overflow-x-auto pb-2">
+          {Object.values(d.stages).some((st) => st.truncated) && <p role="status" className="text-xs text-slate-400 mb-2">Each column shows its newest 300 clients. The counts and totals include everyone.</p>}
           <div className="grid grid-flow-col auto-cols-[minmax(220px,1fr)] gap-3 min-w-max">
             {STAGES.map((s) => (
               <div key={s.id} className="rounded-xl bg-slate-900/50 border border-slate-800 p-2.5 w-60">

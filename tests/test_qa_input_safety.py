@@ -85,3 +85,25 @@ def test_api_errors_never_show_internals(client, make_key):
         r = client.get(url, headers=h) if "run" not in url else client.post(url, headers=h)
         body = r.text
         assert "Traceback" not in body and "File \"/" not in body and "sqlite3" not in body and "/Applications/" not in body, f"{url}: {body[:200]}"
+
+
+def test_the_pipeline_never_sends_an_unbounded_list_but_counts_everyone(client, make_key):
+    from database.models import PIPELINE_MAX_PER_STAGE
+    h = make_key("growth_lead", "org_big")
+    with get_db() as db:
+        db.executemany("INSERT INTO leads (org_id, company_name, domain, source_channel, status) VALUES ('org_big', ?, ?, 'x', 'sourced')",
+                       [(f"Co {i}", f"co{i}.example") for i in range(PIPELINE_MAX_PER_STAGE + 25)])
+        db.commit()
+    stage = client.get("/api/pipeline/deals", headers=h).json()["stages"]["sourced"]
+    assert stage["count"] == PIPELINE_MAX_PER_STAGE + 25 and len(stage["leads"]) == PIPELINE_MAX_PER_STAGE and stage["truncated"] is True
+    assert stage["leads"][0]["company_name"] == f"Co {PIPELINE_MAX_PER_STAGE + 24}"                    # newest first
+
+
+def test_every_answer_carries_the_security_headers(client, make_key):
+    for path in ("/healthz/live", "/api/auth/tiers", "/"):
+        h = client.get(path).headers
+        assert h["x-content-type-options"] == "nosniff" and h["x-frame-options"] == "SAMEORIGIN" and h["referrer-policy"] == "no-referrer"
+        csp = h["content-security-policy"]
+        assert "default-src 'self'" in csp and "script-src 'self'" in csp and "object-src 'none'" in csp and "frame-ancestors 'self'" in csp
+        assert "unsafe-eval" not in csp and "script-src 'self' 'unsafe-inline'" not in csp          # scripts can never be injected inline
+        assert "camera=()" in h["permissions-policy"]

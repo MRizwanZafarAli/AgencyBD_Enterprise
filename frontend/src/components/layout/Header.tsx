@@ -46,9 +46,9 @@ export const Header: FC<HeaderProps> = ({ halted, onToggleHalt, setMobileMenuOpe
         <span className={`hidden sm:flex items-center gap-1.5 text-xs ${api.ok ? 'text-emerald-400' : 'text-rose-400'}`} role="status">
           <span className={`h-2 w-2 rounded-full ${api.ok ? 'bg-emerald-500' : 'bg-rose-500'}`} />{api.ok ? 'Online' : 'Offline'}{api.ms !== null && <span className="text-slate-500 tabular hidden xl:inline">{api.ms} ms</span>}
         </span>
-        <button onClick={onToggleHalt} title={halted ? 'Sending is stopped. Click to resume.' : 'Stop all sending for this workspace, including scheduled emails'}
+        <button onClick={onToggleHalt} aria-label={halted ? 'Resume sending' : 'Stop sending'} title={halted ? 'Sending is stopped. Click to resume.' : 'Stop all sending for this workspace, including scheduled emails'}
           className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold ${halted ? 'bg-rose-500/15 border-rose-500/50 text-rose-300' : 'border-slate-700 text-slate-300 hover:border-rose-500/50 hover:text-rose-300'}`}>
-          {halted ? <Play className="h-3.5 w-3.5" /> : <OctagonX className="h-3.5 w-3.5" />}<span className="hidden sm:inline">{halted ? 'Resume sending' : 'Stop sending'}</span>
+          {halted ? <Play className="h-3.5 w-3.5" /> : <OctagonX className="h-3.5 w-3.5" />}<span className="hidden sm:inline">{halted ? 'Resume sending' : 'Stop sending'}</span><span className="sm:hidden" aria-hidden="true">{halted ? 'Resume' : 'Stop'}</span>
         </button>
         <button onClick={toggleTheme} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/60" aria-label="Toggle light and dark theme">{theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</button>
       </div>

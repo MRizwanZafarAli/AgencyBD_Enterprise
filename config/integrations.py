@@ -72,7 +72,7 @@ PROVIDERS: List[Provider] = [
              _starts("AC", "A Twilio account SID")),
     Provider("TWILIO_AUTH_TOKEN", "Twilio auth token", "Message alerts", "Pairs with the account SID.", "https://console.twilio.com/", "Free trial, then per minute"),
     Provider("TWILIO_FROM_NUMBER", "Twilio phone number", "Message alerts", "The number the call comes from, in the form +15551234567.", "https://console.twilio.com/", "Free trial, then monthly", False,
-             lambda v: None if re.fullmatch(r"\+\d{8,15}", v) else "Use the international form, for example +15551234567"),
+             lambda v: None if re.fullmatch(r"\+[1-9]\d{7,14}", v) else "Use the international form, for example +15551234567"),
     Provider("HUBSPOT_CLIENT_SECRET", "HubSpot client secret", "CRM", "Lets HubSpot send deal and contact changes to this app. Every HubSpot call is checked against this secret, and without it the endpoint refuses everything.", "https://developers.hubspot.com/docs/api/webhooks/validating-requests", "Free CRM available"),
     Provider("HUBSPOT_ACCESS_TOKEN", "HubSpot", "CRM", "Sync deals to HubSpot.", "https://developers.hubspot.com/docs/api/private-apps", "Free CRM available"),
 ]

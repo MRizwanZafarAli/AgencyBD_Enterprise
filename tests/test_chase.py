@@ -40,10 +40,18 @@ def test_recent_activity_and_other_stages_are_left_alone():
     assert chase.to_chase(ORG, TODAY) == []
 
 
+def written_long_ago():
+    """Notes are stamped with the real clock when they are added; the scenario's clock is fixed, so move them into the scenario's past."""
+    with get_db() as db:
+        db.execute("UPDATE client_notes SET created_at = '2026-10-01 09:00:00'")
+        db.commit()
+
+
 def test_a_planned_follow_up_in_the_future_covers_the_client_but_an_overdue_one_does_not():
     a, b = lead("Planned", "meeting_booked", 6), lead("Late", "meeting_booked", 6)
     client_notes.add(ORG, a, "task", "Call about the proposal", (TODAY + timedelta(days=2)).isoformat(), "u")
     client_notes.add(ORG, b, "task", "Call about the proposal", (TODAY - timedelta(days=1)).isoformat(), "u")
+    written_long_ago()
     assert [c["company"] for c in chase.to_chase(ORG, TODAY)] == ["Late"]
     client_notes.add(ORG, b, "task", "Follow up", TODAY.isoformat(), "u")        # one due today counts as planned
     assert chase.to_chase(ORG, TODAY) == []

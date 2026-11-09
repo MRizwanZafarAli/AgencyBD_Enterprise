@@ -9,6 +9,9 @@ from typing import List, Optional, Dict, Any
 from database.db import get_db, log_audit_trail, is_entity_suppressed, add_entity_to_suppression
 from database.security_vault import SecurityVault
 
+PIPELINE_MAX_PER_STAGE = 300        # a board column shows the newest 300; QA measured a 20 MB answer at 50,000 clients without this
+
+
 class LeadRepository:
     @staticmethod
     def create_or_get_lead(
@@ -88,7 +91,7 @@ class LeadRepository:
             conn.commit()
 
     @staticmethod
-    def get_pipeline(org_id: str = "org_default") -> Dict[str, Any]:
+    def get_pipeline(org_id: str = "org_default", max_per_stage: Optional[int] = PIPELINE_MAX_PER_STAGE) -> Dict[str, Any]:
         """Returns structured CRM pipeline deals grouped by stage with live revenue totals."""
         import re
         stages: Dict[str, List[Dict[str, Any]]] = {
@@ -182,8 +185,9 @@ class LeadRepository:
                 "count": len(s_leads),
                 "value": s_val,
                 "win_rate": stage_weights.get(s_key, 0.1),
-                "leads": s_leads
+                "leads": s_leads[:max_per_stage] if max_per_stage else s_leads,    # newest first; counts and values above always cover every client
             }
+            s_info["truncated"] = len(s_info["leads"]) < s_info["count"]
             formatted_stages[s_key] = s_info
             if s_key == "won":
                 formatted_stages["closed_won"] = s_info

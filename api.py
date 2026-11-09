@@ -136,9 +136,18 @@ async def security_headers(request: Request, call_next):
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
+    if not request.url.path.startswith(("/docs", "/redoc")):            # the API docs page loads its viewer from a CDN, so it is left out
+        response.headers.setdefault("Content-Security-Policy", CONTENT_SECURITY_POLICY)
     if request.url.path.startswith("/api/"):
         response.headers.setdefault("Cache-Control", "no-store")
     return response
+
+
+# Only this app's own scripts run; the one outside resource is OpenStreetMap tiles for the map. QA found the app sent no policy at all.
+CONTENT_SECURITY_POLICY = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+                           "img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org; font-src 'self' data:; "
+                           "connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'")
 
 
 @app.exception_handler(SSRFSecurityError)
