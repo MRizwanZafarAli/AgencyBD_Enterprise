@@ -468,3 +468,11 @@ a { color: inherit; }
 
 /* Big headings: tight, confident */
 h1 { letter-spacing: -0.025em; }
+
+/* ==============================================================================
+   Touch and pointer targets: at least 24 by 24 CSS pixels (WCAG 2.2, 2.5.8), found by the QA sweep
+   ============================================================================== */
+button[class*="hover:underline"], a[class*="hover:underline"] { display: inline-flex; align-items: center; min-height: 24px; }
+button:has(> svg:only-child), a:has(> svg:only-child) { min-width: 24px; min-height: 24px; display: inline-flex; align-items: center; justify-content: center; }
+select { min-height: 2rem; }
+input[type="checkbox"], input[type="radio"] { width: 1.125rem; height: 1.125rem; }

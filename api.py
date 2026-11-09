@@ -1631,6 +1631,22 @@ def assistant_chat(req: AssistantChatRequest, principal: Principal = Depends(req
 
 
 # ==================== Unified Sovereign Frontend Mount ====================
+def safe_static_path(root: str, requested: str) -> Optional[str]:
+    """The file a URL may download from the web app's folder, or None. Refuses anything that resolves outside the folder
+    (`../`, encoded `..%2f`, an absolute path after `//`, symlinks) and hidden files such as .env. QA found the earlier plain
+    os.path.join let anyone read /etc/passwd and the project's .env without signing in."""
+    try:
+        base = os.path.realpath(root)
+        path = os.path.realpath(os.path.join(base, requested.lstrip("/\\")))
+    except (ValueError, OSError):                              # for example a null byte
+        return None
+    if not requested or not (path == base or path.startswith(base + os.sep)) or not os.path.isfile(path):
+        return None
+    if any(part.startswith(".") for part in os.path.relpath(path, base).split(os.sep)):
+        return None
+    return path
+
+
 frontend_dist = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend", "dist")
 if os.path.exists(frontend_dist):
     assets_dir = os.path.join(frontend_dist, "assets")
@@ -1643,8 +1659,8 @@ if os.path.exists(frontend_dist):
         if full_path.startswith("api/") or full_path.startswith("healthz/") or full_path == "metrics":
             raise HTTPException(status_code=404, detail="API route not found")
 
-        file_path = os.path.join(frontend_dist, full_path)
-        if full_path and os.path.isfile(file_path):
+        file_path = safe_static_path(frontend_dist, full_path)
+        if file_path:
             return FileResponse(file_path)
 
         index_file = os.path.join(frontend_dist, "index.html")

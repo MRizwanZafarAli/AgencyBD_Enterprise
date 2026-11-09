@@ -4,10 +4,13 @@ Handles inbound webhook updates from HubSpot, Salesforce, Zapier, Make, and n8n,
 keeping deal stages, client notes, and win states bidirectionally in sync.
 """
 
+import base64
 import hashlib
 import hmac
 import json
+import os
 import re
+import time
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
@@ -115,16 +118,37 @@ def sync_generic_crm_update(
     }
 
 
+def _hubspot_signature_ok(request: Request, body: bytes, secret: str) -> bool:
+    """HubSpot v3 signature: base64(HMAC-SHA256(client secret, "POST" + public URL + body + timestamp)), valid for 5 minutes."""
+    sig, ts = request.headers.get("x-hubspot-signature-v3"), request.headers.get("x-hubspot-request-timestamp")
+    if not sig or not ts:
+        return False
+    try:
+        sent_ms = int(ts)
+    except ValueError:
+        return False
+    if abs(time.time() * 1000 - sent_ms) > 5 * 60 * 1000:
+        return False                                                  # stale or replayed
+    base = (os.getenv("AGENCYBD_PUBLIC_BASE_URL") or "").rstrip("/")
+    uri = (base + request.url.path) if base else str(request.url)
+    message = f"POST{uri}{body.decode('utf-8', 'replace')}{ts}".encode("utf-8")
+    expected = base64.b64encode(hmac.new(secret.encode("utf-8"), message, hashlib.sha256).digest()).decode()
+    return hmac.compare_digest(expected, sig)
+
+
 @router.post("/hubspot")
-async def hubspot_inbound_webhook(
-    request: Request,
-    x_hubspot_signature: Optional[str] = Header(None)
-):
+async def hubspot_inbound_webhook(request: Request):
     """
-    Public inbound webhook listener for HubSpot contact and deal change events.
-    Matches domain to existing workspace records and synchronizes stage.
+    Inbound HubSpot change events. Open to HubSpot only: every call must carry a valid HubSpot v3 signature made with your
+    HUBSPOT_CLIENT_SECRET, and without that secret the endpoint refuses everything. Changes apply only to this installation's workspace.
     """
+    from config.honesty import NotConfiguredError
+    secret = (os.getenv("HUBSPOT_CLIENT_SECRET") or "").strip()
+    if not secret:
+        raise NotConfiguredError("hubspot_webhook", "Set HUBSPOT_CLIENT_SECRET (Settings > Integrations and keys) before HubSpot can send events here.")
     body_bytes = await request.body()
+    if not _hubspot_signature_ok(request, body_bytes, secret):
+        raise HTTPException(status_code=401, detail="Invalid or missing HubSpot signature.")
     try:
         events = json.loads(body_bytes.decode("utf-8"))
         if not isinstance(events, list):
@@ -132,20 +156,21 @@ async def hubspot_inbound_webhook(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON payload")
 
+    org = os.getenv("AGENCYBD_WEBHOOK_ORG_ID", "org_default")
     synced_events = []
     with get_db() as db:
         for ev in events:
+            if not isinstance(ev, dict):
+                continue
             prop_name = ev.get("propertyName", "")
             prop_val = str(ev.get("propertyValue", "")).lower()
             obj_id = ev.get("objectId")
 
             if prop_name in ("lifecyclestage", "dealstage", "hs_pipeline_stage") and prop_val in STAGE_MAP:
                 target_stage = STAGE_MAP[prop_val]
-                db.execute(
-                    "UPDATE leads SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-                    (target_stage, obj_id)
-                )
-                synced_events.append({"object_id": obj_id, "new_stage": target_stage})
+                changed = db.execute("UPDATE leads SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND org_id = ?", (target_stage, obj_id, org)).rowcount
+                if changed:
+                    synced_events.append({"object_id": obj_id, "new_stage": target_stage})
 
         db.commit()
 

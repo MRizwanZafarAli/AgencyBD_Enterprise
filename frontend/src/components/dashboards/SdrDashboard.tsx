@@ -54,7 +54,7 @@ export const SdrDashboard: FC<{
   return (
     <div className="space-y-6">
       {/* Role Identity Banner */}
-      <div className="rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 to-slate-900/60 p-5 backdrop-blur-sm">
+      <div className="bento-tile rounded-3xl p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold">

@@ -152,12 +152,12 @@ def test_crm_sync_inbound_endpoints(client, admin_headers):
     assert sync_res.json()["deal_stage"] == "proposal_sent"
     assert sync_res.json()["deal_value"] == 25000.0
 
-    # Inbound HubSpot webhook
+    # Inbound HubSpot webhook: refused until a secret is set and the call is signed (see test_crm_webhook_security.py)
     hs_res = client.post(
         "/api/integrations/crm/hubspot",
         json=[{"objectId": 1, "propertyName": "lifecyclestage", "propertyValue": "customer"}]
     )
-    assert hs_res.status_code == 200
+    assert hs_res.status_code == 503
 
     # Export all
     exp_res = client.get("/api/integrations/crm/export-all", headers=admin_headers)

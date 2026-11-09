@@ -54,7 +54,7 @@ export const AdminDashboard: FC<{
   return (
     <div className="space-y-6">
       {/* Role Identity Banner */}
-      <div className="rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 to-slate-900/60 p-5 backdrop-blur-sm">
+      <div className="bento-tile rounded-3xl p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold">
@@ -145,10 +145,10 @@ export const AdminDashboard: FC<{
         <Card>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Key className="h-4 w-4 text-amber-400" /> Team Roles & Access Keys
+              <Key className="h-4 w-4 text-amber-400" /> Team roles and access
             </h2>
-            <button onClick={() => onSettings('security')} className="text-xs text-indigo-400 hover:underline">
-              Security Keys Panel
+            <button onClick={() => onSettings('team')} className="text-xs text-indigo-400 hover:underline">
+              Access and passwords
             </button>
           </div>
 

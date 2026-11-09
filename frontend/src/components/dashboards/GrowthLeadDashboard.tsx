@@ -92,7 +92,7 @@ export const GrowthLeadDashboard: FC<{
   return (
     <div className="space-y-6">
       {/* Role Identity Banner */}
-      <div className="rounded-2xl border border-teal-500/30 bg-gradient-to-r from-teal-950/40 to-slate-900/60 p-5 backdrop-blur-sm">
+      <div className="bento-tile rounded-3xl p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center font-bold">
@@ -141,7 +141,7 @@ export const GrowthLeadDashboard: FC<{
           <div className="text-xs text-slate-400">Prospect Inbound Replies</div>
           <div className="text-2xl font-semibold text-indigo-300 tabular mt-1">{d?.kpis.replies.now ?? 0}</div>
           <div className="text-[11px] text-slate-400 mt-1">Responses to triage</div>
-          <div className="text-[11px] text-slate-500">High conversion intent</div>
+          <div className="text-[11px] text-slate-500">Replies waiting to be read</div>
         </div>
 
         <div className="bento-tile rounded-2xl p-4 border border-slate-800 bg-slate-900/60">

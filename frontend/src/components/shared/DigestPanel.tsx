@@ -101,7 +101,7 @@ export const DigestPanel: FC<DigestPanelProps> = ({ onRefresh }) => {
           <span>Synthesizing today's top opportunities...</span>
         </div>
       ) : digest && digest.text && digest.text.trim().length > 0 ? (
-        <pre className="text-xs text-slate-300 whitespace-pre-wrap font-mono leading-relaxed bg-slate-900/50 p-3.5 rounded-xl border border-slate-800/60 overflow-x-auto max-h-60">
+        <pre tabIndex={0} aria-label="Digest text (scrollable)" className="text-xs text-slate-300 whitespace-pre-wrap font-mono leading-relaxed bg-slate-900/50 p-3.5 rounded-xl border border-slate-800/60 overflow-x-auto max-h-60">
           {digest.text}
         </pre>
       ) : (

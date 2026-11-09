@@ -24,6 +24,8 @@ import { useShortcuts } from './lib/useShortcuts';
 
 const DEFAULT_SURFACES: Surface[] = ['today'];
 
+const SURFACE_LABEL: Record<Surface, string> = { today: 'Today', find: 'Find', clients: 'Clients', channels: 'Channels', tools: 'Tools', settings: 'Settings' };
+
 export const ALLOWED_SURFACES: Record<string, Surface[]> = {
   super_admin: ['today', 'find', 'clients', 'channels', 'tools', 'settings'],
   growth_lead: ['today', 'find', 'clients', 'channels', 'tools'],
@@ -68,6 +70,9 @@ export function App() {
       setSurface('today');
     }
   }, [me, surface]);
+
+  // Each screen has its own tab title, so history, bookmarks and screen readers can tell them apart
+  useEffect(() => { document.title = me ? `${SURFACE_LABEL[surface]} | AgencyBD` : 'Sign in | AgencyBD'; }, [me, surface]);
 
   // The stop-sending switch lives on the server, so it also stops scheduled sends.
   useEffect(() => {
@@ -133,7 +138,6 @@ export function App() {
   if (checking) return <div className="min-h-screen" />;
   if (!me) return <AuthGate onAuthenticated={setMe} notice={authNotice} />;
 
-  const SURFACE_LABEL: Record<Surface, string> = { today: 'Today', find: 'Find', clients: 'Clients', channels: 'Channels', tools: 'Tools', settings: 'Settings' };
   const crumbs = surface === 'settings' ? ['Settings', SECTION_LABEL[settingsSection] ?? 'Setup'] : [SURFACE_LABEL[surface]];
 
   return (

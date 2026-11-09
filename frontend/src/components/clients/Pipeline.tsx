@@ -56,7 +56,7 @@ export const PipelineBoard: FC<{ onOpen: (leadId: number) => void }> = ({ onOpen
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
         <Stat label="Active clients" value={d?.active_deals_count ?? '–'} />
         <Stat label="Valued pipeline" value={d ? (d.total_pipeline_value ? `$${d.total_pipeline_value.toLocaleString()}` : '–') : '–'} hint={d?.unvalued_deals_count ? `${d.unvalued_deals_count} client(s) have no value entered` : 'Only values you entered'} />
         <Stat label="Won / lost" value={d ? `${d.won_deals_count} / ${d.lost_deals_count}` : '–'} />

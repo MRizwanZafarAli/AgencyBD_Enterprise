@@ -54,14 +54,15 @@ export const Today: FC<{
   // dashboard, then the weekly scorecard and the follow-ups that are due.
   return (
     <div className="space-y-6">
+      {role !== 'auditor' && (        /* the auditor is read-only: it cannot act on messages, follow-ups or partners, so it is not shown them */
       <ErrorBoundary fallbackTitle="Focus list error">
         <TodayOverview focusOnly onGo={(surface, opts) => { if (opts?.leadId) onOpenClient(opts.leadId); else if (opts?.section) onSettings(opts.section); else onGo(surface); }} />
-      </ErrorBoundary>
+      </ErrorBoundary>)}
       {dashboard}
       <ErrorBoundary fallbackTitle="Scorecard error">
         <Scorecard />
       </ErrorBoundary>
-      <FollowupsPanel onOpenClient={onOpenClient} />
+      {role !== 'auditor' && <FollowupsPanel onOpenClient={onOpenClient} />}
     </div>
   );
 };
