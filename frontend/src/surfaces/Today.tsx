@@ -16,7 +16,8 @@ export const Today: FC<{
   onGo: (s: Surface) => void;
   onSearch?: (q: string) => void;
   identity?: Me | null;
-}> = ({ onOpenClient, onSettings, onGo, onSearch, identity }) => {
+  onSendEmail?: (params: { recipient: string; recipientName?: string; companyName?: string; subject?: string; body?: string; leadId?: number }) => void;
+}> = ({ onOpenClient, onSettings, onGo, onSearch, identity, onSendEmail: _onSendEmail }) => {
   const role = identity?.role || 'super_admin';
 
   if (!identity) {

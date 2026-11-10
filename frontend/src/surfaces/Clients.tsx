@@ -11,7 +11,8 @@ export const Clients: FC<{
   openLead: number | null;
   setOpenLead: (id: number | null) => void;
   identity?: Me | null;
-}> = ({ openLead, setOpenLead, identity }) => {
+  onSendEmail?: (params: { recipient: string; recipientName?: string; companyName?: string; subject?: string; body?: string; leadId?: number }) => void;
+}> = ({ openLead, setOpenLead, identity, onSendEmail }) => {
   const [tab, setTab] = useState('pipeline');
   const isAuditor = identity?.role === 'auditor';
   const tabs = isAuditor
@@ -36,7 +37,7 @@ export const Clients: FC<{
       {tab === 'pipeline' && <PipelineBoard onOpen={setOpenLead} />}
       {!isAuditor && tab === 'outreach' && <SequencesManager />}
       {!isAuditor && tab === 'partners' && <Partners />}
-      <ClientPage leadId={openLead} onClose={() => setOpenLead(null)} />
+      <ClientPage leadId={openLead} onClose={() => setOpenLead(null)} onSendEmail={onSendEmail} />
     </div>
   );
 };

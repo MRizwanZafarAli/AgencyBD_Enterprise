@@ -1287,6 +1287,8 @@ app.include_router(leadfinder_router)
 app.include_router(auth_router)
 app.include_router(partners_router)
 app.include_router(outbound_router)
+from routers.email_hub import router as email_hub_router
+app.include_router(email_hub_router)
 app.include_router(compliance_router)
 app.include_router(policy_router)
 app.include_router(analytics_router)

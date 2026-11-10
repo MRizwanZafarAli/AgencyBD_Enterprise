@@ -1,4 +1,5 @@
 from routers.outbound import router as outbound_router
+from routers.email_hub import router as email_hub_router
 from routers.compliance import router as compliance_router
 from routers.policy import router as policy_router
 from routers.analytics import router as analytics_router
@@ -9,6 +10,7 @@ from routers.system import router as system_router
 
 __all__ = [
     "outbound_router",
+    "email_hub_router",
     "compliance_router",
     "policy_router",
     "analytics_router",

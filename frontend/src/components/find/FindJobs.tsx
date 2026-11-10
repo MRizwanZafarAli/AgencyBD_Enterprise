@@ -88,7 +88,18 @@ export interface JobsPreset {
   nonce: number;
 }
 
-export const FindJobs: FC<{ types?: string[]; preset?: JobsPreset | null }> = ({ types, preset }) => {
+export const FindJobs: FC<{
+  types?: string[];
+  preset?: JobsPreset | null;
+  onSendEmail?: (params: {
+    recipient: string;
+    recipientName?: string;
+    companyName?: string;
+    subject?: string;
+    body?: string;
+    leadId?: number;
+  }) => void;
+}> = ({ types, preset, onSendEmail }) => {
   const opps = useApi<Opp[]>('/api/opportunities?limit=200');
   const sources = useApi<Source[]>('/api/connectors');
   const [q, setQ] = useState('');
@@ -841,8 +852,29 @@ export const FindJobs: FC<{ types?: string[]; preset?: JobsPreset | null }> = ({
                       )}
 
                       <div className="flex flex-wrap gap-2.5 pt-1">
+                        {onSendEmail && (
+                          <Button
+                            variant="primary"
+                            disabled={busy !== ''}
+                            onClick={() => {
+                              const currentVariant = selectedVariant === 'B' ? draft.variant_b : draft.variant_a;
+                              const textToSend = editedBody || currentVariant.body;
+                              onSendEmail({
+                                recipient: toEmail.trim(),
+                                recipientName: open?.company_name ?? '',
+                                companyName: open?.company_name ?? '',
+                                subject: emailSubject || `Proposal: ${open?.title}`,
+                                body: textToSend,
+                              });
+                              setOpen(null);
+                            }}
+                          >
+                            <Mail className="h-4 w-4" />
+                            Open & Verify in Email Hub →
+                          </Button>
+                        )}
                         <Button
-                          variant="primary"
+                          variant={onSendEmail ? 'secondary' : 'primary'}
                           disabled={busy !== '' || !toEmail}
                           onClick={() => sendViaEmail('system')}
                         >
@@ -853,8 +885,8 @@ export const FindJobs: FC<{ types?: string[]; preset?: JobsPreset | null }> = ({
                           disabled={busy !== '' || !toEmail}
                           onClick={() => sendViaEmail('mailto')}
                         >
-                          <Mail className="h-4 w-4" />
-                          Open in Email Client (mailto:)
+                          <ExternalLink className="h-4 w-4" />
+                          Open in External Mail (mailto:)
                         </Button>
                       </div>
                     </div>

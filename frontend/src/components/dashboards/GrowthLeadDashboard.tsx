@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { FC } from 'react';
-import { TrendingUp, CheckCircle, XCircle, Send, ArrowRight, RefreshCw, Sparkles } from 'lucide-react';
+import { TrendingUp, CheckCircle, XCircle, Send, ArrowRight, RefreshCw, Sparkles, Mail } from 'lucide-react';
 import { Badge, Card, Skeletons, Button } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { useApi } from '../../lib/hooks';
@@ -297,6 +297,17 @@ export const GrowthLeadDashboard: FC<{
                 <ArrowRight className="h-3.5 w-3.5 text-teal-400" />
               </div>
               <p className="text-[11px] text-slate-400">Monitor multi-channel response rates & routines.</p>
+            </button>
+
+            <button
+              onClick={() => onGo('email' as any)}
+              className="p-3 text-left rounded-xl border border-slate-800 hover:border-teal-500/60 bg-slate-900/40 hover:bg-slate-900/80 transition space-y-1"
+            >
+              <div className="font-medium text-white flex items-center justify-between">
+                <span>Email Dispatch Hub</span>
+                <Mail className="h-3.5 w-3.5 text-teal-400" />
+              </div>
+              <p className="text-[11px] text-slate-400">Pre-flight MX verification, composer & mailbox fleet.</p>
             </button>
 
             <button
