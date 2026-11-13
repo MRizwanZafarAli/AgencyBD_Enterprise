@@ -1071,6 +1071,28 @@ def list_opportunities_endpoint(source: Optional[str] = None, limit: int = 50, p
     """Read-only. Fetching from the internet happens only via POST /api/radar/scan."""
     return OpportunityRepository.list_opportunities(source=source, limit=min(limit, 200), org_id=org)
 
+@app.post("/api/opportunities/{opportunity_id}/related_read")
+def opportunity_related_read(opportunity_id: int, principal: Principal = Depends(require_permission("leads:read"))):
+    """Related Read: Resolves business owner, decision maker contacts, company domain and email signals for a job/project."""
+    from intel.opportunity_owner import resolve_opportunity_owner
+    try:
+        return resolve_opportunity_owner(opportunity_id, org_id=principal.org_id)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise _fail(e)
+
+@app.post("/api/opportunities/{opportunity_id}/convert_to_lead")
+def convert_opportunity_lead(opportunity_id: int, principal: Principal = Depends(require_permission("leads:create"))):
+    """Converts a job/project opportunity into a CRM Client Lead with business owner contact details."""
+    from intel.opportunity_owner import convert_opportunity_to_lead
+    try:
+        return convert_opportunity_to_lead(opportunity_id, org_id=principal.org_id)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise _fail(e)
+
 @app.post("/api/radar/scan")
 def scan_radar_endpoint(principal: Principal = Depends(require_permission("pipeline:run"))):
     org = principal.org_id
@@ -1519,10 +1541,24 @@ def find_client_contacts(lead_id: int, principal: Principal = Depends(require_pe
     """Reads the company's own team/about/contact pages and reports the people and emails they publish (nothing guessed)."""
     from intel import contacts as contact_finder
     lead = _owned_lead(lead_id, principal)
-    if lead["domain"].endswith(".invalid"):
-        raise HTTPException(status_code=422, detail="This business has no website to read. Ask by phone, or find the owner on a map listing or LinkedIn.")
+    domain = lead["domain"]
+    if domain.endswith(".invalid"):
+        from intel import resolver
+        for cand in resolver.candidate_domains(lead["company_name"])[:3]:
+            try:
+                p = resolver.probe(cand, resolver.name_tokens(lead["company_name"]), timeout=3)
+                if p and not p.get("parked") and p.get("score", 0) >= 0.4:
+                    domain = cand
+                    with get_db() as conn:
+                        conn.execute("UPDATE leads SET domain = ? WHERE id = ? AND org_id = ?", (cand, lead_id, principal.org_id))
+                        conn.commit()
+                    break
+            except Exception:
+                continue
+    if domain.endswith(".invalid"):
+        return {"candidates": [], "message": "No public domain registered or published for this business."}
     try:
-        return contact_finder.find_contacts(lead["domain"])
+        return contact_finder.find_contacts(domain)
     except Exception as e:
         raise _fail(e)
 

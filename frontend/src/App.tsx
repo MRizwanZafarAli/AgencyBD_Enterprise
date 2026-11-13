@@ -263,6 +263,7 @@ export function App() {
                   onAddGoogleKey={() => goSettings('keys')}
                   seed={seed.find ? { text: seed.find, n: seed.n } : null}
                   onSendEmail={openEmailComposer}
+                  identity={me}
                 />
               )}
               {surface === 'clients' && (

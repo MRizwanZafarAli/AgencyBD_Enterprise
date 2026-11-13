@@ -6,9 +6,6 @@ import { SdrDashboard } from '../components/dashboards/SdrDashboard';
 import { GrowthLeadDashboard } from '../components/dashboards/GrowthLeadDashboard';
 import { AdminDashboard } from '../components/dashboards/AdminDashboard';
 import { ErrorBoundary } from '../components/shared/ErrorBoundary';
-import { TodayOverview } from '../components/today/TodayOverview';
-import { Scorecard } from '../components/today/Scorecard';
-import { FollowupsPanel } from '../components/clients/FollowupsPanel';
 
 export const Today: FC<{
   onOpenClient: (leadId: number) => void;
@@ -17,7 +14,7 @@ export const Today: FC<{
   onSearch?: (q: string) => void;
   identity?: Me | null;
   onSendEmail?: (params: { recipient: string; recipientName?: string; companyName?: string; subject?: string; body?: string; leadId?: number }) => void;
-}> = ({ onOpenClient, onSettings, onGo, onSearch, identity, onSendEmail: _onSendEmail }) => {
+}> = ({ onOpenClient, onSettings, onGo, onSearch, identity }) => {
   const role = identity?.role || 'super_admin';
 
   if (!identity) {
@@ -51,19 +48,10 @@ export const Today: FC<{
     );
   }
 
-  // Every tier sees the same ranked "what matters" strip first (client messages waiting, clients to chase, approvals), then its own
-  // dashboard, then the weekly scorecard and the follow-ups that are due.
+  // Each role's dashboard is completely differentiated and purpose-built for its workflow
   return (
     <div className="space-y-6">
-      {role !== 'auditor' && (        /* the auditor is read-only: it cannot act on messages, follow-ups or partners, so it is not shown them */
-      <ErrorBoundary fallbackTitle="Focus list error">
-        <TodayOverview focusOnly onGo={(surface, opts) => { if (opts?.leadId) onOpenClient(opts.leadId); else if (opts?.section) onSettings(opts.section); else onGo(surface); }} />
-      </ErrorBoundary>)}
       {dashboard}
-      <ErrorBoundary fallbackTitle="Scorecard error">
-        <Scorecard />
-      </ErrorBoundary>
-      {role !== 'auditor' && <FollowupsPanel onOpenClient={onOpenClient} />}
     </div>
   );
 };

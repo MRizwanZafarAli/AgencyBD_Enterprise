@@ -31,8 +31,10 @@ const NavButton: FC<{ item: NavDef; active: boolean; collapsed: boolean; badge?:
     onClick={onClick}
     aria-current={active ? 'page' : undefined}
     aria-label={collapsed ? item.label : undefined}
-    className={`group relative w-full flex items-center ${collapsed ? 'justify-center px-0' : 'gap-3 px-3'} h-10 rounded-lg text-left transition-colors ${
-      active ? 'bg-indigo-500/10 text-white' : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/70'}`}
+    className={`group relative w-full flex items-center cursor-pointer ${collapsed ? 'justify-center px-0' : 'gap-3 px-3'} h-10 rounded-lg text-left transition-all duration-150 ${
+      active
+        ? 'bg-indigo-500/15 text-white font-semibold shadow-sm'
+        : 'text-slate-400 hover:text-white hover:bg-slate-800/80 hover:translate-x-0.5'}`}
   >
     {active && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-indigo-500" aria-hidden="true" />}
     <span className={active ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'}>{item.icon}</span>

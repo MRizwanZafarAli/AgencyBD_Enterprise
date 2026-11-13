@@ -8,8 +8,9 @@ import type { JobsPreset } from '../components/find/FindJobs';
 import { LeadFinder } from '../components/leadfinder/LeadFinder';
 import { SmartSearch } from '../components/find/SmartSearch';
 import type { SearchRun } from '../components/find/SmartSearch';
+import type { Me } from '../lib/api';
 
-const TABS = [
+const ALL_TABS = [
   { id: 'local', label: 'Local businesses' },
   { id: 'jobs', label: 'Jobs and projects' },
   { id: 'tenders', label: 'Tenders' },
@@ -28,11 +29,16 @@ export const Find: FC<{
     body?: string;
     leadId?: number;
   }) => void;
-}> = ({ onOpenClient, onAddGoogleKey, seed, onSendEmail }) => {
+  identity?: Me | null;
+}> = ({ onOpenClient, onAddGoogleKey, seed, onSendEmail, identity }) => {
   const [tab, setTab] = useState('local');
   const [local, setLocal] = useState<LocalPreset | null>(null);
   const [jobs, setJobs] = useState<JobsPreset | null>(null);
   const [tenders, setTenders] = useState<JobsPreset | null>(null);
+
+  // Growth Lead role has Tenders scope removed completely
+  const isGrowthLead = identity?.role === 'growth_lead';
+  const tabs = isGrowthLead ? ALL_TABS.filter((t) => t.id !== 'tenders') : ALL_TABS;
 
   const run = (r: SearchRun) => {
     const nonce = Date.now();
@@ -43,8 +49,14 @@ export const Find: FC<{
       setJobs({ q: r.q ?? '', min_budget: r.min_budget, max_budget: r.max_budget, remote: r.remote, nonce });
       setTab('jobs');
     } else if (r.kind === 'tenders') {
-      setTenders({ q: r.q ?? '', min_budget: r.min_budget, nonce });
-      setTab('tenders');
+      if (isGrowthLead) {
+        // Fallback to jobs search for Growth Lead without tenders
+        setJobs({ q: r.q ?? '', min_budget: r.min_budget, nonce });
+        setTab('jobs');
+      } else {
+        setTenders({ q: r.q ?? '', min_budget: r.min_budget, nonce });
+        setTab('tenders');
+      }
     }
   };
 
@@ -55,7 +67,7 @@ export const Find: FC<{
         subtitle="Describe who or what you are looking for in your own words. Spelling is corrected, and every result shows why it was ranked."
       />
       <SmartSearch onRun={run} seed={seed} />
-      <Tabs tabs={TABS} active={tab} onChange={setTab} />
+      <Tabs tabs={tabs} active={tab} onChange={setTab} />
       {tab === 'local' && (
         <FindLocal
           onSaved={onOpenClient}
@@ -69,13 +81,15 @@ export const Find: FC<{
           types={['marketplace', 'hiring_signal', 'inbound', 'outbound']}
           preset={jobs}
           onSendEmail={onSendEmail}
+          onOpenClient={onOpenClient}
         />
       )}
-      {tab === 'tenders' && (
+      {!isGrowthLead && tab === 'tenders' && (
         <FindJobs
           types={['tender']}
           preset={tenders}
           onSendEmail={onSendEmail}
+          onOpenClient={onOpenClient}
         />
       )}
       {tab === 'watch' && <LeadFinder onOpenClient={onOpenClient} onAddKey={onAddGoogleKey} />}

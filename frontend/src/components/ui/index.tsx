@@ -35,7 +35,7 @@ export const Button: FC<ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Va
 }) => (
   <button
     {...rest}
-    className={`inline-flex items-center justify-center gap-1.5 rounded-full font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+    className={`inline-flex items-center justify-center gap-1.5 rounded-full font-medium transition-all duration-150 cursor-pointer hover:shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${
       small ? 'text-xs px-3 py-1.5' : 'text-sm px-4 py-2'
     } ${VARIANTS[variant]} ${className}`}
   >
@@ -107,7 +107,7 @@ export const Tabs: FC<{ tabs: Array<{ id: string; label: string; count?: number 
         role="tab"
         aria-selected={active === t.id}
         onClick={() => onChange(t.id)}
-        className={`px-4 py-1.5 text-sm rounded-full transition-colors duration-300 ${active === t.id ? 'bg-indigo-600 text-white font-medium' : 'text-slate-400 hover:text-white'}`}
+        className={`px-4 py-1.5 text-sm rounded-full cursor-pointer transition-all duration-200 ${active === t.id ? 'bg-indigo-600 text-white font-medium shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/70 hover:shadow-inner'}`}
       >
         {t.label}{t.count !== undefined && <span className="ml-1.5 text-[11px] opacity-80 tabular">{t.count}</span>}
       </button>
