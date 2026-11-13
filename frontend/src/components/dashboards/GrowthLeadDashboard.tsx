@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { FC } from 'react';
-import { TrendingUp, CheckCircle, XCircle, Send, ArrowRight, RefreshCw, Sparkles, Mail, Building2, ExternalLink, UserCheck, UserPlus, CheckCircle2, Radar } from 'lucide-react';
+import { TrendingUp, CheckCircle, XCircle, Send, ArrowRight, RefreshCw, Sparkles, Mail, Building2, ExternalLink, UserPlus, CheckCircle2, Radar } from 'lucide-react';
 import { Badge, Card, Skeletons, Button, Drawer, ScoreBar } from '../ui';
 import type { RelatedReadData } from '../find/FindJobs';
 import { ErrorBanner } from '../shared/ErrorBanner';
@@ -129,6 +129,7 @@ export const GrowthLeadDashboard: FC<{
     setRelatedLoading(false);
     setRelatedError('');
     setConvertSuccess('');
+    handleRelatedRead(o.id);
   };
 
   const handleRelatedRead = async (oppId: number) => {
@@ -401,14 +402,14 @@ export const GrowthLeadDashboard: FC<{
                     <td className="py-2.5 text-right">
                       <Button
                         small
+                        variant="primary"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleOpenOpp(job);
-                          handleRelatedRead(job.id);
                         }}
                       >
-                        <UserCheck className="h-3 w-3 text-emerald-400" />
-                        Related Read
+                        <Building2 className="h-3 w-3" />
+                        See Business Details
                       </Button>
                     </td>
                   </tr>
@@ -555,8 +556,8 @@ export const GrowthLeadDashboard: FC<{
                 disabled={relatedLoading}
                 onClick={() => handleRelatedRead(selectedOpp.id)}
               >
-                <UserCheck className="h-4 w-4" />
-                {relatedLoading ? 'Reading Owner Details…' : relatedRead ? 'Refresh Owner Details' : '📖 Related Read (Business Owner Details)'}
+                <Building2 className="h-4 w-4" />
+                {relatedLoading ? 'Reading Business Details…' : relatedRead ? 'Refresh Business Details' : '🏢 See Business Details'}
               </Button>
             </div>
 

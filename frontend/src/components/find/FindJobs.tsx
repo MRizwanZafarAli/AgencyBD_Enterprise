@@ -14,7 +14,6 @@ import {
   HelpCircle,
   Compass,
   Building2,
-  UserCheck,
   UserPlus,
 } from 'lucide-react';
 import { Badge, Button, Card, Drawer, EmptyState, Pager, ScoreBar, Skeletons, SuggestInput, field } from '../ui';
@@ -259,14 +258,16 @@ export const FindJobs: FC<{
     setToEmail(unique.length > 0 ? unique[0] : '');
     setEmailSubject(`Proposal: ${o.title}`);
     setSendChannel(unique.length > 0 ? 'email' : 'platform');
+    handleRelatedRead(o.id);
   };
 
-  const handleRelatedRead = async () => {
-    if (!open) return;
+  const handleRelatedRead = async (oppId?: number) => {
+    const targetId = oppId ?? open?.id;
+    if (!targetId) return;
     setRelatedLoading(true);
     setRelatedError('');
     try {
-      const res = await apiFetch(`/api/opportunities/${open.id}/related_read`, { method: 'POST' });
+      const res = await apiFetch(`/api/opportunities/${targetId}/related_read`, { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
       setRelatedRead(data as RelatedReadData);
@@ -592,6 +593,7 @@ export const FindJobs: FC<{
                     <th className="py-2 pr-3">Opportunity</th>
                     <th className="py-2 pr-3 hidden md:table-cell">Source</th>
                     <th className="py-2 pr-3 hidden md:table-cell">Budget</th>
+                    <th className="py-2 pr-3 text-right">Business Details</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -622,6 +624,20 @@ export const FindJobs: FC<{
                       </td>
                       <td className="py-2.5 pr-3 hidden md:table-cell text-xs text-slate-400">{o.source}</td>
                       <td className="py-2.5 pr-3 hidden md:table-cell text-xs text-slate-300 tabular">{money(o)}</td>
+                      <td className="py-2.5 pr-3 text-right">
+                        <Button
+                          small
+                          variant="primary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openRow(o);
+                            handleRelatedRead(o.id);
+                          }}
+                        >
+                          <Building2 className="h-3.5 w-3.5" />
+                          See Business Details
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -675,12 +691,12 @@ export const FindJobs: FC<{
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center gap-2.5 pt-1 border-t border-slate-800">
               <Button
-                variant={relatedRead ? 'secondary' : undefined}
+                variant="primary"
                 disabled={busy !== '' || relatedLoading}
-                onClick={handleRelatedRead}
+                onClick={() => handleRelatedRead()}
               >
-                <UserCheck className="h-4 w-4 text-emerald-400" />
-                {relatedLoading ? 'Reading Owner Details…' : relatedRead ? 'Refresh Owner Details' : '📖 Related Read: Business Owner'}
+                <Building2 className="h-4 w-4" />
+                {relatedLoading ? 'Reading Business Details…' : relatedRead ? 'Refresh Business Details' : '🏢 See Business Details'}
               </Button>
 
               <Button
