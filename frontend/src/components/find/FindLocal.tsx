@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { MapPin, Phone, Star, ExternalLink, Search, ShieldAlert, Copy } from 'lucide-react';
+import { MapPin, Phone, Star, ExternalLink, Search, ShieldAlert, Copy, Mail } from 'lucide-react';
 import { Badge, Button, Card, Drawer, EmptyState, Pager, ScoreBar, Skeletons, SuggestInput, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { send, useApi } from '../../lib/hooks';
@@ -24,7 +24,19 @@ const PAGE = 15;
 
 export interface LocalPreset { category: string; city: string; only_gaps: boolean; nonce: number }
 
-export const FindLocal: FC<{ onSaved: (leadId: number) => void; preset?: LocalPreset | null; onAddGoogleKey?: () => void }> = ({ onSaved, preset, onAddGoogleKey }) => {
+export const FindLocal: FC<{
+  onSaved: (leadId: number) => void;
+  preset?: LocalPreset | null;
+  onAddGoogleKey?: () => void;
+  onSendEmail?: (params: {
+    recipient: string;
+    recipientName?: string;
+    companyName?: string;
+    subject?: string;
+    body?: string;
+    leadId?: number;
+  }) => void;
+}> = ({ onSaved, preset, onAddGoogleKey, onSendEmail }) => {
   const providers = useApi<{ google: boolean }>('/api/hunt/local/providers');
   const google = providers.data?.google ?? false;
   const [category, setCategory] = useState('');
@@ -161,7 +173,35 @@ export const FindLocal: FC<{ onSaved: (leadId: number) => void; preset?: LocalPr
                 <Button small className="mt-2" onClick={() => navigator.clipboard?.writeText(open.pitch_strategy?.cold_pitch_hook ?? '')}><Copy className="h-3.5 w-3.5" />Copy</Button>
                 {open.pitch_strategy.value_estimate && <p className="text-xs text-slate-400 mt-2">Your price band for this service: {open.pitch_strategy.value_estimate}</p>}</div>
             ) : <p className="text-xs text-slate-400">Nothing specific and true to say yet. Audit the site from the client page first.</p>}
-            <Button variant="primary" disabled={!!saved[open.place_id]} onClick={() => save([open])}>{saved[open.place_id] ? 'Saved to Clients' : 'Save to Clients'}</Button>
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-800">
+              <Button variant="primary" disabled={!!saved[open.place_id]} onClick={() => save([open])}>
+                {saved[open.place_id] ? 'Saved to Clients' : 'Save to Clients'}
+              </Button>
+              {onSendEmail && (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    const recipientEmail = open.domain ? `contact@${open.domain}` : '';
+                    const hook = open.pitch_strategy?.cold_pitch_hook;
+                    const defaultBody = hook
+                      ? `Hi,\n\n${hook}\n\nWe prepared a technical teardown and performance review for ${open.name}.\n\nWould you be open to a 5-minute walkthrough this week?\n\nBest regards,\nGrowth Team`
+                      : `Hi,\n\nI was reviewing ${open.name} and wanted to share a few observations regarding your digital presence and customer booking flow.\n\nWould you be open to a brief chat this week?\n\nBest regards,\nGrowth Team`;
+
+                    onSendEmail({
+                      recipient: recipientEmail,
+                      companyName: open.name,
+                      subject: `Website & performance audit for ${open.name}`,
+                      body: defaultBody,
+                      leadId: saved[open.place_id],
+                    });
+                    setOpen(null);
+                  }}
+                >
+                  <Mail className="h-4 w-4 text-indigo-400" />
+                  Pitch via Email Hub →
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </Drawer>

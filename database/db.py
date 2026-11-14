@@ -858,6 +858,10 @@ def init_db():
         CREATE UNIQUE INDEX IF NOT EXISTS idx_opp_org_source_ext
         ON opportunities(org_id, source, external_id) WHERE external_id IS NOT NULL;
     """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_approvals_decision ON approvals(org_id, decision);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(org_id, status);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_outbound_drafts_status ON outbound_drafts(org_id, status, sent_at);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_runs_org ON audit_runs(org_id, created_at);")
 
     conn.commit()
     conn.close()

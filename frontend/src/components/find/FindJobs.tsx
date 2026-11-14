@@ -13,6 +13,8 @@ import {
   AlertCircle,
   HelpCircle,
   Compass,
+  Building2,
+  UserPlus,
 } from 'lucide-react';
 import { Badge, Button, Card, Drawer, EmptyState, Pager, ScoreBar, Skeletons, SuggestInput, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
@@ -71,6 +73,30 @@ interface Fit {
   deterministic_fit_score?: number | null;
 }
 
+export interface BusinessOwner {
+  name: string;
+  title: string;
+  email?: string | null;
+  phone?: string | null;
+  linkedin_url?: string | null;
+  verification_status?: string;
+  rank?: number;
+  source?: string;
+}
+
+export interface RelatedReadData {
+  opportunity_id: number;
+  company_name: string;
+  domain: string;
+  website_url?: string | null;
+  business_owner: BusinessOwner;
+  contacts: BusinessOwner[];
+  detected_emails: string[];
+  detected_phones: string[];
+  detected_linkedins: string[];
+  summary: string;
+}
+
 const PAGE = 15;
 const TYPE_LABEL: Record<string, string> = {
   marketplace: 'Project',
@@ -88,7 +114,19 @@ export interface JobsPreset {
   nonce: number;
 }
 
-export const FindJobs: FC<{ types?: string[]; preset?: JobsPreset | null }> = ({ types, preset }) => {
+export const FindJobs: FC<{
+  types?: string[];
+  preset?: JobsPreset | null;
+  onSendEmail?: (params: {
+    recipient: string;
+    recipientName?: string;
+    companyName?: string;
+    subject?: string;
+    body?: string;
+    leadId?: number;
+  }) => void;
+  onOpenClient?: (leadId: number) => void;
+}> = ({ types, preset, onSendEmail, onOpenClient }) => {
   const opps = useApi<Opp[]>('/api/opportunities?limit=200');
   const sources = useApi<Source[]>('/api/connectors');
   const [q, setQ] = useState('');
@@ -117,6 +155,14 @@ export const FindJobs: FC<{ types?: string[]; preset?: JobsPreset | null }> = ({
   const [emailSubject, setEmailSubject] = useState('');
   const [sendSuccess, setSendSuccess] = useState('');
   const [copied, setCopied] = useState(false);
+
+  // Related Read: Business Owner Details state
+  const [relatedRead, setRelatedRead] = useState<RelatedReadData | null>(null);
+  const [relatedLoading, setRelatedLoading] = useState(false);
+  const [relatedError, setRelatedError] = useState('');
+  const [convertingLead, setConvertingLead] = useState(false);
+  const [convertedLeadId, setConvertedLeadId] = useState<number | null>(null);
+  const [convertSuccess, setConvertSuccess] = useState('');
 
   const seen = useRef(0);
   useEffect(() => {
@@ -201,12 +247,65 @@ export const FindJobs: FC<{ types?: string[]; preset?: JobsPreset | null }> = ({
     setSendSuccess('');
     setEditedBody('');
     setSelectedVariant('A');
+    setRelatedRead(null);
+    setRelatedLoading(false);
+    setRelatedError('');
+    setConvertedLeadId(null);
+    setConvertSuccess('');
     const text = `${o.title} ${o.description || ''}`;
     const matches = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
     const unique = Array.from(new Set(matches.map((e) => e.toLowerCase())));
     setToEmail(unique.length > 0 ? unique[0] : '');
     setEmailSubject(`Proposal: ${o.title}`);
     setSendChannel(unique.length > 0 ? 'email' : 'platform');
+    handleRelatedRead(o.id);
+  };
+
+  const handleRelatedRead = async (oppId?: number) => {
+    const targetId = oppId ?? open?.id;
+    if (!targetId) return;
+    setRelatedLoading(true);
+    setRelatedError('');
+    try {
+      const res = await apiFetch(`/api/opportunities/${targetId}/related_read`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
+      setRelatedRead(data as RelatedReadData);
+      if (data.business_owner?.email && !toEmail) {
+        setToEmail(data.business_owner.email);
+      }
+    } catch (e) {
+      setRelatedError(e instanceof Error ? e.message : 'Failed to retrieve business owner details');
+    } finally {
+      setRelatedLoading(false);
+    }
+  };
+
+  const handleConvertToLead = async () => {
+    if (!open) return;
+    setConvertingLead(true);
+    setRelatedError('');
+    try {
+      const res = await apiFetch(`/api/opportunities/${open.id}/convert_to_lead`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
+      setConvertedLeadId(data.lead_id);
+      setConvertSuccess(data.message || `✓ Added '${data.company_name}' to Clients pipeline!`);
+      opps.reload();
+    } catch (e) {
+      setRelatedError(e instanceof Error ? e.message : 'Failed to save lead');
+    } finally {
+      setConvertingLead(false);
+    }
+  };
+
+  const getCompanyName = (o: Opp) => {
+    if (o.company_name && o.company_name.trim() && o.company_name.toLowerCase() !== 'unknown') {
+      return o.company_name.trim();
+    }
+    const match = o.title.match(/(?:at|for|with)\s+([A-Z][A-Za-z0-9&.,'\s]{1,30}?)(?:\s+is|\s+looking|\s+hiring|[-–—|(\[\n]|$)/i)
+      || o.title.match(/^\[?([A-Z][A-Za-z0-9&.,'\s]{1,30}?)\]?\s*[-–—:|]/i);
+    return match ? match[1].trim() : 'Company detected';
   };
 
   const run = async (label: string, fn: () => Promise<void>) => {
@@ -479,7 +578,13 @@ export const FindJobs: FC<{ types?: string[]; preset?: JobsPreset | null }> = ({
           />
         ) : (
           <>
-            <div className="text-xs text-slate-400 mb-3 tabular">{rows.length} results</div>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 mb-3">
+              <span className="flex items-center gap-1.5 font-medium text-slate-300">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                <span className="tabular font-semibold text-white">{rows.length}</span> opportunities detected & scored
+              </span>
+              <span className="text-[11px] text-slate-500">Click any job/project to run Related Read for business owner details</span>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -488,6 +593,7 @@ export const FindJobs: FC<{ types?: string[]; preset?: JobsPreset | null }> = ({
                     <th className="py-2 pr-3">Opportunity</th>
                     <th className="py-2 pr-3 hidden md:table-cell">Source</th>
                     <th className="py-2 pr-3 hidden md:table-cell">Budget</th>
+                    <th className="py-2 pr-3 text-right">Business Details</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -513,11 +619,25 @@ export const FindJobs: FC<{ types?: string[]; preset?: JobsPreset | null }> = ({
                         </button>
                         <div className="text-xs text-slate-500 flex gap-2 items-center">
                           <Badge>{TYPE_LABEL[o.type] ?? o.type}</Badge>
-                          {o.company_name && <span>{o.company_name}</span>}
+                          <span className="font-medium text-slate-300">{getCompanyName(o)}</span>
                         </div>
                       </td>
                       <td className="py-2.5 pr-3 hidden md:table-cell text-xs text-slate-400">{o.source}</td>
                       <td className="py-2.5 pr-3 hidden md:table-cell text-xs text-slate-300 tabular">{money(o)}</td>
+                      <td className="py-2.5 pr-3 text-right">
+                        <Button
+                          small
+                          variant="primary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openRow(o);
+                            handleRelatedRead(o.id);
+                          }}
+                        >
+                          <Building2 className="h-3.5 w-3.5" />
+                          See Business Details
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -571,6 +691,15 @@ export const FindJobs: FC<{ types?: string[]; preset?: JobsPreset | null }> = ({
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center gap-2.5 pt-1 border-t border-slate-800">
               <Button
+                variant="primary"
+                disabled={busy !== '' || relatedLoading}
+                onClick={() => handleRelatedRead()}
+              >
+                <Building2 className="h-4 w-4" />
+                {relatedLoading ? 'Reading Business Details…' : relatedRead ? 'Refresh Business Details' : '🏢 See Business Details'}
+              </Button>
+
+              <Button
                 disabled={busy !== ''}
                 onClick={() =>
                   run('fit', async () => setFit(await send<Fit>(`/api/opportunities/${open.id}/analyze`)))
@@ -589,6 +718,137 @@ export const FindJobs: FC<{ types?: string[]; preset?: JobsPreset | null }> = ({
                 {busy === 'draft' ? 'Drafting Proposal…' : draft ? 'Regenerate Proposal' : '✨ Draft & Send Proposal'}
               </Button>
             </div>
+
+            {/* Related Read: Business Owner Details Surface */}
+            {relatedError && <ErrorBanner message={relatedError} />}
+            {relatedRead && (
+              <div className="rounded-xl border border-indigo-900/60 bg-slate-900/90 p-4 space-y-3.5 animate-fade-up">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-indigo-400" />
+                    <span className="font-semibold text-white text-xs">{relatedRead.company_name}</span>
+                    {relatedRead.domain && !relatedRead.domain.endsWith('.invalid') && (
+                      <Badge tone="good">🌐 {relatedRead.domain}</Badge>
+                    )}
+                  </div>
+                  <Badge tone="accent">Related Read: Verified Intelligence</Badge>
+                </div>
+
+                {convertSuccess && (
+                  <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-200 flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                      {convertSuccess}
+                    </span>
+                    {onOpenClient && convertedLeadId && (
+                      <Button small variant="primary" onClick={() => onOpenClient(convertedLeadId)}>
+                        Open in Clients →
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {/* Primary Business Owner Card */}
+                <div className="rounded-lg bg-slate-950 border border-slate-800/80 p-3 space-y-2">
+                  <div className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider flex items-center justify-between">
+                    <span>Key Decision Maker / Business Owner</span>
+                    <Badge tone={relatedRead.business_owner.verification_status === 'published_on_site' ? 'good' : 'neutral'}>
+                      {relatedRead.business_owner.verification_status?.replace(/_/g, ' ') || 'detected'}
+                    </Badge>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2 text-xs">
+                    <div>
+                      <div className="text-slate-400 text-[11px]">Contact Name</div>
+                      <div className="font-semibold text-white">{relatedRead.business_owner.name}</div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400 text-[11px]">Role / Title</div>
+                      <div className="text-slate-200">{relatedRead.business_owner.title}</div>
+                    </div>
+                    {relatedRead.business_owner.email && (
+                      <div>
+                        <div className="text-slate-400 text-[11px]">Direct Email</div>
+                        <div className="font-mono text-indigo-300 flex items-center gap-1.5">
+                          {relatedRead.business_owner.email}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard?.writeText(relatedRead.business_owner.email || '');
+                            }}
+                            className="text-slate-400 hover:text-white"
+                            title="Copy email"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {relatedRead.business_owner.linkedin_url && (
+                      <div>
+                        <div className="text-slate-400 text-[11px]">LinkedIn Profile</div>
+                        <a
+                          href={relatedRead.business_owner.linkedin_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-indigo-400 hover:underline flex items-center gap-1"
+                        >
+                          View Profile <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Additional Leadership Contacts if present */}
+                {relatedRead.contacts.length > 1 && (
+                  <div className="space-y-1.5">
+                    <div className="text-[11px] font-semibold text-slate-400">Other Organization Contacts Detected:</div>
+                    <div className="grid gap-1.5 sm:grid-cols-2">
+                      {relatedRead.contacts.slice(1, 5).map((ct, idx) => (
+                        <div key={idx} className="p-2 rounded bg-slate-950/60 border border-slate-800 text-[11px] space-y-0.5">
+                          <div className="font-medium text-slate-200">{ct.name}</div>
+                          <div className="text-slate-400">{ct.title}</div>
+                          {ct.email && <div className="text-indigo-300 font-mono">{ct.email}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Convert & Outreach Actions */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800">
+                  <div className="text-[11px] text-slate-400 italic">
+                    {relatedRead.summary}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {!convertedLeadId && (
+                      <Button small variant="primary" disabled={convertingLead} onClick={handleConvertToLead}>
+                        <UserPlus className="h-3.5 w-3.5" />
+                        {convertingLead ? 'Adding to Clients…' : 'Add to Clients Pipeline'}
+                      </Button>
+                    )}
+                    {relatedRead.business_owner.email && onSendEmail && (
+                      <Button
+                        small
+                        onClick={() => {
+                          onSendEmail({
+                            recipient: relatedRead.business_owner.email || '',
+                            recipientName: relatedRead.business_owner.name,
+                            companyName: relatedRead.company_name,
+                            subject: `Question regarding your ${open.title} posting`,
+                            leadId: convertedLeadId || undefined,
+                          });
+                          setOpen(null);
+                        }}
+                      >
+                        <Mail className="h-3.5 w-3.5 text-indigo-400" />
+                        Send Email to Owner
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Comprehensive Fit Analysis Surface */}
             {fit && (
@@ -841,8 +1101,29 @@ export const FindJobs: FC<{ types?: string[]; preset?: JobsPreset | null }> = ({
                       )}
 
                       <div className="flex flex-wrap gap-2.5 pt-1">
+                        {onSendEmail && (
+                          <Button
+                            variant="primary"
+                            disabled={busy !== ''}
+                            onClick={() => {
+                              const currentVariant = selectedVariant === 'B' ? draft.variant_b : draft.variant_a;
+                              const textToSend = editedBody || currentVariant.body;
+                              onSendEmail({
+                                recipient: toEmail.trim(),
+                                recipientName: open?.company_name ?? '',
+                                companyName: open?.company_name ?? '',
+                                subject: emailSubject || `Proposal: ${open?.title}`,
+                                body: textToSend,
+                              });
+                              setOpen(null);
+                            }}
+                          >
+                            <Mail className="h-4 w-4" />
+                            Open & Verify in Email Hub →
+                          </Button>
+                        )}
                         <Button
-                          variant="primary"
+                          variant={onSendEmail ? 'secondary' : 'primary'}
                           disabled={busy !== '' || !toEmail}
                           onClick={() => sendViaEmail('system')}
                         >
@@ -853,8 +1134,8 @@ export const FindJobs: FC<{ types?: string[]; preset?: JobsPreset | null }> = ({
                           disabled={busy !== '' || !toEmail}
                           onClick={() => sendViaEmail('mailto')}
                         >
-                          <Mail className="h-4 w-4" />
-                          Open in Email Client (mailto:)
+                          <ExternalLink className="h-4 w-4" />
+                          Open in External Mail (mailto:)
                         </Button>
                       </div>
                     </div>

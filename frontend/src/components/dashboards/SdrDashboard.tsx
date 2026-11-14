@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { FC } from 'react';
-import { Target, Search, Sparkles, Radio, ArrowRight, RefreshCw, CheckCircle2, Clock } from 'lucide-react';
+import { Target, Search, Sparkles, Radio, ArrowRight, RefreshCw, CheckCircle2, Clock, Mail } from 'lucide-react';
 import { Badge, Card, Skeletons, Button } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { useApi } from '../../lib/hooks';
@@ -97,6 +97,9 @@ export const SdrDashboard: FC<{
           </Button>
           <Button onClick={() => onGo('channels')}>
             <Radio className="h-3.5 w-3.5" /> Open Channels
+          </Button>
+          <Button onClick={() => onGo('email' as any)}>
+            <Mail className="h-3.5 w-3.5 text-indigo-400" /> Email Dispatch Hub
           </Button>
         </form>
       </Card>

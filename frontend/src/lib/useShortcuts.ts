@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import type { Surface } from '../types';
 
-const CHORDS: Record<string, Surface> = { t: 'today', f: 'find', c: 'clients', h: 'channels', o: 'tools', s: 'settings' };
+const CHORDS: Record<string, Surface> = { t: 'today', f: 'find', c: 'clients', h: 'channels', e: 'email', o: 'tools', s: 'settings' };
 export const SHORTCUTS: Array<{ keys: string; label: string }> = [
   { keys: '⌘K / Ctrl K', label: 'Open the command palette' }, { keys: 'G then T', label: 'Go to Today' }, { keys: 'G then F', label: 'Go to Find' },
-  { keys: 'G then C', label: 'Go to Clients' }, { keys: 'G then H', label: 'Go to Channels' }, { keys: 'G then O', label: 'Go to Tools' }, { keys: 'G then S', label: 'Go to Settings' },
+  { keys: 'G then C', label: 'Go to Clients' }, { keys: 'G then H', label: 'Go to Channels' }, { keys: 'G then E', label: 'Go to Email Hub' }, { keys: 'G then O', label: 'Go to Tools' }, { keys: 'G then S', label: 'Go to Settings' },
   { keys: '[', label: 'Collapse or expand the sidebar' }, { keys: '?', label: 'Show this help' }, { keys: 'Esc', label: 'Close a drawer, palette or dialog' },
 ];
 
