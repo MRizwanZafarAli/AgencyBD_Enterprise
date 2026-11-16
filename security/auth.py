@@ -73,6 +73,7 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         "replies:triage",
         "booking:create",
         "outreach:draft",
+        "outreach:dispatch",
         "approvals:read"
     ],
     "auditor": [

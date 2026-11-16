@@ -75,6 +75,14 @@ class CreateMailboxRequest(BaseModel):
     use_tls: bool = True
 
 
+class UpdateDraftRequest(BaseModel):
+    subject: Optional[str] = None
+    body: Optional[str] = None
+    recipient_email: Optional[str] = None
+    recipient_name: Optional[str] = None
+    company_name: Optional[str] = None
+
+
 # =====================================================================
 # EMAIL VALIDATION CORE ENGINE
 # =====================================================================
@@ -603,7 +611,14 @@ def direct_send_email(
             VALUES (?, ?, ?, ?, 'sent', ?, ?)
         """, (
             org_id, mailbox["id"], req.lead_id, clean_recipient,
-            message_id, json.dumps({"subject": req.subject, "provider": send_provider_used, "diagnostics": diagnostics})
+            message_id, json.dumps({
+                "subject": req.subject,
+                "body": req.body,
+                "recipient_name": req.recipient_name,
+                "company_name": req.company_name,
+                "provider": send_provider_used,
+                "diagnostics": diagnostics
+            })
         ))
 
         # If lead_id is provided, log timeline note
@@ -666,6 +681,46 @@ def send_draft_from_hub(
         db.commit()
 
     return res
+
+
+@router.put("/drafts/{draft_id}")
+def update_draft_in_hub(
+    draft_id: int,
+    req: UpdateDraftRequest,
+    principal: Principal = Depends(require_permission("outreach:draft"))
+):
+    """Updates subject, body, or recipient information for a draft in the approval queue."""
+    org_id = principal.org_id
+    with get_db() as db:
+        row = db.execute("SELECT * FROM outbound_drafts WHERE id = ? AND org_id = ?", (draft_id, org_id)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Draft not found.")
+
+        updates = []
+        params = []
+        if req.subject is not None:
+            updates.append("subject = ?")
+            params.append(req.subject.strip())
+        if req.body is not None:
+            updates.append("body = ?")
+            params.append(req.body.strip())
+        if req.recipient_email is not None:
+            updates.append("recipient_email = ?")
+            params.append(req.recipient_email.strip())
+        if req.recipient_name is not None:
+            updates.append("recipient_name = ?")
+            params.append(req.recipient_name.strip())
+        if req.company_name is not None:
+            updates.append("company_name = ?")
+            params.append(req.company_name.strip())
+
+        if updates:
+            params.extend([draft_id, org_id])
+            db.execute(f"UPDATE outbound_drafts SET {', '.join(updates)} WHERE id = ? AND org_id = ?", params)
+            db.commit()
+
+        updated_row = db.execute("SELECT * FROM outbound_drafts WHERE id = ? AND org_id = ?", (draft_id, org_id)).fetchone()
+        return dict(updated_row) if updated_row else {"ok": True, "draft_id": draft_id}
 
 
 @router.delete("/drafts/{draft_id}")
