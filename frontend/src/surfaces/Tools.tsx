@@ -89,6 +89,29 @@ export const Tools: FC<{ onOpenClient: (leadId: number) => void }> = ({ onOpenCl
           <Button type="submit" variant="primary" disabled={!paste.trim()}>Examine</Button>
         </form>
         {pasteError && <p role="alert" className="text-xs text-amber-300 mt-2">{pasteError}</p>}
+        <div className="flex flex-wrap items-center gap-1.5 mt-2.5 text-xs text-slate-400">
+          <span className="text-slate-500 text-[11px]">Quick try:</span>
+          {[
+            { label: 'stripe.com', val: 'stripe.com' },
+            { label: 'github.com', val: 'github.com' },
+            { label: 'dental.net', val: 'dental.net' },
+            { label: 'Acme Plumbing, Austin', val: 'Acme Plumbing, Austin' },
+          ].map((ex) => (
+            <button
+              key={ex.label}
+              type="button"
+              onClick={() => {
+                setPaste(ex.val);
+                setPasteError('');
+                setSeed({ text: ex.val, n: Date.now() });
+                open('doctor');
+              }}
+              className="px-2 py-0.5 rounded-md text-[11px] font-mono bg-slate-800/80 hover:bg-slate-700 text-indigo-300 hover:text-white border border-slate-700/60 transition"
+            >
+              {ex.label}
+            </button>
+          ))}
+        </div>
       </Card>
       <div className="flex flex-wrap items-center gap-3">
         <SearchInput className="w-full sm:w-72" label="Search tools" placeholder="Search tools (try: competitor, pdf, follow up)" value={find} onChange={setFind} />
