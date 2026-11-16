@@ -3,7 +3,8 @@ import type { FC, FormEvent } from 'react';
 import {
   Mail, Send, CheckCircle2, AlertTriangle, XCircle, Shield,
   RefreshCw, Plus, Clock, Server, Eye, FileText, Check, ChevronRight,
-  Sparkles, Trash2, Copy, ArrowRight, Search, X
+  Sparkles, Trash2, Copy, ArrowRight, Search, X,
+  Settings, Play, Pause, Zap, RotateCcw
 } from 'lucide-react';
 import { apiFetch, apiErrorMessage } from '../lib/api';
 import type { Me } from '../lib/api';
@@ -160,7 +161,7 @@ export const EmailHub: FC<{
   const [draftFilter, setDraftFilter] = useState<'all' | 'pending' | 'sent'>('all');
   const [draftSearch, setDraftSearch] = useState('');
 
-  // Mailbox registration modal state
+  // Mailbox registration & edit modal state
   const [showAddMailbox, setShowAddMailbox] = useState(false);
   const [newMailbox, setNewMailbox] = useState({
     email: '',
@@ -174,6 +175,23 @@ export const EmailHub: FC<{
     smtp_password: '',
     use_tls: true,
   });
+
+  const [selectedMailboxForEdit, setSelectedMailboxForEdit] = useState<Mailbox | null>(null);
+  const [editMailboxForm, setEditMailboxForm] = useState({
+    display_name: '',
+    daily_cap: 35,
+    skip_warmup: true,
+    reputation_status: 'healthy',
+    is_active: 1,
+    smtp_host: '',
+    smtp_port: 587,
+    smtp_username: '',
+    smtp_password: '',
+    use_tls: true,
+  });
+  const [savingMailbox, setSavingMailbox] = useState(false);
+  const [testingMailboxId, setTestingMailboxId] = useState<number | null>(null);
+  const [mailboxTestResults, setMailboxTestResults] = useState<Record<number, { ok: boolean; message: string; latency_ms?: number }>>({});
 
   // Apply seed whenever seed prop updates
   useEffect(() => {
@@ -491,6 +509,124 @@ export const EmailHub: FC<{
       await loadData();
     } catch (err) {
       setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Registration failed.' });
+    }
+  };
+
+  // Test live connection of a mailbox
+  const handleTestMailbox = async (mbId: number) => {
+    setTestingMailboxId(mbId);
+    try {
+      const res = await apiFetch(`/api/email/mailboxes/${mbId}/test`, { method: 'POST' });
+      const data = await res.json();
+      setMailboxTestResults((prev) => ({
+        ...prev,
+        [mbId]: { ok: data.ok, message: data.message, latency_ms: data.latency_ms }
+      }));
+      setFeedback({
+        type: data.ok ? 'success' : 'error',
+        message: data.message || (data.ok ? 'Mailbox connection verified.' : 'Connection failed.')
+      });
+    } catch (err) {
+      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Test failed.' });
+    } finally {
+      setTestingMailboxId(null);
+    }
+  };
+
+  // Toggle mailbox active/paused status
+  const handleToggleMailbox = async (mbId: number) => {
+    try {
+      const res = await apiFetch(`/api/email/mailboxes/${mbId}/toggle`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
+      setFeedback({
+        type: 'success',
+        message: `Mailbox status switched to ${data.reputation_status.toUpperCase()}.`
+      });
+      await loadData();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Status update failed.' });
+    }
+  };
+
+  // Reset mailbox daily dispatches counter
+  const handleResetMailboxCap = async (mbId: number) => {
+    try {
+      const res = await apiFetch(`/api/email/mailboxes/${mbId}/reset-cap`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
+      setFeedback({ type: 'success', message: "Today's send counter reset to 0." });
+      await loadData();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Reset failed.' });
+    }
+  };
+
+  // Delete mailbox
+  const handleDeleteMailbox = async (mbId: number) => {
+    if (!window.confirm('Are you sure you want to remove this mailbox from outbound rotation?')) return;
+    try {
+      const res = await apiFetch(`/api/email/mailboxes/${mbId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
+      setFeedback({ type: 'success', message: 'Mailbox removed from fleet.' });
+      await loadData();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Delete failed.' });
+    }
+  };
+
+  // Open Edit Mailbox Modal
+  const handleOpenEditMailbox = (mb: Mailbox) => {
+    setSelectedMailboxForEdit(mb);
+    setEditMailboxForm({
+      display_name: mb.display_name || '',
+      daily_cap: mb.daily_cap || 35,
+      skip_warmup: Boolean(mb.skip_warmup),
+      reputation_status: mb.reputation_status || 'healthy',
+      is_active: mb.is_active ?? 1,
+      smtp_host: '',
+      smtp_port: 587,
+      smtp_username: '',
+      smtp_password: '',
+      use_tls: true,
+    });
+  };
+
+  // Save changes to mailbox
+  const handleSaveMailboxEdit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!selectedMailboxForEdit) return;
+    setSavingMailbox(true);
+    try {
+      const payload: any = {
+        display_name: editMailboxForm.display_name,
+        daily_cap: editMailboxForm.daily_cap,
+        skip_warmup: editMailboxForm.skip_warmup,
+        reputation_status: editMailboxForm.reputation_status,
+        is_active: editMailboxForm.is_active,
+      };
+      if (editMailboxForm.smtp_host && editMailboxForm.smtp_username && editMailboxForm.smtp_password) {
+        payload.smtp_host = editMailboxForm.smtp_host;
+        payload.smtp_port = editMailboxForm.smtp_port;
+        payload.smtp_username = editMailboxForm.smtp_username;
+        payload.smtp_password = editMailboxForm.smtp_password;
+        payload.use_tls = editMailboxForm.use_tls;
+      }
+      const res = await apiFetch(`/api/email/mailboxes/${selectedMailboxForEdit.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
+      setSelectedMailboxForEdit(null);
+      setFeedback({ type: 'success', message: `Mailbox ${selectedMailboxForEdit.email} updated successfully!` });
+      await loadData();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Update failed.' });
+    } finally {
+      setSavingMailbox(false);
     }
   };
 
@@ -992,66 +1128,194 @@ export const EmailHub: FC<{
         {/* ==================================================================== */}
         {tab === 'fleet' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-white">Registered Sending Mailboxes</h2>
+                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <span>Registered Sending Mailboxes</span>
+                  <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
+                    {mailboxes.length} configured
+                  </span>
+                </h2>
                 <p className="text-xs text-slate-400">
-                  Warmup ramps, daily dispatch quotas, and inbox rotation health.
+                  Manage sending identities, test live SMTP reachability, calibrate daily quotas, and monitor warmup health.
                 </p>
               </div>
-              <button
-                onClick={() => setShowAddMailbox(true)}
-                className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition shadow-md shadow-indigo-600/20"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Add SMTP / Workspace Mailbox</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowAddMailbox(true)}
+                  className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition shadow-md shadow-indigo-600/20 whitespace-nowrap"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Add Mailbox</span>
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {mailboxes.map((mb) => {
                 const pct = Math.min(100, Math.round(((mb.sent_today || 0) / (mb.daily_cap || 35)) * 100));
+                const testResult = mailboxTestResults[mb.id];
+                const isTesting = testingMailboxId === mb.id;
+                const isPaused = mb.reputation_status === 'paused' || mb.is_active === 0;
+
                 return (
                   <div
                     key={mb.id}
-                    className="bento-tile specular-border rounded-2xl p-5 border border-slate-800 bg-slate-900/60 space-y-3"
+                    className={`bento-tile specular-border rounded-2xl p-5 border bg-slate-900/60 space-y-4 transition ${
+                      isPaused ? 'border-amber-500/30 opacity-80' : 'border-slate-800'
+                    }`}
                   >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="text-xs font-semibold text-white">{mb.display_name || 'Primary Mailbox'}</div>
-                        <div className="text-xs font-mono text-indigo-300 truncate mt-0.5">{mb.email}</div>
+                    {/* Header: Name, Email & Status */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-white truncate">
+                            {mb.display_name || 'Primary Mailbox'}
+                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded uppercase font-mono bg-slate-800 text-slate-300 border border-slate-700/60">
+                            {mb.provider_type}
+                          </span>
+                        </div>
+                        <div className="text-xs font-mono text-indigo-300 truncate mt-0.5" title={mb.email}>
+                          {mb.email}
+                        </div>
                       </div>
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded-full font-mono uppercase ${
-                          mb.reputation_status === 'healthy'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                            : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                        }`}
-                      >
-                        {mb.reputation_status}
-                      </span>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => handleToggleMailbox(mb.id)}
+                          title={isPaused ? 'Resume Sending' : 'Pause Sending'}
+                          className={`p-1.5 rounded-lg border transition ${
+                            isPaused
+                              ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
+                              : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                          }`}
+                        >
+                          {isPaused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+                        </button>
+                        <button
+                          onClick={() => handleOpenEditMailbox(mb)}
+                          title="Configure Mailbox"
+                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700/60 text-slate-300 hover:text-white transition"
+                        >
+                          <Settings className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteMailbox(mb.id)}
+                          title="Remove Mailbox"
+                          className="p-1.5 rounded-lg hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 transition"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="space-y-1">
+                    {/* Progress Bar & Counter */}
+                    <div className="space-y-1.5">
                       <div className="flex items-center justify-between text-[11px] text-slate-400">
-                        <span>Today's Dispatches</span>
-                        <span className="font-mono text-white tabular">
-                          {mb.sent_today} / {mb.daily_cap}
+                        <span className="flex items-center gap-1">
+                          <span>Today's Dispatches</span>
+                          <span
+                            className={`text-[9px] px-1 rounded uppercase font-mono ${
+                              isPaused ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'
+                            }`}
+                          >
+                            {isPaused ? 'PAUSED' : 'ACTIVE'}
+                          </span>
                         </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-white tabular">
+                            {mb.sent_today} / {mb.daily_cap}
+                          </span>
+                          <button
+                            onClick={() => handleResetMailboxCap(mb.id)}
+                            title="Reset Today's Counter to 0"
+                            className="text-slate-500 hover:text-slate-300 transition"
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                          </button>
+                        </div>
                       </div>
                       <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all ${
-                            pct > 90 ? 'bg-amber-500' : 'bg-gradient-to-r from-indigo-500 to-cyan-500'
+                            isPaused
+                              ? 'bg-slate-600'
+                              : pct > 90
+                              ? 'bg-amber-500'
+                              : 'bg-gradient-to-r from-indigo-500 to-cyan-500'
                           }`}
                           style={{ width: `${pct}%` }}
                         />
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
-                      <span>Provider: <strong className="text-white font-mono uppercase">{mb.provider_type}</strong></span>
-                      <span>Warmup: <strong className="text-emerald-400">{mb.skip_warmup ? 'Active' : 'Ramping'}</strong></span>
+                    {/* Telemetry Detail Chips */}
+                    <div className="pt-2 border-t border-slate-800/80 grid grid-cols-2 gap-2 text-[11px] text-slate-400">
+                      <div>
+                        <span>Warmup: </span>
+                        <strong className="text-emerald-400">
+                          {mb.skip_warmup ? 'Active (Full Cap)' : 'Ramping Safe'}
+                        </strong>
+                      </div>
+                      <div className="text-right">
+                        <span>Credentials: </span>
+                        <strong className="text-white font-mono">
+                          {mb.has_credentials ? 'Verified' : 'Default Relay'}
+                        </strong>
+                      </div>
+                    </div>
+
+                    {/* Live Test Results Alert (If tested) */}
+                    {testResult && (
+                      <div
+                        className={`p-2 rounded-lg text-[11px] flex items-center justify-between border ${
+                          testResult.ok
+                            ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-200'
+                            : 'bg-rose-950/40 border-rose-500/30 text-rose-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 truncate">
+                          {testResult.ok ? (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                          ) : (
+                            <XCircle className="h-3.5 w-3.5 text-rose-400 shrink-0" />
+                          )}
+                          <span className="truncate">{testResult.message}</span>
+                        </div>
+                        {testResult.latency_ms !== undefined && (
+                          <span className="font-mono text-[10px] text-slate-400 shrink-0 ml-1">
+                            {testResult.latency_ms}ms
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Action Bar on Card */}
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                      <button
+                        onClick={() => handleTestMailbox(mb.id)}
+                        disabled={isTesting}
+                        className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-[11px] font-medium transition disabled:opacity-50"
+                      >
+                        {isTesting ? (
+                          <RefreshCw className="h-3 w-3 animate-spin text-cyan-400" />
+                        ) : (
+                          <Zap className="h-3 w-3 text-cyan-400" />
+                        )}
+                        <span>{isTesting ? 'Testing…' : 'Test Relay'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setSelectedMailboxId(mb.id);
+                          setTab('compose');
+                        }}
+                        className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 hover:text-white text-[11px] font-medium transition"
+                      >
+                        <Send className="h-3 w-3" />
+                        <span>Compose</span>
+                      </button>
                     </div>
                   </div>
                 );
@@ -1947,6 +2211,153 @@ export const EmailHub: FC<{
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ==================================================================== */}
+        {/* CONFIGURE / EDIT MAILBOX MODAL */}
+        {/* ==================================================================== */}
+        {selectedMailboxForEdit && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-fadeIn">
+            <div className="w-full max-w-lg bento-tile specular-border rounded-2xl p-6 border border-slate-800 bg-slate-900 space-y-4 shadow-2xl">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div className="flex items-center space-x-2">
+                  <Settings className="h-4 w-4 text-indigo-400" />
+                  <h3 className="text-sm font-semibold text-white">
+                    Configure Mailbox ({selectedMailboxForEdit.email})
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setSelectedMailboxForEdit(null)}
+                  className="text-slate-400 hover:text-white text-xs"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveMailboxEdit} className="space-y-3">
+                <div>
+                  <label className="text-[11px] text-slate-300 font-medium">Display Name (Sender Name)</label>
+                  <input
+                    type="text"
+                    placeholder="Alex Mercer (ApexCore)"
+                    value={editMailboxForm.display_name}
+                    onChange={(e) => setEditMailboxForm({ ...editMailboxForm, display_name: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none mt-1"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] text-slate-300 font-medium">Daily Outbound Quota</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={200}
+                      value={editMailboxForm.daily_cap}
+                      onChange={(e) => setEditMailboxForm({ ...editMailboxForm, daily_cap: Number(e.target.value) })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] text-slate-300 font-medium">Sending State</label>
+                    <select
+                      value={editMailboxForm.reputation_status}
+                      onChange={(e) => setEditMailboxForm({
+                        ...editMailboxForm,
+                        reputation_status: e.target.value,
+                        is_active: e.target.value === 'paused' ? 0 : 1
+                      })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none mt-1"
+                    >
+                      <option value="healthy">Active / Healthy</option>
+                      <option value="paused">Paused (Exclude from rotation)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="pt-1">
+                  <label className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editMailboxForm.skip_warmup}
+                      onChange={(e) => setEditMailboxForm({ ...editMailboxForm, skip_warmup: e.target.checked })}
+                      className="rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-0"
+                    />
+                    <span>Mailbox is already warmed up (start at full capacity)</span>
+                  </label>
+                </div>
+
+                {/* Optional Custom SMTP Section */}
+                <div className="pt-2 border-t border-slate-800/80">
+                  <div className="text-[11px] font-semibold text-slate-400 mb-2">
+                    Custom SMTP Relay Credentials (Optional)
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <label className="text-[10px] text-slate-500 font-medium">SMTP Host</label>
+                      <input
+                        type="text"
+                        placeholder="smtp.gmail.com"
+                        value={editMailboxForm.smtp_host}
+                        onChange={(e) => setEditMailboxForm({ ...editMailboxForm, smtp_host: e.target.value })}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none mt-0.5"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-500 font-medium">Port</label>
+                      <input
+                        type="number"
+                        value={editMailboxForm.smtp_port}
+                        onChange={(e) => setEditMailboxForm({ ...editMailboxForm, smtp_port: Number(e.target.value) })}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none mt-0.5"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div>
+                      <label className="text-[10px] text-slate-500 font-medium">Username</label>
+                      <input
+                        type="text"
+                        placeholder="user@domain.com"
+                        value={editMailboxForm.smtp_username}
+                        onChange={(e) => setEditMailboxForm({ ...editMailboxForm, smtp_username: e.target.value })}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none mt-0.5"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-500 font-medium">Password</label>
+                      <input
+                        type="password"
+                        placeholder="••••••••••••"
+                        value={editMailboxForm.smtp_password}
+                        onChange={(e) => setEditMailboxForm({ ...editMailboxForm, smtp_password: e.target.value })}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none mt-0.5"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMailboxForEdit(null)}
+                    className="px-4 py-2 rounded-xl border border-slate-800 text-slate-300 hover:text-white text-xs font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingMailbox}
+                    className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/20 transition disabled:opacity-50"
+                  >
+                    {savingMailbox ? 'Saving…' : 'Save Mailbox Settings'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
