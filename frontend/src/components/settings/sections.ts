@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { BellRing, BookOpen, Building2, Code2, Database, Globe, KeyRound, ListChecks, Mail, Palette, ShieldCheck, Users, BadgeCheck, MailX, Zap } from 'lucide-react';
+import { BellRing, BookOpen, Building2, Database, Globe, KeyRound, ListChecks, Mail, Palette, ShieldCheck, Users, BadgeCheck, MailX, Zap } from 'lucide-react';
 
 export interface SettingsSection { id: string; label: string; group: string; hint: string; keywords: string; icon: LucideIcon }
 
@@ -18,7 +18,6 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { id: 'security', label: 'Security and session', group: 'Access and data', hint: 'Who you are signed in as', keywords: 'session sign out permissions role password key hygiene kill switch stop sending', icon: ShieldCheck },
   { id: 'data', label: 'Data and export', group: 'Access and data', hint: 'Your records, CSV, backups', keywords: 'export csv download backup restore gdpr data portability records database', icon: Database },
   { id: 'prefs', label: 'Appearance and shortcuts', group: 'Preferences', hint: 'Light or dark, keyboard', keywords: 'theme dark light mode teal colour keyboard shortcuts motion transparency', icon: Palette },
-  { id: 'api', label: 'Developer', group: 'Help', hint: 'API console', keywords: 'api endpoints openapi swagger developer console rest', icon: Code2 },
   { id: 'tour', label: 'How it works', group: 'Help', hint: 'A short tour', keywords: 'help guide tour tutorial learn honesty', icon: BookOpen },
 ];
 

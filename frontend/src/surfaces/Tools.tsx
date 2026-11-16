@@ -31,7 +31,7 @@ const MOVED = [
   ['Mission Control', 'Today (counts, inbox, daily digest)'], ['Swarm Auto-Pilot', 'Today, "Find and prepare new prospects"'], ['Opportunity Radar', 'Find, Jobs and projects / Tenders'],
   ['Local Client Hunt', 'Find, Local businesses (list and map)'], ['Open Sourcing (SEC, hiring, LinkedIn)', 'Today runs, and a client page: "Find on their website"'], ['Website Doctor', 'Tools, Site Clinic (and a client page)'],
   ['Deal Pipeline & CRM', 'Clients'], ['Proof and services', 'Settings, Services and proof'], ['Visual User Guide', 'Settings, How it works'],
-  ['Fleet Deliverability, DNS Studio, CAN-SPAM Vault, Autonomy Policy, RBAC, API console', 'Settings'], ['Copy Coach, Call Intel, Video Pitch, Waterfall, Sequences', 'Tools (this page)'],
+  ['Fleet Deliverability, DNS Studio, CAN-SPAM Vault, Autonomy Policy, RBAC', 'Settings'], ['Copy Coach, Call Intel, Video Pitch, Waterfall, Sequences', 'Tools (this page)'],
 ];
 
 const RECENT_KEY = 'agencybd.tools.recent';

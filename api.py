@@ -47,7 +47,7 @@ from tasks.task_queue import TaskQueueEngine
 
 logger = logging.getLogger("AgencyBD.api")
 
-_docs_enabled = (not is_production()) or os.getenv("AGENCYBD_ENABLE_DOCS", "").lower() == "true"
+_docs_enabled = os.getenv("AGENCYBD_ENABLE_DOCS", "false").lower() in ("true", "1")
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -1702,9 +1702,15 @@ if os.path.exists(frontend_dist):
 
     @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
     async def serve_spa_frontend(full_path: str):
-        # Never hijack API, health, or telemetry endpoints
-        if full_path.startswith("api/") or full_path.startswith("healthz/") or full_path == "metrics":
-            raise HTTPException(status_code=404, detail="API route not found")
+        # Never hijack API, health, telemetry, or documentation endpoints
+        if (
+            full_path.startswith("api/")
+            or full_path.startswith("healthz/")
+            or full_path == "metrics"
+            or full_path in ("docs", "redoc", "openapi.json")
+            or full_path.endswith(".json")
+        ):
+            raise HTTPException(status_code=404, detail="Not found")
 
         file_path = safe_static_path(frontend_dist, full_path)
         if file_path:

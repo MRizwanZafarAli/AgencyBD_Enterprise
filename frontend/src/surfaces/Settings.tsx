@@ -18,7 +18,6 @@ import { DnsStudio } from '../components/modules/DnsStudio';
 import { CanSpamVault } from '../components/modules/CanSpamVault';
 import { FleetRouter } from '../components/modules/FleetRouter';
 import { EnterpriseRbac } from '../components/modules/EnterpriseRbac';
-import { ApiExplorer } from '../components/modules/ApiExplorer';
 import { useApi } from '../lib/hooks';
 import type { Me } from '../lib/api';
 
@@ -72,7 +71,6 @@ export const Settings: FC<{ me: Me; section: string; setSection: (s: string) => 
           {section === 'security' && <SecurityPanel me={me} onSignOut={onSignOut} />}
           {section === 'data' && <DataPanel />}
           {section === 'prefs' && <Preferences />}
-          {section === 'api' && <ApiExplorer />}
           {section === 'tour' && <Tour />}
         </div>
       </div>
