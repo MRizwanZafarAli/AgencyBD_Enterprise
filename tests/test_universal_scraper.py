@@ -142,3 +142,77 @@ def test_api_launch_headed_chrome_window(client, super_admin_headers, monkeypatc
         data = resp.json()
         assert data["ok"] is True
         assert data["result"]["status"] == "launched"
+
+def test_intelligent_clearance_radar_and_auto_resume(client, sdr_headers):
+    from unittest.mock import patch
+    from engines.interactive_browser_session import get_browser_session
+    from engines.universal_scraper import ScrapeResult
+
+    session = get_browser_session("test_radar_session")
+    session.current_url = "https://example.com"
+    session.challenge_detected = True
+    session.challenge_type = "cloudflare_turnstile"
+
+    # Mock clearance via CDP or HTTP probe
+    mock_scrape = ScrapeResult(
+        url="https://example.com",
+        domain="example.com",
+        title="Example Domain Cleared",
+        fit_markdown="# Example Domain Cleared\n\nClean scraped content.",
+        raw_html_length=5000,
+        markdown_length=300,
+        compression_ratio=94.0,
+        challenge_detected=False,
+    )
+
+    with patch.object(session, "check_live_clearance", return_value={"cleared": True, "method": "cdp_telemetry"}):
+        with patch("engines.universal_scraper.universal_scraper.scrape_url", return_value=mock_scrape):
+            resp = client.get(
+                "/api/v1/browser/session/clearance-status?session_id=test_radar_session&target=example.com&auto_resume=true",
+                headers=sdr_headers,
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["ok"] is True
+            assert data["cleared"] is True
+            assert data["resumed"] is True
+            assert data["status"] == "completed"
+            assert data["re_challenged"] is False
+            assert "# Example Domain Cleared" in data["resume_result"]["result"]["fit_markdown"]
+
+def test_re_challenge_detection_lifecycle(client, sdr_headers):
+    from unittest.mock import patch
+    from engines.interactive_browser_session import get_browser_session
+    from engines.universal_scraper import ScrapeResult
+
+    session = get_browser_session("test_rechallenge_session")
+    session.current_url = "https://gated-site.com"
+    session.challenge_count = 1
+
+    # Secondary challenge triggered
+    mock_rechallenge = ScrapeResult(
+        url="https://gated-site.com",
+        domain="gated-site.com",
+        title="Just a moment...",
+        fit_markdown="",
+        raw_html_length=2000,
+        markdown_length=0,
+        compression_ratio=0.0,
+        challenge_detected=True,
+        challenge_type="recaptcha",
+    )
+
+    with patch.object(session, "check_live_clearance", return_value={"cleared": True, "method": "sovereign_http_probe"}):
+        with patch("engines.universal_scraper.universal_scraper.scrape_url", return_value=mock_rechallenge):
+            resp = client.get(
+                "/api/v1/browser/session/clearance-status?session_id=test_rechallenge_session&target=gated-site.com&auto_resume=true",
+                headers=sdr_headers,
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["ok"] is True
+            assert data["cleared"] is True
+            assert data["resumed"] is True
+            assert data["status"] == "re_challenged"
+            assert data["re_challenged"] is True
+            assert data["challenge_count"] == 2

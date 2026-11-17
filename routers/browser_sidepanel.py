@@ -136,6 +136,63 @@ def resolve_human_challenge(
     }
 
 
+@router.get("/session/clearance-status")
+def get_session_clearance_status(
+    session_id: str = Query(default="default_session"),
+    target: Optional[str] = Query(default=None),
+    auto_resume: bool = Query(default=True),
+    principal: Principal = Depends(get_current_principal),
+) -> Dict[str, Any]:
+    """
+    Intelligent Bot Challenge Radar & Clearance Verifier.
+    Checks whether the anti-bot challenge (Cloudflare, Turnstile, Captcha) has been cleared in the session.
+    If cleared and auto_resume=True, automatically executes Fit-Markdown scrape and persists the result.
+    If re-challenged on subsequent pages, detects and returns re_challenged=True.
+    """
+    session = get_browser_session(session_id)
+    target_url = target or session.current_url
+    if not target_url:
+        return {"ok": False, "cleared": False, "message": "No target URL provided"}
+
+    clearance = session.check_live_clearance(target_url)
+    if clearance.get("cleared") and auto_resume:
+        resume_res = session.auto_resume_and_scrape(target_url, org_id=principal.org_id)
+        return {
+            "ok": True,
+            "cleared": True,
+            "resumed": True,
+            "status": resume_res.get("status"),
+            "re_challenged": resume_res.get("re_challenged", False),
+            "challenge_count": session.challenge_count,
+            "clearance": clearance,
+            "resume_result": resume_res,
+        }
+    else:
+        return {
+            "ok": True,
+            "cleared": clearance.get("cleared", False),
+            "resumed": False,
+            "status": "waiting_for_clearance" if not clearance.get("cleared") else "cleared_pending_resume",
+            "challenge_count": session.challenge_count,
+            "clearance": clearance,
+        }
+
+
+@router.post("/session/auto-resume")
+def trigger_auto_resume(
+    req: ResolveChallengeRequest,
+    principal: Principal = Depends(get_current_principal),
+) -> Dict[str, Any]:
+    """Manually or programmatically triggers auto-resume on the session once cleared."""
+    session = get_browser_session(req.session_id)
+    target_url = req.domain or session.current_url
+    resume_res = session.auto_resume_and_scrape(target_url, org_id=principal.org_id)
+    return {
+        "ok": True,
+        "result": resume_res,
+    }
+
+
 @router.get("/session/vault")
 def list_session_vault(
     principal: Principal = Depends(get_current_principal),

@@ -13,7 +13,8 @@ import {
   X, 
   Cpu, 
   Zap, 
-  Sparkles 
+  Sparkles,
+  Radar
 } from 'lucide-react';
 import { Button } from '../ui';
 import { apiFetch } from '../../lib/api';
@@ -61,6 +62,9 @@ export const InteractiveBrowserSidepanel: FC<{
   const [copied, setCopied] = useState(false);
   const [resuming, setResuming] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [radarActive, setRadarActive] = useState(false);
+  const [radarState, setRadarState] = useState<'idle' | 'watching' | 'cleared' | 'resuming' | 'completed' | 're_challenged'>('idle');
+  const [challengeCount, setChallengeCount] = useState(1);
 
   // Sync initialUrl
   useEffect(() => {
@@ -68,6 +72,50 @@ export const InteractiveBrowserSidepanel: FC<{
       setUrl(initialUrl);
     }
   }, [initialUrl]);
+
+  // Intelligent Bot Barrier Clearance & Auto-Resume Poller
+  useEffect(() => {
+    let interval: number | null = null;
+    const isChallenged = navData?.challenge_detected;
+    if (isChallenged && isOpen) {
+      setRadarActive(true);
+      setRadarState('watching');
+      interval = window.setInterval(async () => {
+        try {
+          const targetUrl = navData?.current_url || `https://${url}`;
+          const res = await apiFetch(`/api/v1/browser/session/clearance-status?session_id=default_session&target=${encodeURIComponent(targetUrl)}&auto_resume=true`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.cleared && data.resumed) {
+              if (data.re_challenged) {
+                setRadarState('re_challenged');
+                setChallengeCount(data.challenge_count || 2);
+                setStatusMessage(`Subsequent barrier detected (${data.resume_result?.challenge_type || 'Bot Wall'}). Please solve second barrier.`);
+              } else {
+                setRadarState('completed');
+                setRadarActive(false);
+                setStatusMessage('Bot barrier cleared and verified by backend! Scrape completed automatically.');
+                if (data.resume_result?.result) {
+                  setScrapeData(data.resume_result.result);
+                  setActiveTab('markdown');
+                }
+                setNavData((prev) => prev ? { ...prev, challenge_detected: false, challenge_type: null } : null);
+                if (interval) clearInterval(interval);
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Clearance radar error', err);
+        }
+      }, 2500);
+    } else {
+      setRadarActive(false);
+      setRadarState('idle');
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [navData?.challenge_detected, isOpen, url]);
 
   const handleNavigate = async (targetOverride?: string) => {
     const target = (targetOverride || url).trim();
@@ -254,21 +302,80 @@ export const InteractiveBrowserSidepanel: FC<{
           </div>
         )}
 
-        {/* Challenge Banner if active */}
+        {/* Intelligent Bot Barrier & Live Clearance Radar Banner */}
         {navData?.challenge_detected && (
-          <div className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-rose-950/40 border border-rose-500/40 text-rose-200 text-xs">
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
-              <span>
-                <strong>Human Touch Required:</strong> {navData.challenge_type || 'Anti-bot verification wall'} detected.
-              </span>
+          <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-200 text-xs space-y-2">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-start gap-2">
+                <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-bold text-white flex items-center gap-1.5">
+                    {radarState === 're_challenged' ? (
+                      <span className="text-amber-300">⚠️ Subsequent Bot Barrier Detected (Attempt #{challengeCount})</span>
+                    ) : (
+                      <span>🛡️ AI Bot Barrier Detected: {navData.challenge_type || 'Bot Challenge'}</span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-rose-300/80 mt-0.5">
+                    Solve the challenge in the Headed Chromium window. The backend is continuously monitoring the session via native CDP and will automatically detect when the barrier is cleared, verify authentic DOM, and resume scraping.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleLaunchNativeHeaded}
+                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-rose-500 text-white hover:bg-rose-400 flex items-center gap-1 shadow-sm transition"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  Popout Window
+                </button>
+              </div>
             </div>
-            <button
-              onClick={handleLaunchNativeHeaded}
-              className="px-2 py-1 text-[11px] font-bold rounded bg-rose-500 text-white hover:bg-rose-400 whitespace-nowrap"
-            >
-              Open & Solve
-            </button>
+
+            {/* Live Clearance Radar Telemetry Strip */}
+            <div className="flex items-center justify-between pt-1 border-t border-rose-900/60 text-[11px] font-mono text-slate-300">
+              <div className="flex items-center gap-1.5">
+                <Radar className={`w-3.5 h-3.5 text-amber-400 ${radarActive ? 'animate-spin' : ''}`} />
+                <span className="text-amber-300">Clearance Radar:</span>
+                <span className="text-slate-300">
+                  {radarState === 'watching' && 'Monitoring CDP tab for Turnstile/Captcha clearance…'}
+                  {radarState === 're_challenged' && 'Waiting for secondary challenge clearance…'}
+                  {radarState === 'resuming' && 'Barrier cleared! Resuming sovereign scrape…'}
+                  {radarState === 'completed' && 'Clearance verified & scrape finished.'}
+                  {radarState === 'idle' && 'Idle'}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  setResuming(true);
+                  try {
+                    const targetUrl = navData?.current_url || `https://${url}`;
+                    const res = await apiFetch(`/api/v1/browser/session/clearance-status?session_id=default_session&target=${encodeURIComponent(targetUrl)}&auto_resume=true`);
+                    const data = await res.json();
+                    if (data.cleared && data.resumed) {
+                      setStatusMessage('Barrier cleared! Scrape completed automatically.');
+                      if (data.resume_result?.result) {
+                        setScrapeData(data.resume_result.result);
+                        setActiveTab('markdown');
+                      }
+                      setNavData((prev) => prev ? { ...prev, challenge_detected: false, challenge_type: null } : null);
+                    } else {
+                      setStatusMessage('Barrier still detected in session. Please complete challenge in the window.');
+                    }
+                  } finally {
+                    setResuming(false);
+                  }
+                }}
+                disabled={resuming}
+                className="text-[10px] text-amber-400 hover:text-amber-200 underline font-sans"
+              >
+                {resuming ? 'Checking…' : 'Check Clearance Now'}
+              </button>
+            </div>
           </div>
         )}
       </div>
