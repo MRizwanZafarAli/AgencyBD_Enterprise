@@ -120,7 +120,7 @@ def validate(data: Dict[str, Any]) -> Dict[str, Any]:
     ch["ntfy"]["server"] = server
     for name in ("whatsapp", "call"):
         num = re.sub(r"[\s()-]", "", str(ch[name].get("to") or ""))
-        if num and not re.fullmatch(r"\+\d{8,15}", num):
+        if num and not re.fullmatch(r"\+[1-9]\d{7,14}", num):
             raise ValueError("Phone numbers use the international form, for example +923001234567.")
         ch[name]["to"] = num
 

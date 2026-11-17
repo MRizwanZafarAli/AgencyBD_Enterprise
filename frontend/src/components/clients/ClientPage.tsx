@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { ExternalLink, FileText, Presentation, Search, ShieldCheck, Sparkles, UserPlus, Video } from 'lucide-react';
+import { ExternalLink, FileText, Presentation, Search, ShieldCheck, Sparkles, UserPlus, Video, Cpu } from 'lucide-react';
 import { Badge, Button, Card, Drawer, EmptyState, ScoreBar, Skeletons, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { VideoStoryboardDrawer } from '../shared/VideoStoryboardDrawer';
@@ -29,7 +29,12 @@ const OUTCOME: Record<string, string> = {
   nothing_to_say: 'The audit found nothing specific enough to base an email on.', blocked_by_policy: 'Blocked by policy', audit_failed: 'The audit failed.',
 };
 
-export const ClientPage: FC<{ leadId: number | null; onClose: () => void }> = ({ leadId, onClose }) => {
+export const ClientPage: FC<{
+  leadId: number | null;
+  onClose: () => void;
+  onSendEmail?: (params: { recipient: string; recipientName?: string; companyName?: string; subject?: string; body?: string; leadId?: number }) => void;
+  onOpenScraper?: (url: string, mode?: 'general' | 'client_audit' | 'job_spec' | 'local_audit', title?: string) => void;
+}> = ({ leadId, onClose, onSendEmail, onOpenScraper }) => {
   const detail = useApi<Detail>(leadId ? `/api/clients/${leadId}` : null);
   const d = detail.data;
   const advice = useApi<Advice>(d && d.audit?.status === 'completed' ? `/api/companies/${d.company_id}/advice` : null);
@@ -80,7 +85,25 @@ export const ClientPage: FC<{ leadId: number | null; onClose: () => void }> = ({
         <div className="space-y-5 text-sm">
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone={d.priority.band === 'hot' ? 'good' : d.priority.band === 'warm' ? 'accent' : 'neutral'}>{d.priority.band} · {d.priority.score}</Badge>
-            {d.has_website ? <a className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-indigo-200" href={normalizeUrl(d.lead.domain)} target="_blank" rel="noreferrer noopener"><ExternalLink className="h-3.5 w-3.5" />{d.lead.domain}</a> : <Badge tone="warn">No website</Badge>}
+            {d.has_website ? (
+              <div className="inline-flex items-center gap-1.5">
+                <a className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-indigo-200" href={normalizeUrl(d.lead.domain)} target="_blank" rel="noreferrer noopener">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  {d.lead.domain}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => onOpenScraper?.(d.lead.domain, 'client_audit', d.lead.company_name)}
+                  title="Open Universal Scraper for full developer audit & tech stack"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 transition"
+                >
+                  <Cpu className="h-3 w-3 text-amber-400" />
+                  Scrape & Inspect
+                </button>
+              </div>
+            ) : (
+              <Badge tone="warn">No website</Badge>
+            )}
             {d.lead.phone && <span className="font-mono text-xs text-slate-300">{d.lead.phone}</span>}
           </div>
           <div><ScoreBar value={d.priority.score} />
@@ -94,8 +117,19 @@ export const ClientPage: FC<{ leadId: number | null; onClose: () => void }> = ({
           <Card>
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <h3 className="text-sm font-semibold text-white flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-slate-400" />Website check</h3>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {d.has_website && <Button small variant="primary" disabled={busy !== ''} onClick={audit}>{busy === 'audit' ? 'Checking…' : d.audit ? 'Re-run audit' : 'Run audit'}</Button>}
+                {d.has_website && (
+                  <Button
+                    small
+                    variant="secondary"
+                    className="bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20"
+                    onClick={() => onOpenScraper?.(d.lead.domain, 'client_audit', d.lead.company_name)}
+                  >
+                    <Cpu className="h-3.5 w-3.5 text-amber-400" />
+                    Deep Scraper Audit
+                  </Button>
+                )}
                 {d.audit?.status === 'completed' && <Button small disabled={busy !== ''} onClick={report}><FileText className="h-3.5 w-3.5" />Client report</Button>}
                 {d.audit?.status === 'completed' && <Button small disabled={busy !== ''} onClick={deck}><Presentation className="h-3.5 w-3.5 text-amber-400" />Executive deck</Button>}
                 {d.audit?.status === 'completed' && <Button small disabled={busy !== ''} onClick={openStoryboard}><Video className="h-3.5 w-3.5 text-purple-400" />Video script</Button>}
@@ -103,7 +137,20 @@ export const ClientPage: FC<{ leadId: number | null; onClose: () => void }> = ({
             </div>
             {!d.has_website ? <p className="text-xs text-slate-400">This business has no website to audit. The pitch is building one; see the opener on its Find result.</p>
               : !d.audit ? <p className="text-xs text-slate-400">Not audited yet. The audit reads the public site (headers, TLS, SEO, accessibility, email DNS, visible software versions) and never tests anything intrusively.</p>
-              : d.audit.status === 'blocked' ? <p className="text-xs text-amber-300">This site answered but refuses automated access, so its pages were not graded (only the certificate and email DNS were checked). Review it by hand in your own browser.</p>
+              : d.audit.status === 'blocked' ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-amber-300">This site answered but refuses automated access or presents an anti-bot challenge. Launch the Sovereign Scraper to clear barriers and inspect.</p>
+                  <Button
+                    small
+                    variant="secondary"
+                    className="bg-amber-500/10 text-amber-300 border-amber-500/30"
+                    onClick={() => onOpenScraper?.(d.lead.domain, 'client_audit', d.lead.company_name)}
+                  >
+                    <Cpu className="h-3.5 w-3.5 text-amber-400" />
+                    Solve Barrier & Scrape with Universal Browser
+                  </Button>
+                </div>
+              )
               : d.audit.status !== 'completed' ? <p className="text-xs text-amber-300">The site could not be reached from our servers. One failed check is not proof it is down.</p>
               : <p className="text-xs text-slate-300">Health score <strong className="text-white tabular">{d.audit.overall_score}</strong>/100, checked {d.audit.created_at}.</p>}
           </Card>
@@ -148,7 +195,35 @@ export const ClientPage: FC<{ leadId: number | null; onClose: () => void }> = ({
             {d.contacts.length === 0 ? <p className="text-xs text-slate-400">No contacts yet. Find a decision maker on the company site or LinkedIn, then add them here.</p> : (
               <ul className="divide-y divide-slate-800">{d.contacts.map((c) => (
                 <li key={c.id} className="py-2 flex flex-wrap items-center justify-between gap-2 text-xs"><span className="text-slate-200">{c.first_name} {c.last_name} <span className="text-slate-500">{c.title}</span><br /><span className="font-mono text-slate-400">{c.email}</span></span>
-                  <span className="flex items-center gap-2"><Badge tone={CONTACT_TONE[c.verification_status] ?? 'warn'}>{c.verification_status}</Badge>{c.verification_status !== 'verified' && <Button small disabled={busy !== ''} onClick={() => verify(c.id)}>Verify</Button>}</span></li>))}</ul>)}
+                  <span className="flex items-center gap-2">
+                    <Badge tone={CONTACT_TONE[c.verification_status] ?? 'warn'}>{c.verification_status}</Badge>
+                    {c.verification_status !== 'verified' && <Button small disabled={busy !== ''} onClick={() => verify(c.id)}>Verify</Button>}
+                    {onSendEmail && c.email && (
+                      <Button
+                        small
+                        variant="primary"
+                        onClick={() => {
+                          const reasons = d?.priority?.reasons ?? [];
+                          const auditSummary = reasons.length > 0 ? reasons.map((r) => `• ${r}`).join('\n') : '';
+                          const defaultBody = auditSummary
+                            ? `Hi ${c.first_name || 'there'},\n\nI was looking into ${d?.lead.company_name || 'your site'} and noticed a few technical and performance observations:\n\n${auditSummary}\n\nWe put together a brief teardown with recommendations on how to address these. Would you be open to a 5-minute walkthrough this week?\n\nBest regards,\nGrowth Team`
+                            : `Hi ${c.first_name || 'there'},\n\nI hope this finds you well. I was reviewing ${d?.lead.company_name || 'your company'} and wanted to share a few observations regarding your digital footprint.\n\nWould you be open to a brief chat this week?\n\nBest regards,\nGrowth Team`;
+
+                          onSendEmail({
+                            recipient: c.email,
+                            recipientName: `${c.first_name} ${c.last_name}`.trim(),
+                            companyName: d?.lead.company_name,
+                            leadId: d?.lead.id,
+                            subject: `Technical audit & performance teardown for ${d?.lead.company_name || 'your site'}`,
+                            body: defaultBody
+                          });
+                          onClose();
+                        }}
+                      >
+                        Send Email
+                      </Button>
+                    )}
+                  </span></li>))}</ul>)}
           </Card>
 
           <Card>
@@ -157,6 +232,31 @@ export const ClientPage: FC<{ leadId: number | null; onClose: () => void }> = ({
             <div className="flex flex-wrap items-end gap-2">
               <label className="text-xs text-slate-400 space-y-1">Recipient country (required)<input className={`${field} w-28`} maxLength={3} placeholder="US, GB…" value={country} onChange={(e) => setCountry(e.target.value.toUpperCase())} /></label>
               <Button variant="primary" disabled={busy !== '' || !country} onClick={prepare}>{busy === 'prepare' ? 'Preparing…' : 'Prepare first email'}</Button>
+              {onSendEmail && d?.contacts[0]?.email && (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    const primary = d.contacts[0];
+                    const reasons = d?.priority?.reasons ?? [];
+                    const auditSummary = reasons.length > 0 ? reasons.map((r) => `• ${r}`).join('\n') : '';
+                    const defaultBody = auditSummary
+                      ? `Hi ${primary.first_name || 'there'},\n\nI was looking into ${d?.lead.company_name || 'your site'} and noticed a few technical and performance observations:\n\n${auditSummary}\n\nWe put together a brief teardown with recommendations on how to address these. Would you be open to a 5-minute walkthrough this week?\n\nBest regards,\nGrowth Team`
+                      : `Hi ${primary.first_name || 'there'},\n\nI hope this finds you well. I was reviewing ${d?.lead.company_name || 'your company'} and wanted to share a few observations.\n\nBest regards,\nGrowth Team`;
+
+                    onSendEmail({
+                      recipient: primary.email,
+                      recipientName: `${primary.first_name} ${primary.last_name}`.trim(),
+                      companyName: d.lead.company_name,
+                      leadId: d.lead.id,
+                      subject: `Audit insights & performance teardown for ${d.lead.company_name}`,
+                      body: defaultBody
+                    });
+                    onClose();
+                  }}
+                >
+                  Direct Email Dispatch Hub →
+                </Button>
+              )}
             </div>
           </Card>
 

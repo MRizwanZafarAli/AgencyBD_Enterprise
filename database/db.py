@@ -853,11 +853,70 @@ def init_db():
         last_error TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS lifecycle_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        event_name TEXT NOT NULL,
+        payload_json TEXT NOT NULL,
+        source_agent TEXT,
+        status TEXT NOT NULL DEFAULT 'emitted',
+        handlers_count INTEGER DEFAULT 0,
+        duration_ms REAL DEFAULT 0.0,
+        error_message TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_lifecycle_events_name ON lifecycle_events(org_id, event_name);
+    CREATE INDEX IF NOT EXISTS idx_lifecycle_events_created ON lifecycle_events(created_at);
+    CREATE TABLE IF NOT EXISTS agent_skills_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        skill_name TEXT NOT NULL,
+        agent_name TEXT,
+        input_summary TEXT,
+        status TEXT NOT NULL DEFAULT 'success',
+        duration_ms REAL DEFAULT 0.0,
+        error_message TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_skills_name ON agent_skills_log(org_id, skill_name);
+
+    CREATE TABLE IF NOT EXISTS browser_session_vault (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        domain TEXT NOT NULL,
+        session_cookies_enc TEXT,
+        storage_state_json TEXT,
+        last_intervened_by TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(org_id, domain)
+    );
+    CREATE INDEX IF NOT EXISTS idx_browser_session_domain ON browser_session_vault(org_id, domain);
+
+    CREATE TABLE IF NOT EXISTS scraped_pages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        url TEXT NOT NULL,
+        domain TEXT NOT NULL,
+        title TEXT,
+        fit_markdown TEXT,
+        extracted_json TEXT,
+        crawl_depth INTEGER DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'completed',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(org_id, url)
+    );
+    CREATE INDEX IF NOT EXISTS idx_scraped_pages_domain ON scraped_pages(org_id, domain);
     """)
     cursor.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS idx_opp_org_source_ext
         ON opportunities(org_id, source, external_id) WHERE external_id IS NOT NULL;
     """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_approvals_decision ON approvals(org_id, decision);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(org_id, status);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_outbound_drafts_status ON outbound_drafts(org_id, status, sent_at);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_runs_org ON audit_runs(org_id, created_at);")
 
     conn.commit()
     conn.close()

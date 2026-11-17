@@ -6,9 +6,6 @@ import { SdrDashboard } from '../components/dashboards/SdrDashboard';
 import { GrowthLeadDashboard } from '../components/dashboards/GrowthLeadDashboard';
 import { AdminDashboard } from '../components/dashboards/AdminDashboard';
 import { ErrorBoundary } from '../components/shared/ErrorBoundary';
-import { TodayOverview } from '../components/today/TodayOverview';
-import { Scorecard } from '../components/today/Scorecard';
-import { FollowupsPanel } from '../components/clients/FollowupsPanel';
 
 export const Today: FC<{
   onOpenClient: (leadId: number) => void;
@@ -16,7 +13,9 @@ export const Today: FC<{
   onGo: (s: Surface) => void;
   onSearch?: (q: string) => void;
   identity?: Me | null;
-}> = ({ onOpenClient, onSettings, onGo, onSearch, identity }) => {
+  onSendEmail?: (params: { recipient: string; recipientName?: string; companyName?: string; subject?: string; body?: string; leadId?: number }) => void;
+  onOpenScraper?: (url: string, mode?: 'general' | 'client_audit' | 'job_spec' | 'local_audit', title?: string) => void;
+}> = ({ onOpenClient, onSettings, onGo, onSearch, identity, onOpenScraper }) => {
   const role = identity?.role || 'super_admin';
 
   if (!identity) {
@@ -33,13 +32,13 @@ export const Today: FC<{
   } else if (role === 'sdr_rep') {
     dashboard = (
       <ErrorBoundary fallbackTitle="SDR Dashboard Error">
-        <SdrDashboard identity={identity} onGo={onGo} onOpenClient={onOpenClient} onSearch={onSearch} />
+        <SdrDashboard identity={identity} onGo={onGo} onOpenClient={onOpenClient} onSearch={onSearch} onOpenScraper={onOpenScraper} />
       </ErrorBoundary>
     );
   } else if (role === 'growth_lead') {
     dashboard = (
       <ErrorBoundary fallbackTitle="Growth Lead Dashboard Error">
-        <GrowthLeadDashboard identity={identity} onGo={onGo} onOpenClient={onOpenClient} onSettings={onSettings} />
+        <GrowthLeadDashboard identity={identity} onGo={onGo} onOpenClient={onOpenClient} onSettings={onSettings} onOpenScraper={onOpenScraper} />
       </ErrorBoundary>
     );
   } else {
@@ -50,18 +49,10 @@ export const Today: FC<{
     );
   }
 
-  // Every tier sees the same ranked "what matters" strip first (client messages waiting, clients to chase, approvals), then its own
-  // dashboard, then the weekly scorecard and the follow-ups that are due.
+  // Each role's dashboard is completely differentiated and purpose-built for its workflow
   return (
     <div className="space-y-6">
-      <ErrorBoundary fallbackTitle="Focus list error">
-        <TodayOverview focusOnly onGo={(surface, opts) => { if (opts?.leadId) onOpenClient(opts.leadId); else if (opts?.section) onSettings(opts.section); else onGo(surface); }} />
-      </ErrorBoundary>
       {dashboard}
-      <ErrorBoundary fallbackTitle="Scorecard error">
-        <Scorecard />
-      </ErrorBoundary>
-      <FollowupsPanel onOpenClient={onOpenClient} />
     </div>
   );
 };

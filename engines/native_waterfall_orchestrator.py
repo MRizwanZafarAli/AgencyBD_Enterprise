@@ -58,7 +58,7 @@ class NativeWaterfallOrchestrator:
         """
         try:
             clean = email.strip().lower()
-            md5_hash = hashlib.md5(clean.encode("utf-8")).hexdigest()
+            md5_hash = hashlib.md5(clean.encode("utf-8"), usedforsecurity=False).hexdigest()   # Gravatar's required address hash, not a security use
             url = f"https://www.gravatar.com/avatar/{md5_hash}?d=404"
             status, _, _ = SafeFetcher.safe_get(url, timeout=3.5)
             return status == 200

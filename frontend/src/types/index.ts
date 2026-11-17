@@ -114,4 +114,4 @@ export interface VideoPitchStoryboard {
 
 
 /** The four top-level surfaces. Everything else lives inside one of them. */
-export type Surface = 'today' | 'find' | 'clients' | 'channels' | 'tools' | 'settings';
+export type Surface = 'today' | 'find' | 'clients' | 'channels' | 'email' | 'tools' | 'settings';

@@ -5,6 +5,7 @@ import { Badge, Button, Card, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { apiFetch } from '../../lib/api';
 import { send, useApi } from '../../lib/hooks';
+import { CURATED_TECH_COMPANIES } from '../../constants/presets';
 
 export interface SearchRun { kind: 'local' | 'jobs' | 'tenders' | null; category?: string; city?: string; only_gaps?: boolean; q?: string; min_budget?: number | null; max_budget?: number | null; remote?: boolean }
 interface Parsed {
@@ -111,6 +112,23 @@ export const SmartSearch: FC<{ onRun: (run: SearchRun) => void; seed?: { text: s
         <span className="mx-1 text-slate-700">|</span>
         <button type="button" onClick={() => setBrowse(browse === 'business' ? null : 'business')} className="text-indigo-300 hover:text-indigo-200 underline">Browse business types</button>
         <button type="button" onClick={() => setBrowse(browse === 'skills' ? null : 'skills')} className="text-indigo-300 hover:text-indigo-200 underline">Browse skills</button>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5 text-xs">
+        <span className="text-slate-500">Curated Accounts:</span>
+        {CURATED_TECH_COMPANIES.slice(0, 6).map((c) => (
+          <button
+            key={c.domain}
+            type="button"
+            onClick={() => {
+              const q = `hiring engineers at ${c.name}`;
+              setText(q);
+              submit(undefined, q);
+            }}
+            className="px-2 py-0.5 rounded-md border border-slate-800/80 bg-slate-900/40 text-[11px] text-indigo-300 hover:text-white hover:border-indigo-500/50 transition"
+          >
+            {c.name}
+          </button>
+        ))}
       </div>
       {recent.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 text-xs" aria-label="Recent searches">

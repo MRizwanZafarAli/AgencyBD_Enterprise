@@ -50,13 +50,10 @@ export const EnterpriseRbac: FC<Props> = () => {
     <div className="space-y-6 animate-fadeIn">
       <ErrorBanner message={error} />
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-white flex items-center space-x-2">
-          <ShieldCheck className="h-6 w-6 text-indigo-400" />
-          <span>Access and passwords</span>
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">
-            RBAC &amp; TENANT ISOLATION
-          </span>
-        </h1>
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-5 w-5 text-indigo-400" aria-hidden="true" />
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/20">RBAC &amp; TENANT ISOLATION</span>
+        </div>
         {you && <p className="text-sm text-slate-400 mt-1">Signed in as <span className="font-mono text-slate-200">{you.user_id}</span> · role <span className="font-mono text-indigo-400 font-semibold">{you.role}</span> · workspace <span className="font-mono text-slate-200">{you.org_id}</span></p>}
       </div>
 

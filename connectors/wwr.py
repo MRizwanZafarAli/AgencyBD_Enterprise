@@ -1,7 +1,7 @@
 """We Work Remotely connector (official public RSS feeds, no key). Attribution: every item keeps its link back to WWR."""
 
 import re
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET     # hardened parser: refuses entity-expansion (XML bomb) attacks in outside feeds
 from email.utils import parsedate_to_datetime
 from typing import List, Optional
 

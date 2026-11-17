@@ -72,7 +72,7 @@ export const AuditorDashboard: FC<{
   return (
     <div className="space-y-6">
       {/* Role Identity Banner */}
-      <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-5 backdrop-blur-sm">
+      <div className="bento-tile rounded-3xl p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">

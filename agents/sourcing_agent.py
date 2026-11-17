@@ -8,7 +8,7 @@ and Google X-Ray decision-maker discovery via SafeFetcher.
 import os
 import re
 import urllib.parse
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET     # hardened parser: refuses entity-expansion (XML bomb) attacks in outside feeds
 from typing import List, Dict, Any, Optional
 
 from database.models import LeadRepository

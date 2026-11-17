@@ -78,7 +78,7 @@ QUALIFIERS = {
 }
 
 # kinds of opportunity words
-TENDER_WORDS = {"tender", "tenders", "rfp", "rfq", "rfi", "procurement", "government", "public sector", "council", "municipal", "ministry", "federal", "contract notice", "bid", "bids", "public contract"}
+TENDER_WORDS = {"tender", "tenders", "rfp", "rfq", "rfi", "procurement", "government", "public sector", "council", "municipal", "ministry", "federal", "contract notice", "bid", "bids", "public contract", "sam.gov", "sam gov", "ted.europa", "find a tender", "gov contract", "gov contracts", "government contract", "government contracts"}
 JOB_WORDS = {"job", "jobs", "hiring", "hire", "position", "positions", "vacancy", "vacancies", "gig", "gigs", "freelance", "project", "projects", "work", "opening", "openings", "career", "careers", "remote", "contract", "developer", "engineer", "designer", "consultant", "programmer", "specialist", "expert", "architect", "analyst", "writer", "editor", "manager"}
 LOCAL_WORDS = {"near", "nearby", "local", "businesses", "business", "companies", "company", "firms", "firm", "places"}
 NO_WEBSITE = ["without a website", "without website", "no website", "no web site", "no site", "with no website", "dont have a website", "don't have a website", "doesnt have a website", "doesn't have a website", "missing website", "without site", "no online presence", "no web presence"]

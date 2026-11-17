@@ -8,6 +8,7 @@ export const COMMANDS: Command[] = [
   { id: 'find-jobs', label: 'Find jobs and projects', hint: 'feeds and tenders', surface: 'find' },
   { id: 'clients', label: 'Clients', hint: 'pipeline and client pages', surface: 'clients' },
   { id: 'channels', label: 'Channels', hint: 'LinkedIn, Fiverr, Upwork: pipeline, routine, templates', surface: 'channels' },
+  { id: 'email', label: 'Email Hub', hint: 'outbound dispatch, composer, deliverability & mailboxes', surface: 'email' },
   { id: 'tools', label: 'Tools', hint: 'website doctor, compare, report, email tools', surface: 'tools' },
   { id: 'settings-setup', label: 'Setup checklist', hint: 'what is missing', surface: 'settings', section: 'setup' },
   { id: 'settings-keys', label: 'Integrations and API keys', hint: 'Anthropic, Google Places, verifiers', surface: 'settings', section: 'keys' },

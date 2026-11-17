@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FC } from 'react';
-import { Check, Copy, Download, FileText, GitCompare, Loader2, Presentation, RefreshCw, Stethoscope, UserPlus, Video } from 'lucide-react';
+import { Check, Copy, Cpu, Download, FileText, GitCompare, Loader2, Presentation, RefreshCw, Stethoscope, UserPlus, Video } from 'lucide-react';
 import { Badge, Button, Card, Drawer, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { VideoStoryboardDrawer } from '../shared/VideoStoryboardDrawer';
@@ -21,7 +21,13 @@ async function get<T>(path: string): Promise<T> {
   return body as T;
 }
 
-export const SiteClinic: FC<{ initial?: string; autoRun?: boolean; onOpenClient: (leadId: number) => void; onHandoff: (tool: 'compare' | 'report' | 'email', domain: string) => void }> = ({ initial = '', autoRun = false, onOpenClient, onHandoff }) => {
+export const SiteClinic: FC<{
+  initial?: string;
+  autoRun?: boolean;
+  onOpenClient: (leadId: number) => void;
+  onHandoff: (tool: 'compare' | 'report' | 'email', domain: string) => void;
+  onOpenScraper?: (url: string, mode?: 'general' | 'client_audit' | 'job_spec' | 'local_audit', title?: string) => void;
+}> = ({ initial = '', autoRun = false, onOpenClient, onHandoff, onOpenScraper }) => {
   const [text, setText] = useState(initial);
   const [step, setStep] = useState(-1);
   const [error, setError] = useState('');
@@ -96,6 +102,29 @@ export const SiteClinic: FC<{ initial?: string; autoRun?: boolean; onOpenClient:
           <Button type="submit" variant="primary" disabled={busy || !text.trim()}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Stethoscope className="h-4 w-4" />}{busy ? 'Examining…' : 'Examine'}</Button>
         </form>
         <p className="text-[11px] text-slate-500 mt-2">Reads only what the public can see: headers, TLS, SEO, accessibility, email DNS and visible software versions. Nothing is attacked, filled in or logged into.</p>
+        <div className="flex flex-wrap items-center gap-1.5 mt-2.5 text-xs text-slate-400">
+          <span className="text-slate-500 text-[11px]">Quick try:</span>
+          {[
+            { label: 'stripe.com', val: 'stripe.com' },
+            { label: 'github.com', val: 'github.com' },
+            { label: 'microsoft.com', val: 'microsoft.com' },
+            { label: 'dental.net', val: 'dental.net' },
+            { label: 'Acme Plumbing, Austin', val: 'Acme Plumbing, Austin' },
+          ].map((ex) => (
+            <button
+              key={ex.label}
+              type="button"
+              onClick={() => {
+                setText(ex.val);
+                const t = parseTarget(ex.val);
+                if (t) examine(t);
+              }}
+              className="px-2 py-0.5 rounded-md text-[11px] font-mono bg-slate-800/80 hover:bg-slate-700 text-indigo-300 hover:text-white border border-slate-700/60 transition"
+            >
+              {ex.label}
+            </button>
+          ))}
+        </div>
         {step >= 0 && (
           <ol className="mt-3 grid gap-2 sm:grid-cols-3" aria-label="Progress" aria-live="polite">{STEPS.map((s, i) => (
             <li key={s} className={`flex items-center gap-2 text-xs rounded-lg border px-3 py-2 ${i < step ? 'border-emerald-500/40 text-emerald-300' : i === step ? 'border-indigo-500/50 text-white' : 'border-slate-800 text-slate-500'}`}>
@@ -106,11 +135,45 @@ export const SiteClinic: FC<{ initial?: string; autoRun?: boolean; onOpenClient:
 
       {options && (
         <Card>
-          <h2 className="text-sm font-semibold text-white">Could not pin down the site</h2>
-          <p className="text-sm text-slate-300 mt-1">{options.note ?? 'No verified website for that name.'} Nothing was guessed.</p>
+          <div className="flex items-center gap-2">
+            <Stethoscope className="h-4 w-4 text-indigo-400" />
+            <h2 className="text-sm font-semibold text-white">
+              {options.candidates && options.candidates.length > 0
+                ? `Matching Candidate Sites for "${text}"`
+                : 'Could not pin down the site'}
+            </h2>
+          </div>
+          <p className="text-xs text-slate-300 mt-1">
+            {options.candidates && options.candidates.length > 0
+              ? 'Select which verified website you want to examine and audit:'
+              : (options.note ?? 'No verified website found for that query. Try entering a full domain (e.g. acme.com) or a business with location.')}
+          </p>
           {options.candidates && options.candidates.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">{options.candidates.map((c) => <Button key={c.domain} small onClick={() => examine({ kind: 'site', domain: c.domain }, c.domain)}>{c.domain} <span className="text-slate-500">{Math.round(c.score * 100)}%</span></Button>)}</div>)}
-        </Card>)}
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {options.candidates.map((c) => (
+                <button
+                  key={c.domain}
+                  type="button"
+                  onClick={() => examine({ kind: 'site', domain: c.domain }, c.domain)}
+                  className="flex items-center justify-between p-2.5 rounded-xl border border-slate-800 bg-slate-950/60 hover:bg-slate-900 hover:border-indigo-500/50 transition text-left group"
+                >
+                  <div className="min-w-0 pr-2">
+                    <div className="text-xs font-mono font-medium text-white group-hover:text-indigo-300 truncate">
+                      {c.domain}
+                    </div>
+                    {c.title && (
+                      <div className="text-[10px] text-slate-400 truncate mt-0.5">{c.title}</div>
+                    )}
+                  </div>
+                  <span className="shrink-0 px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                    {Math.round(c.score * 100)}% match
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
 
       {chart && (
         <>
@@ -120,6 +183,17 @@ export const SiteClinic: FC<{ initial?: string; autoRun?: boolean; onOpenClient:
                 <a href={`https://${domain}`} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-300 hover:underline">{domain}</a>
                 {chart.audit?.status && chart.audit.status !== 'completed' && <Badge tone="warn">{chart.audit.status}</Badge>}</div>
               <Button small onClick={() => examine(chart.target, domain)} disabled={busy}><RefreshCw className="h-3.5 w-3.5" />Re-examine</Button>
+              {onOpenScraper && domain && (
+                <Button
+                  small
+                  variant="secondary"
+                  onClick={() => onOpenScraper(domain, 'client_audit', chart.resolve.name || domain)}
+                  title="Deep Universal Scraper Technical Audit with Bot Radar"
+                >
+                  <Cpu className="h-3.5 w-3.5 text-indigo-400" />
+                  Scraper Audit
+                </Button>
+              )}
               <Button small onClick={openTeardown} disabled={chart.audit?.status !== 'completed'}><FileText className="h-3.5 w-3.5" />Teardown</Button>
               <Button small onClick={openOffer} disabled={chart.audit?.status !== 'completed'}><FileText className="h-3.5 w-3.5" />Offer</Button>
               <Button small onClick={report} disabled={chart.audit?.status !== 'completed'}><Download className="h-3.5 w-3.5" />PDF report</Button>
@@ -130,7 +204,7 @@ export const SiteClinic: FC<{ initial?: string; autoRun?: boolean; onOpenClient:
             </div>
           </Card>
           {chart.audit && chart.audit.status === 'unreachable' && <Card><p className="text-sm text-amber-300">The site could not be reached from our servers. One failed check is not proof it is down, so nothing was scored.</p></Card>}
-          <BlockedNotice chart={chart} />
+          <BlockedNotice chart={chart} onOpenScraper={onOpenScraper} />
           <Vitals chart={chart} />
           <div className="grid gap-5 xl:grid-cols-2"><Diagnosis chart={chart} /><Surgery chart={chart} /></div>
           <PitchAndPresence chart={chart} />

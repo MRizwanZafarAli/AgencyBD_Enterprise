@@ -1,7 +1,7 @@
 """Reddit r/forhire connector (public Atom feed, no key). Keeps only [HIRING] posts, i.e. people looking to pay someone.
 Each item links back to the Reddit post; replying is done by a person on Reddit."""
 
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET     # hardened parser: refuses entity-expansion (XML bomb) attacks in outside feeds
 from typing import List, Optional
 
 from connectors.base import BaseConnector, OpportunityItem

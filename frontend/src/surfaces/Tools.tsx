@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { FC } from 'react';
-import { ArrowLeft, Stethoscope, GitCompare, FileText, Mail, Sparkles, Phone, Video, ListOrdered } from 'lucide-react';
+import { ArrowLeft, Stethoscope, GitCompare, FileText, Mail, Sparkles, Phone, Video, ListOrdered, Cpu, Radar } from 'lucide-react';
 import { Button, Card, PageHeader, SearchInput, field } from '../components/ui';
 import { SiteClinic } from '../components/clinic/SiteClinic';
 import { parseTarget } from '../components/clinic/types';
@@ -11,12 +11,16 @@ import { CallIntel } from '../components/modules/CallIntel';
 import { MultimodalStudio } from '../components/modules/MultimodalStudio';
 import { SequencesManager } from '../components/modules/SequencesManager';
 import { CompareSites, ClientReportTool } from '../components/tools/QuickTools';
+import { AgentSwarmMissionControl } from '../components/modules/AgentSwarmMissionControl';
+import { VisitorRadar } from '../components/today/VisitorRadar';
+import { DiscoveryPanel } from '../components/today/DiscoveryPanel';
 
 const noop = () => undefined;
 type Seed = { text: string; n: number } | null;
 interface Tool { id: string; label: string; desc: string; idea: string; keywords: string; group: string; icon: FC<{ className?: string }> }
 
 const TOOLS: Tool[] = [
+  { id: 'swarm', label: 'Autonomous Agent Swarm', desc: 'Real-time telemetry, lifecycle event bus, and controls for the 8 BD agents.', idea: 'Toggle autonomous lead waterfall and inspect live events.', keywords: 'swarm agent autonomous telemetry hook waterfall skills', group: 'Autonomous Systems', icon: Cpu },
   { id: 'doctor', label: 'Site Clinic', desc: 'Paste a website, or a business and its place. Triage, examine, diagnose, then a surgery plan you tick off.', idea: 'Re-examine after a fix to see the score move.', keywords: 'website doctor audit surgery seo security speed accessibility scan', group: 'Research a prospect', icon: Stethoscope },
   { id: 'compare', label: 'Compare two sites', desc: 'Same checks on a prospect and a competitor; measured differences only.', idea: 'Open with the competitor gap as your hook.', keywords: 'competitor versus head to head', group: 'Research a prospect', icon: GitCompare },
   { id: 'report', label: 'Client report', desc: 'A printable health report (PDF and web) for any website.', idea: 'Send it as the free first deliverable.', keywords: 'pdf teardown deliverable', group: 'Research a prospect', icon: FileText },
@@ -25,19 +29,24 @@ const TOOLS: Tool[] = [
   { id: 'sequences', label: 'Email sequences', desc: 'Multi-step follow-ups with delays; every first touch waits for your approval.', idea: 'Three short touches beat one long one.', keywords: 'follow up drip cadence', group: 'Write and follow up', icon: ListOrdered },
   { id: 'call', label: 'Call notes to scope of work', desc: 'Paste a call transcript; get objections, needs and a draft scope.', idea: 'Paste it straight after the call.', keywords: 'transcript scope intel objections', group: 'Write and follow up', icon: Phone },
   { id: 'video', label: 'Video pitch script', desc: 'A short script built only from facts you supply.', idea: 'Record it in one take, under a minute.', keywords: 'loom script pitch', group: 'Write and follow up', icon: Video },
+  { id: 'intent', label: 'Visitor Intent Radar', desc: 'Deanonymize visiting companies and convert high-intent traffic into qualified leads.', idea: 'Convert inbound accounts before they bounce.', keywords: 'visitor intent deanonymize radar tracking ip analytics', group: 'Research a prospect', icon: Radar },
+  { id: 'autopilot', label: 'Autopilot Prospector', desc: 'Launch autonomous sourcing runs across engineering hiring, local businesses, or SEC filings.', idea: 'Queue automated sourcing runs and review outcomes.', keywords: 'autopilot sourcing discovery sec hiring pipeline', group: 'Autonomous Systems', icon: Sparkles },
 ];
 
 const MOVED = [
   ['Mission Control', 'Today (counts, inbox, daily digest)'], ['Swarm Auto-Pilot', 'Today, "Find and prepare new prospects"'], ['Opportunity Radar', 'Find, Jobs and projects / Tenders'],
   ['Local Client Hunt', 'Find, Local businesses (list and map)'], ['Open Sourcing (SEC, hiring, LinkedIn)', 'Today runs, and a client page: "Find on their website"'], ['Website Doctor', 'Tools, Site Clinic (and a client page)'],
   ['Deal Pipeline & CRM', 'Clients'], ['Proof and services', 'Settings, Services and proof'], ['Visual User Guide', 'Settings, How it works'],
-  ['Fleet Deliverability, DNS Studio, CAN-SPAM Vault, Autonomy Policy, RBAC, API console', 'Settings'], ['Copy Coach, Call Intel, Video Pitch, Waterfall, Sequences', 'Tools (this page)'],
+  ['Fleet Deliverability, DNS Studio, CAN-SPAM Vault, Autonomy Policy, RBAC', 'Settings'], ['Copy Coach, Call Intel, Video Pitch, Waterfall, Sequences', 'Tools (this page)'],
 ];
 
 const RECENT_KEY = 'agencybd.tools.recent';
 const loadRecent = (): string[] => { try { const v = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]'); return Array.isArray(v) ? v.filter((x) => TOOLS.some((t) => t.id === x)).slice(0, 3) : []; } catch { return []; } };
 
-export const Tools: FC<{ onOpenClient: (leadId: number) => void }> = ({ onOpenClient }) => {
+export const Tools: FC<{
+  onOpenClient: (leadId: number) => void;
+  onOpenScraper?: (url: string, mode?: 'general' | 'client_audit' | 'job_spec' | 'local_audit', title?: string) => void;
+}> = ({ onOpenClient, onOpenScraper }) => {
   const [active, setActive] = useState<string | null>(null);
   const [find, setFind] = useState('');
   const [paste, setPaste] = useState('');
@@ -61,10 +70,13 @@ export const Tools: FC<{ onOpenClient: (leadId: number) => void }> = ({ onOpenCl
   const tool = TOOLS.find((t) => t.id === active);
   if (tool) {
     const body: Record<string, ReactNode> = {
-      doctor: <SiteClinic key={seed?.n ?? 0} initial={seed?.text ?? ''} autoRun={!!seed} onOpenClient={onOpenClient} onHandoff={handoff} />,
+      swarm: <AgentSwarmMissionControl />,
+      doctor: <SiteClinic key={seed?.n ?? 0} initial={seed?.text ?? ''} autoRun={!!seed} onOpenClient={onOpenClient} onHandoff={handoff} onOpenScraper={onOpenScraper} />,
       compare: <CompareSites initialA={domain} />, report: <ClientReportTool initialDomain={domain} />,
       email: <WaterfallEnrich initialFirst="" initialLast="" initialCompany="" initialDomain={domain} onBridgeToCopyCoach={noop} setActiveTab={noop} />,
       copy: <CopyCoach initialSubject="" initialBody="" />, sequences: <SequencesManager />, call: <CallIntel />, video: <MultimodalStudio />,
+      intent: <VisitorRadar onOpenClient={onOpenClient} />,
+      autopilot: <DiscoveryPanel onDone={() => {}} onOpenClient={onOpenClient} />,
     };
     return (
       <div className="space-y-4">
@@ -87,8 +99,43 @@ export const Tools: FC<{ onOpenClient: (leadId: number) => void }> = ({ onOpenCl
           <input className={`${field} flex-1 min-w-64`} aria-label="Paste a website or a business and place" autoComplete="off" spellCheck={false} placeholder="Paste a website, or a business and place: acme.com  ·  Acme Plumbing, Austin"
             value={paste} onChange={(e) => { setPaste(e.target.value); setPasteError(''); }} />
           <Button type="submit" variant="primary" disabled={!paste.trim()}>Examine</Button>
+          {onOpenScraper && (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={!paste.trim()}
+              onClick={() => onOpenScraper(paste.trim(), 'client_audit', 'Site Clinic Inspection')}
+              title="Universal Scraper Technical Audit with Bot Radar"
+            >
+              <Cpu className="h-4 w-4 mr-1 text-indigo-400" />
+              Scraper Audit
+            </Button>
+          )}
         </form>
         {pasteError && <p role="alert" className="text-xs text-amber-300 mt-2">{pasteError}</p>}
+        <div className="flex flex-wrap items-center gap-1.5 mt-2.5 text-xs text-slate-400">
+          <span className="text-slate-500 text-[11px]">Quick try:</span>
+          {[
+            { label: 'stripe.com', val: 'stripe.com' },
+            { label: 'github.com', val: 'github.com' },
+            { label: 'dental.net', val: 'dental.net' },
+            { label: 'Acme Plumbing, Austin', val: 'Acme Plumbing, Austin' },
+          ].map((ex) => (
+            <button
+              key={ex.label}
+              type="button"
+              onClick={() => {
+                setPaste(ex.val);
+                setPasteError('');
+                setSeed({ text: ex.val, n: Date.now() });
+                open('doctor');
+              }}
+              className="px-2 py-0.5 rounded-md text-[11px] font-mono bg-slate-800/80 hover:bg-slate-700 text-indigo-300 hover:text-white border border-slate-700/60 transition"
+            >
+              {ex.label}
+            </button>
+          ))}
+        </div>
       </Card>
       <div className="flex flex-wrap items-center gap-3">
         <SearchInput className="w-full sm:w-72" label="Search tools" placeholder="Search tools (try: competitor, pdf, follow up)" value={find} onChange={setFind} />

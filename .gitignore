@@ -30,6 +30,9 @@ tmp/
 data/*.db
 data/*.db-*
 data/*.sqlite*
+database/*.db
+database/*.db-*
+database/*.sqlite*
 data/evidence/
 data/screenshots/
 data/interactive_sessions/

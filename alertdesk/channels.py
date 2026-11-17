@@ -14,7 +14,7 @@ from xml.sax.saxutils import escape
 from net.fetcher import SafeFetcher
 
 Result = Tuple[bool, str]
-E164 = re.compile(r"^\+\d{8,15}$")
+E164 = re.compile(r"^\+[1-9]\d{7,14}$")
 
 
 def _env(name: str) -> str:

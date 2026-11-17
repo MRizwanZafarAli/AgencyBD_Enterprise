@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { MapPin, Phone, Star, ExternalLink, Search, ShieldAlert, Copy } from 'lucide-react';
+import { MapPin, Star, ExternalLink, Search, ShieldAlert, Copy, Mail, Cpu } from 'lucide-react';
 import { Badge, Button, Card, Drawer, EmptyState, Pager, ScoreBar, Skeletons, SuggestInput, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
+import { CopyablePhone } from '../shared/ClickableContact';
 import { send, useApi } from '../../lib/hooks';
 import { normalizeUrl } from '../../lib/urls';
 import { ResultsMap } from './ResultsMap';
@@ -24,7 +25,20 @@ const PAGE = 15;
 
 export interface LocalPreset { category: string; city: string; only_gaps: boolean; nonce: number }
 
-export const FindLocal: FC<{ onSaved: (leadId: number) => void; preset?: LocalPreset | null; onAddGoogleKey?: () => void }> = ({ onSaved, preset, onAddGoogleKey }) => {
+export const FindLocal: FC<{
+  onSaved: (leadId: number) => void;
+  preset?: LocalPreset | null;
+  onAddGoogleKey?: () => void;
+  onSendEmail?: (params: {
+    recipient: string;
+    recipientName?: string;
+    companyName?: string;
+    subject?: string;
+    body?: string;
+    leadId?: number;
+  }) => void;
+  onOpenScraper?: (url: string, mode?: 'general' | 'client_audit' | 'job_spec' | 'local_audit', title?: string) => void;
+}> = ({ onSaved, preset, onAddGoogleKey, onSendEmail, onOpenScraper }) => {
   const providers = useApi<{ google: boolean }>('/api/hunt/local/providers');
   const google = providers.data?.google ?? false;
   const [category, setCategory] = useState('');
@@ -148,8 +162,24 @@ export const FindLocal: FC<{ onSaved: (leadId: number) => void; preset?: LocalPr
             <div className="flex flex-wrap gap-2"><Badge tone={(STATUS[open.classification] ?? STATUS.has_site).tone}>{(STATUS[open.classification] ?? STATUS.has_site).text}</Badge><Badge tone="accent">Win score {Math.round(open.score)}</Badge></div>
             <div className="space-y-1.5 text-xs text-slate-300">
               {open.address && <div className="flex gap-2"><MapPin className="h-3.5 w-3.5 mt-0.5 text-slate-500" />{open.address}</div>}
-              {open.phone && <div className="flex gap-2 font-mono"><Phone className="h-3.5 w-3.5 mt-0.5 text-slate-500" />{open.phone}</div>}
-              {open.website && <a className="flex gap-2 text-indigo-300 hover:text-indigo-200" href={normalizeUrl(open.website)} target="_blank" rel="noreferrer noopener"><ExternalLink className="h-3.5 w-3.5 mt-0.5" />{open.domain ?? open.website}</a>}
+              {open.phone && <div className="flex gap-2 items-center"><CopyablePhone phone={open.phone} /></div>}
+              {open.website && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <a className="flex gap-2 text-indigo-300 hover:text-indigo-200" href={normalizeUrl(open.website)} target="_blank" rel="noreferrer noopener">
+                    <ExternalLink className="h-3.5 w-3.5 mt-0.5" />
+                    {open.domain ?? open.website}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => onOpenScraper?.(open.website!, 'local_audit', open.name)}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 transition"
+                    title="Deep scrape website for booking forms, mobile responsiveness, and contact emails"
+                  >
+                    <Cpu className="h-3 w-3 text-amber-400" />
+                    Scrape Site & Gaps
+                  </button>
+                </div>
+              )}
               {open.maps_url && <a className="flex gap-2 text-indigo-300 hover:text-indigo-200" href={open.maps_url} target="_blank" rel="noreferrer noopener"><MapPin className="h-3.5 w-3.5 mt-0.5" />Open on the map</a>}
             </div>
             <div><h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Why this score</h3>
@@ -161,7 +191,45 @@ export const FindLocal: FC<{ onSaved: (leadId: number) => void; preset?: LocalPr
                 <Button small className="mt-2" onClick={() => navigator.clipboard?.writeText(open.pitch_strategy?.cold_pitch_hook ?? '')}><Copy className="h-3.5 w-3.5" />Copy</Button>
                 {open.pitch_strategy.value_estimate && <p className="text-xs text-slate-400 mt-2">Your price band for this service: {open.pitch_strategy.value_estimate}</p>}</div>
             ) : <p className="text-xs text-slate-400">Nothing specific and true to say yet. Audit the site from the client page first.</p>}
-            <Button variant="primary" disabled={!!saved[open.place_id]} onClick={() => save([open])}>{saved[open.place_id] ? 'Saved to Clients' : 'Save to Clients'}</Button>
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-800">
+              <Button variant="primary" disabled={!!saved[open.place_id]} onClick={() => save([open])}>
+                {saved[open.place_id] ? 'Saved to Clients' : 'Save to Clients'}
+              </Button>
+              {open.website && (
+                <Button
+                  variant="secondary"
+                  className="bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20"
+                  onClick={() => onOpenScraper?.(open.website!, 'local_audit', open.name)}
+                >
+                  <Cpu className="h-4 w-4 text-amber-400" />
+                  Universal Scraper Scan
+                </Button>
+              )}
+              {onSendEmail && (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    const recipientEmail = open.domain ? `contact@${open.domain}` : '';
+                    const hook = open.pitch_strategy?.cold_pitch_hook;
+                    const defaultBody = hook
+                      ? `Hi,\n\n${hook}\n\nWe prepared a technical teardown and performance review for ${open.name}.\n\nWould you be open to a 5-minute walkthrough this week?\n\nBest regards,\nGrowth Team`
+                      : `Hi,\n\nI was reviewing ${open.name} and wanted to share a few observations regarding your digital presence and customer booking flow.\n\nWould you be open to a brief chat this week?\n\nBest regards,\nGrowth Team`;
+
+                    onSendEmail({
+                      recipient: recipientEmail,
+                      companyName: open.name,
+                      subject: `Website & performance audit for ${open.name}`,
+                      body: defaultBody,
+                      leadId: saved[open.place_id],
+                    });
+                    setOpen(null);
+                  }}
+                >
+                  <Mail className="h-4 w-4 text-indigo-400" />
+                  Pitch via Email Hub →
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </Drawer>

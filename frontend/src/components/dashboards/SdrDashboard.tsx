@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { FC } from 'react';
-import { Target, Search, Sparkles, Radio, ArrowRight, RefreshCw, CheckCircle2, Clock } from 'lucide-react';
+import { Target, Search, Sparkles, Radio, ArrowRight, RefreshCw, CheckCircle2, Clock, Mail, Cpu } from 'lucide-react';
 import { Badge, Card, Skeletons, Button } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { useApi } from '../../lib/hooks';
@@ -18,6 +18,7 @@ interface Opp {
   budget_max: number | null;
   currency?: string;
   company_name?: string;
+  url?: string;
 }
 
 export const SdrDashboard: FC<{
@@ -25,7 +26,8 @@ export const SdrDashboard: FC<{
   onGo: (s: Surface) => void;
   onOpenClient: (leadId: number) => void;
   onSearch?: (q: string) => void;
-}> = ({ identity, onGo, onOpenClient, onSearch }) => {
+  onOpenScraper?: (url: string, mode?: 'general' | 'client_audit' | 'job_spec' | 'local_audit', title?: string) => void;
+}> = ({ identity, onGo, onOpenClient, onSearch, onOpenScraper }) => {
   const sum = useApi<TodaySummary>('/api/today/summary');
   const opps = useApi<Opp[]>('/api/opportunities');
   const d = sum.data;
@@ -54,7 +56,7 @@ export const SdrDashboard: FC<{
   return (
     <div className="space-y-6">
       {/* Role Identity Banner */}
-      <div className="rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 to-slate-900/60 p-5 backdrop-blur-sm">
+      <div className="bento-tile rounded-3xl p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold">
@@ -97,6 +99,9 @@ export const SdrDashboard: FC<{
           </Button>
           <Button onClick={() => onGo('channels')}>
             <Radio className="h-3.5 w-3.5" /> Open Channels
+          </Button>
+          <Button onClick={() => onGo('email' as any)}>
+            <Mail className="h-3.5 w-3.5 text-indigo-400" /> Email Dispatch Hub
           </Button>
         </form>
       </Card>
@@ -180,7 +185,23 @@ export const SdrDashboard: FC<{
                   <span className="inline-flex items-center gap-1">
                     <Sparkles className="h-3 w-3" /> Draft Proposal
                   </span>
-                  <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+                  <div className="flex items-center gap-2">
+                    {onOpenScraper && o.url && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenScraper(o.url!, 'job_spec', o.title);
+                        }}
+                        className="inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-indigo-300 font-mono transition"
+                        title="Universal Scraper Job Extraction"
+                      >
+                        <Cpu className="h-3 w-3" />
+                        Scrape Spec
+                      </button>
+                    )}
+                    <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
                 </div>
               </div>
             ))}

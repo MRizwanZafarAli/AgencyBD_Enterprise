@@ -110,3 +110,18 @@ def test_api_permissions_tenancy_and_today(client, make_key):
     focus = client.get("/api/today/summary", headers=mine).json()["focus"]
     assert any(f["title"] == "1 partner needs a nudge: Plan9 Studio" for f in focus)
     assert client.delete(f"/api/partners/{pid}", headers=mine).status_code == 200
+
+
+def test_the_limit_holds_when_many_requests_arrive_at_the_same_moment(monkeypatch):
+    import threading
+    monkeypatch.setattr(pt, "LIMIT", 20)
+    results = []
+
+    def go(i):
+        try:
+            pt.create(ORG, {"name": f"P{i}"}); results.append("ok")
+        except ValueError:
+            results.append("refused")
+    threads = [threading.Thread(target=go, args=(i,)) for i in range(60)]
+    [t.start() for t in threads]; [t.join() for t in threads]
+    assert results.count("ok") == 20 and results.count("refused") == 40 and pt.list_partners(ORG)["summary"]["total"] == 20

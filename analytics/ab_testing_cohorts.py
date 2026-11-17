@@ -1,12 +1,15 @@
 """
 Spintax & Copywriting A/B Cohort Bandit Optimizer.
 Tracks conversion cohorts across subject lines, hooks, and CTAs, and dynamically
-optimizes dispatch weighting using an Epsilon-Greedy Multi-Armed Bandit algorithm.
+optimizes dispatch weighting using an Thompson-sampling multi-armed bandit (with an epsilon exploration floor).
 """
 
 import random
 from typing import Dict, Any, List, Optional
 from database.db import get_db
+
+PRIOR_WINS, PRIOR_MISSES = 1, 19          # an unseen variant is assumed to be worth about 5%, a realistic cold-email reply rate, not 50%
+
 
 class SpintaxABOptimizer:
     @staticmethod
@@ -54,8 +57,8 @@ class SpintaxABOptimizer:
     ) -> Dict[str, str]:
         """
         Multi-Armed Bandit Selection (Epsilon-Greedy):
-        - With probability (1 - epsilon): exploit best variant (highest positive reply / conversion rate).
-        - With probability epsilon: explore random variant to discover new high-performing copy.
+        - With probability (1 - epsilon): choose by Thompson sampling on positive-reply evidence (see pick_by_posterior).
+        - With probability epsilon: explore a random variant (a floor of exploration on top of the sampling).
         - Automatically filters out any variant with bounce rate exceeding 2.0%.
         """
         if not candidates:
@@ -92,23 +95,27 @@ class SpintaxABOptimizer:
         if random.random() < epsilon:
             return random.choice(safe_candidates)
 
-        # Exploitation phase: pick highest positive conversion rate
-        best_cand = safe_candidates[0]
-        best_score = -1.0
+        return SpintaxABOptimizer.pick_by_posterior(stats, safe_candidates, random)
 
-        for cand in safe_candidates:
-            v_key = cand["key"]
-            s = stats.get(v_key)
-            if not s or s["impressions"] == 0:
-                score = 0.05  # optimistic prior for unexercised variants
-            else:
-                score = (s["positive_replies"] * 3.0) / s["impressions"]
-            
-            if score > best_score:
-                best_score = score
-                best_cand = cand
-
-        return best_cand
+    @staticmethod
+    def pick_by_posterior(stats: Dict[str, Dict[str, Any]], candidates: List[Dict[str, str]], rng: Any) -> Dict[str, str]:
+        """
+        Thompson sampling. Each variant's true positive-reply rate is treated as unknown: draw one plausible rate from Beta(1 + positives,
+        19 + misses), a prior worth about 5%, per variant and send the variant with the highest draw. A variant with little evidence has a wide spread, so it is still
+        tried; a clearly better one wins more and more often. The earlier rule scored `positives * 3 / sends`, which ties at zero until the
+        first reply and then always chose the first-listed variant, so at small-agency volumes it locked onto the worse variant in up to
+        3 of 4 runs (see tests/test_ab_selection.py).
+        """
+        best, best_draw = candidates[0], -1.0
+        order = list(candidates)
+        rng.shuffle(order)                                   # equal draws are never settled by list position
+        for cand in order:
+            s = stats.get(cand["key"]) or {}
+            sends, wins = int(s.get("impressions") or 0), int(s.get("positive_replies") or 0)
+            draw = rng.betavariate(PRIOR_WINS + wins, PRIOR_MISSES + max(0, sends - wins))
+            if draw > best_draw:
+                best, best_draw = cand, draw
+        return best
 
     @staticmethod
     def get_cohort_report(org_id: str = "org_default") -> List[Dict[str, Any]]:

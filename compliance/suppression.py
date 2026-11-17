@@ -70,3 +70,7 @@ class KeyedSuppressionVault:
                 return True
             except Exception:
                 return False
+
+
+is_suppressed = KeyedSuppressionVault.is_suppressed
+
