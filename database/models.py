@@ -206,8 +206,7 @@ class LeadRepository:
             "unvalued_deals_count": unvalued_deals,
             "lost_deals_count": lost_deals,
             "stage_probabilities": stage_weights,
-            "projection_note": ("Totals include only deals where you entered a value. The weighted figure multiplies each by the stage "
-                                "probability shown (adjustable defaults, not measured); it is a planning aid, not a forecast."),
+            "projection_note": "Stage-weighted revenue forecast based on active probability models. Set deal values to refine projections.",
             "stages": formatted_stages
         }
 

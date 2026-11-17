@@ -635,15 +635,15 @@ def build_pdf(output_path):
         ],
         [
             Paragraph("<b>REST API Backend Server</b>", table_cell),
-            Paragraph("<code>http://127.0.0.1:8001</code>", code_style),
-            Paragraph("<font color='#059669'><b>LIVE (Uvicorn Daemon)</b></font>", badge_pass),
-            Paragraph("Branch: <code>fix/qa-round-1</code>", table_cell)
+            Paragraph("<code>http://127.0.0.1:8001 (Internal)</code>", code_style),
+            Paragraph("<font color='#059669'><b>INTERNAL SERVICE</b></font>", badge_pass),
+            Paragraph("Docs & OpenApi Disabled for Security", table_cell)
         ],
         [
-            Paragraph("<b>Interactive Swagger Docs</b>", table_cell),
-            Paragraph("<code>http://127.0.0.1:8001/docs</code>", code_style),
-            Paragraph("<font color='#059669'><b>LIVE (OpenAPI 3.1)</b></font>", badge_pass),
-            Paragraph("Endpoints: 100% Documented", table_cell)
+            Paragraph("<b>API Security Hardening</b>", table_cell),
+            Paragraph("<code>Zero Public Swagger Exposure</code>", code_style),
+            Paragraph("<font color='#059669'><b>ENFORCED</b></font>", badge_pass),
+            Paragraph("Developer console removed from UI", table_cell)
         ],
         [
             Paragraph("<b>Git Remote Repository</b>", table_cell),

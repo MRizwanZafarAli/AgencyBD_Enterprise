@@ -47,7 +47,7 @@ from tasks.task_queue import TaskQueueEngine
 
 logger = logging.getLogger("AgencyBD.api")
 
-_docs_enabled = (not is_production()) or os.getenv("AGENCYBD_ENABLE_DOCS", "").lower() == "true"
+_docs_enabled = os.getenv("AGENCYBD_ENABLE_DOCS", "false").lower() in ("true", "1")
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -972,6 +972,36 @@ def create_pipeline_deal(req: DealCreateRequest, principal: Principal = Depends(
     return lead
 
 
+@app.delete("/api/pipeline/deals/{lead_id}")
+@app.delete("/api/clients/{lead_id}")
+def delete_pipeline_deal(lead_id: int, principal: Principal = Depends(require_permission("leads:create"))):
+    """Deletes a lead from the CRM pipeline and cleans up associated records."""
+    with get_db() as conn:
+        row = conn.execute("SELECT id FROM leads WHERE id = ? AND org_id = ?", (lead_id, principal.org_id)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Lead not found")
+        conn.execute("DELETE FROM leads WHERE id = ? AND org_id = ?", (lead_id, principal.org_id))
+        conn.execute("DELETE FROM work_items WHERE entity_type = 'lead' AND entity_id = ? AND org_id = ?", (lead_id, principal.org_id))
+        conn.execute("DELETE FROM decision_makers WHERE lead_id = ? AND org_id = ?", (lead_id, principal.org_id))
+        conn.commit()
+    return {"status": "deleted", "lead_id": lead_id}
+
+
+@app.post("/api/pipeline/deals/clean_junk")
+def clean_junk_deals(principal: Principal = Depends(require_permission("leads:create"))):
+    """Purges scrapings with synthetic/invalid domains from the active CRM pipeline."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM leads WHERE org_id = ? AND (domain LIKE '%.sec-edgar.gov' OR domain LIKE '%arxiv.org' OR domain LIKE '%.invalid')",
+            (principal.org_id,)
+        )
+        count = cursor.rowcount
+        conn.commit()
+    return {"status": "cleaned", "deleted_count": count}
+
+
+
 from llm import reasoning as llm_reasoning
 
 @app.post("/api/opportunities/{opportunity_id}/analyze")
@@ -1702,9 +1732,15 @@ if os.path.exists(frontend_dist):
 
     @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
     async def serve_spa_frontend(full_path: str):
-        # Never hijack API, health, or telemetry endpoints
-        if full_path.startswith("api/") or full_path.startswith("healthz/") or full_path == "metrics":
-            raise HTTPException(status_code=404, detail="API route not found")
+        # Never hijack API, health, telemetry, or documentation endpoints
+        if (
+            full_path.startswith("api/")
+            or full_path.startswith("healthz/")
+            or full_path == "metrics"
+            or full_path in ("docs", "redoc", "openapi.json")
+            or full_path.endswith(".json")
+        ):
+            raise HTTPException(status_code=404, detail="Not found")
 
         file_path = safe_static_path(frontend_dist, full_path)
         if file_path:

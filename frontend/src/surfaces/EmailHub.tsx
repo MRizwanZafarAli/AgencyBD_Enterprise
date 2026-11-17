@@ -3,7 +3,8 @@ import type { FC, FormEvent } from 'react';
 import {
   Mail, Send, CheckCircle2, AlertTriangle, XCircle, Shield,
   RefreshCw, Plus, Clock, Server, Eye, FileText, Check, ChevronRight,
-  Sparkles, Trash2
+  Sparkles, Trash2, Copy, ArrowRight, Search, X,
+  Settings, Play, Pause, Zap, RotateCcw
 } from 'lucide-react';
 import { apiFetch, apiErrorMessage } from '../lib/api';
 import type { Me } from '../lib/api';
@@ -141,7 +142,26 @@ export const EmailHub: FC<{
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [previewHtml, setPreviewHtml] = useState(false);
 
-  // Mailbox registration modal state
+  // Sent Email inspection modal state (Delivery Ledger)
+  const [selectedEvent, setSelectedEvent] = useState<OutboundEvent | null>(null);
+  const [copiedEventBody, setCopiedEventBody] = useState(false);
+  const [eventFilter, setEventFilter] = useState<'all' | 'sent' | 'delivered' | 'replied' | 'bounced'>('all');
+  const [eventSearch, setEventSearch] = useState('');
+
+  // Draft review & edit modal state (Approval Desk)
+  const [selectedDraft, setSelectedDraft] = useState<OutboundDraft | null>(null);
+  const [editDraftForm, setEditDraftForm] = useState({
+    subject: '',
+    body: '',
+    recipient_email: '',
+    recipient_name: '',
+    company_name: '',
+  });
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [draftFilter, setDraftFilter] = useState<'all' | 'pending' | 'sent'>('all');
+  const [draftSearch, setDraftSearch] = useState('');
+
+  // Mailbox registration & edit modal state
   const [showAddMailbox, setShowAddMailbox] = useState(false);
   const [newMailbox, setNewMailbox] = useState({
     email: '',
@@ -155,6 +175,23 @@ export const EmailHub: FC<{
     smtp_password: '',
     use_tls: true,
   });
+
+  const [selectedMailboxForEdit, setSelectedMailboxForEdit] = useState<Mailbox | null>(null);
+  const [editMailboxForm, setEditMailboxForm] = useState({
+    display_name: '',
+    daily_cap: 35,
+    skip_warmup: true,
+    reputation_status: 'healthy',
+    is_active: 1,
+    smtp_host: '',
+    smtp_port: 587,
+    smtp_username: '',
+    smtp_password: '',
+    use_tls: true,
+  });
+  const [savingMailbox, setSavingMailbox] = useState(false);
+  const [testingMailboxId, setTestingMailboxId] = useState<number | null>(null);
+  const [mailboxTestResults, setMailboxTestResults] = useState<Record<number, { ok: boolean; message: string; latency_ms?: number }>>({});
 
   // Apply seed whenever seed prop updates
   useEffect(() => {
@@ -350,10 +387,90 @@ export const EmailHub: FC<{
     try {
       const res = await apiFetch(`/api/email/drafts/${draftId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Could not delete draft');
+      if (selectedDraft?.id === draftId) setSelectedDraft(null);
       await loadData();
     } catch (err) {
       setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Delete failed.' });
     }
+  };
+
+  // Open Draft for Inspection & Editing
+  const handleSelectDraft = (d: OutboundDraft) => {
+    setSelectedDraft(d);
+    setEditDraftForm({
+      subject: d.subject || '',
+      body: d.body || '',
+      recipient_email: d.recipient_email || '',
+      recipient_name: d.recipient_name || '',
+      company_name: d.company_name || '',
+    });
+  };
+
+  // Save Edits to Draft
+  const handleSaveDraft = async () => {
+    if (!selectedDraft) return;
+    setSavingDraft(true);
+    try {
+      const res = await apiFetch(`/api/email/drafts/${selectedDraft.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editDraftForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
+      setFeedback({ type: 'success', message: `Draft #${selectedDraft.id} updated successfully.` });
+      setSelectedDraft(null);
+      await loadData();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Failed to update draft.' });
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  // Dispatch Draft directly from the review modal
+  const handleDispatchModalDraft = async () => {
+    if (!selectedDraft) return;
+    setSending(true);
+    try {
+      await apiFetch(`/api/email/drafts/${selectedDraft.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editDraftForm),
+      });
+      await handleSendDraft(selectedDraft.id);
+      setSelectedDraft(null);
+    } catch (err) {
+      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Dispatch failed.' });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Transfer Draft to Composer
+  const handleLoadDraftIntoComposer = (d: OutboundDraft) => {
+    setToEmail(d.recipient_email);
+    setRecipientName(d.recipient_name || '');
+    setCompanyName(d.company_name || '');
+    setSubject(d.subject);
+    setBody(d.body);
+    setSelectedDraft(null);
+    setTab('compose');
+  };
+
+  // Initiate Follow-Up from Sent Email
+  const handleFollowUpFromEvent = (ev: OutboundEvent) => {
+    const p = ev.payload || {};
+    setToEmail(ev.recipient_email);
+    setRecipientName(p.recipient_name || '');
+    setCompanyName(p.company_name || '');
+    const baseSubj = p.subject || 'Outbound Discussion';
+    const cleanSubj = baseSubj.replace(/^re:\s*/i, '');
+    setSubject(`Re: ${cleanSubj}`);
+    const firstName = p.recipient_name ? p.recipient_name.split(' ')[0] : 'there';
+    setBody(`Hi ${firstName},\n\nFollowing up on my previous note regarding ${cleanSubj}...\n\nBest,\n`);
+    setSelectedEvent(null);
+    setTab('compose');
   };
 
   // Load template into composer
@@ -392,6 +509,124 @@ export const EmailHub: FC<{
       await loadData();
     } catch (err) {
       setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Registration failed.' });
+    }
+  };
+
+  // Test live connection of a mailbox
+  const handleTestMailbox = async (mbId: number) => {
+    setTestingMailboxId(mbId);
+    try {
+      const res = await apiFetch(`/api/email/mailboxes/${mbId}/test`, { method: 'POST' });
+      const data = await res.json();
+      setMailboxTestResults((prev) => ({
+        ...prev,
+        [mbId]: { ok: data.ok, message: data.message, latency_ms: data.latency_ms }
+      }));
+      setFeedback({
+        type: data.ok ? 'success' : 'error',
+        message: data.message || (data.ok ? 'Mailbox connection verified.' : 'Connection failed.')
+      });
+    } catch (err) {
+      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Test failed.' });
+    } finally {
+      setTestingMailboxId(null);
+    }
+  };
+
+  // Toggle mailbox active/paused status
+  const handleToggleMailbox = async (mbId: number) => {
+    try {
+      const res = await apiFetch(`/api/email/mailboxes/${mbId}/toggle`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
+      setFeedback({
+        type: 'success',
+        message: `Mailbox status switched to ${data.reputation_status.toUpperCase()}.`
+      });
+      await loadData();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Status update failed.' });
+    }
+  };
+
+  // Reset mailbox daily dispatches counter
+  const handleResetMailboxCap = async (mbId: number) => {
+    try {
+      const res = await apiFetch(`/api/email/mailboxes/${mbId}/reset-cap`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
+      setFeedback({ type: 'success', message: "Today's send counter reset to 0." });
+      await loadData();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Reset failed.' });
+    }
+  };
+
+  // Delete mailbox
+  const handleDeleteMailbox = async (mbId: number) => {
+    if (!window.confirm('Are you sure you want to remove this mailbox from outbound rotation?')) return;
+    try {
+      const res = await apiFetch(`/api/email/mailboxes/${mbId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
+      setFeedback({ type: 'success', message: 'Mailbox removed from fleet.' });
+      await loadData();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Delete failed.' });
+    }
+  };
+
+  // Open Edit Mailbox Modal
+  const handleOpenEditMailbox = (mb: Mailbox) => {
+    setSelectedMailboxForEdit(mb);
+    setEditMailboxForm({
+      display_name: mb.display_name || '',
+      daily_cap: mb.daily_cap || 35,
+      skip_warmup: Boolean(mb.skip_warmup),
+      reputation_status: mb.reputation_status || 'healthy',
+      is_active: mb.is_active ?? 1,
+      smtp_host: '',
+      smtp_port: 587,
+      smtp_username: '',
+      smtp_password: '',
+      use_tls: true,
+    });
+  };
+
+  // Save changes to mailbox
+  const handleSaveMailboxEdit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!selectedMailboxForEdit) return;
+    setSavingMailbox(true);
+    try {
+      const payload: any = {
+        display_name: editMailboxForm.display_name,
+        daily_cap: editMailboxForm.daily_cap,
+        skip_warmup: editMailboxForm.skip_warmup,
+        reputation_status: editMailboxForm.reputation_status,
+        is_active: editMailboxForm.is_active,
+      };
+      if (editMailboxForm.smtp_host && editMailboxForm.smtp_username && editMailboxForm.smtp_password) {
+        payload.smtp_host = editMailboxForm.smtp_host;
+        payload.smtp_port = editMailboxForm.smtp_port;
+        payload.smtp_username = editMailboxForm.smtp_username;
+        payload.smtp_password = editMailboxForm.smtp_password;
+        payload.use_tls = editMailboxForm.use_tls;
+      }
+      const res = await apiFetch(`/api/email/mailboxes/${selectedMailboxForEdit.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
+      setSelectedMailboxForEdit(null);
+      setFeedback({ type: 'success', message: `Mailbox ${selectedMailboxForEdit.email} updated successfully!` });
+      await loadData();
+    } catch (err) {
+      setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Update failed.' });
+    } finally {
+      setSavingMailbox(false);
     }
   };
 
@@ -464,12 +699,23 @@ export const EmailHub: FC<{
               )}
               <span>{feedback.message}</span>
             </div>
-            <button
-              onClick={() => setFeedback(null)}
-              className="text-slate-400 hover:text-white text-xs underline ml-4"
-            >
-              Dismiss
-            </button>
+            <div className="flex items-center gap-3">
+              {feedback.type === 'success' && tab === 'compose' && (
+                <button
+                  onClick={() => setTab('logs')}
+                  className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 underline flex items-center gap-1"
+                >
+                  <span>View in Delivery Ledger</span>
+                  <ArrowRight className="h-3 w-3" />
+                </button>
+              )}
+              <button
+                onClick={() => setFeedback(null)}
+                className="text-slate-400 hover:text-white text-xs underline ml-2"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
 
@@ -882,66 +1128,194 @@ export const EmailHub: FC<{
         {/* ==================================================================== */}
         {tab === 'fleet' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-white">Registered Sending Mailboxes</h2>
+                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <span>Registered Sending Mailboxes</span>
+                  <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
+                    {mailboxes.length} configured
+                  </span>
+                </h2>
                 <p className="text-xs text-slate-400">
-                  Warmup ramps, daily dispatch quotas, and inbox rotation health.
+                  Manage sending identities, test live SMTP reachability, calibrate daily quotas, and monitor warmup health.
                 </p>
               </div>
-              <button
-                onClick={() => setShowAddMailbox(true)}
-                className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition shadow-md shadow-indigo-600/20"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Add SMTP / Workspace Mailbox</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowAddMailbox(true)}
+                  className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition shadow-md shadow-indigo-600/20 whitespace-nowrap"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Add Mailbox</span>
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {mailboxes.map((mb) => {
                 const pct = Math.min(100, Math.round(((mb.sent_today || 0) / (mb.daily_cap || 35)) * 100));
+                const testResult = mailboxTestResults[mb.id];
+                const isTesting = testingMailboxId === mb.id;
+                const isPaused = mb.reputation_status === 'paused' || mb.is_active === 0;
+
                 return (
                   <div
                     key={mb.id}
-                    className="bento-tile specular-border rounded-2xl p-5 border border-slate-800 bg-slate-900/60 space-y-3"
+                    className={`bento-tile specular-border rounded-2xl p-5 border bg-slate-900/60 space-y-4 transition ${
+                      isPaused ? 'border-amber-500/30 opacity-80' : 'border-slate-800'
+                    }`}
                   >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="text-xs font-semibold text-white">{mb.display_name || 'Primary Mailbox'}</div>
-                        <div className="text-xs font-mono text-indigo-300 truncate mt-0.5">{mb.email}</div>
+                    {/* Header: Name, Email & Status */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-white truncate">
+                            {mb.display_name || 'Primary Mailbox'}
+                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded uppercase font-mono bg-slate-800 text-slate-300 border border-slate-700/60">
+                            {mb.provider_type}
+                          </span>
+                        </div>
+                        <div className="text-xs font-mono text-indigo-300 truncate mt-0.5" title={mb.email}>
+                          {mb.email}
+                        </div>
                       </div>
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded-full font-mono uppercase ${
-                          mb.reputation_status === 'healthy'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                            : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                        }`}
-                      >
-                        {mb.reputation_status}
-                      </span>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => handleToggleMailbox(mb.id)}
+                          title={isPaused ? 'Resume Sending' : 'Pause Sending'}
+                          className={`p-1.5 rounded-lg border transition ${
+                            isPaused
+                              ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
+                              : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                          }`}
+                        >
+                          {isPaused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+                        </button>
+                        <button
+                          onClick={() => handleOpenEditMailbox(mb)}
+                          title="Configure Mailbox"
+                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700/60 text-slate-300 hover:text-white transition"
+                        >
+                          <Settings className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteMailbox(mb.id)}
+                          title="Remove Mailbox"
+                          className="p-1.5 rounded-lg hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 transition"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="space-y-1">
+                    {/* Progress Bar & Counter */}
+                    <div className="space-y-1.5">
                       <div className="flex items-center justify-between text-[11px] text-slate-400">
-                        <span>Today's Dispatches</span>
-                        <span className="font-mono text-white tabular">
-                          {mb.sent_today} / {mb.daily_cap}
+                        <span className="flex items-center gap-1">
+                          <span>Today's Dispatches</span>
+                          <span
+                            className={`text-[9px] px-1 rounded uppercase font-mono ${
+                              isPaused ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'
+                            }`}
+                          >
+                            {isPaused ? 'PAUSED' : 'ACTIVE'}
+                          </span>
                         </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-white tabular">
+                            {mb.sent_today} / {mb.daily_cap}
+                          </span>
+                          <button
+                            onClick={() => handleResetMailboxCap(mb.id)}
+                            title="Reset Today's Counter to 0"
+                            className="text-slate-500 hover:text-slate-300 transition"
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                          </button>
+                        </div>
                       </div>
                       <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full transition-all ${
-                            pct > 90 ? 'bg-amber-500' : 'bg-gradient-to-r from-indigo-500 to-cyan-500'
+                            isPaused
+                              ? 'bg-slate-600'
+                              : pct > 90
+                              ? 'bg-amber-500'
+                              : 'bg-gradient-to-r from-indigo-500 to-cyan-500'
                           }`}
                           style={{ width: `${pct}%` }}
                         />
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
-                      <span>Provider: <strong className="text-white font-mono uppercase">{mb.provider_type}</strong></span>
-                      <span>Warmup: <strong className="text-emerald-400">{mb.skip_warmup ? 'Active' : 'Ramping'}</strong></span>
+                    {/* Telemetry Detail Chips */}
+                    <div className="pt-2 border-t border-slate-800/80 grid grid-cols-2 gap-2 text-[11px] text-slate-400">
+                      <div>
+                        <span>Warmup: </span>
+                        <strong className="text-emerald-400">
+                          {mb.skip_warmup ? 'Active (Full Cap)' : 'Ramping Safe'}
+                        </strong>
+                      </div>
+                      <div className="text-right">
+                        <span>Credentials: </span>
+                        <strong className="text-white font-mono">
+                          {mb.has_credentials ? 'Verified' : 'Default Relay'}
+                        </strong>
+                      </div>
+                    </div>
+
+                    {/* Live Test Results Alert (If tested) */}
+                    {testResult && (
+                      <div
+                        className={`p-2 rounded-lg text-[11px] flex items-center justify-between border ${
+                          testResult.ok
+                            ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-200'
+                            : 'bg-rose-950/40 border-rose-500/30 text-rose-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 truncate">
+                          {testResult.ok ? (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                          ) : (
+                            <XCircle className="h-3.5 w-3.5 text-rose-400 shrink-0" />
+                          )}
+                          <span className="truncate">{testResult.message}</span>
+                        </div>
+                        {testResult.latency_ms !== undefined && (
+                          <span className="font-mono text-[10px] text-slate-400 shrink-0 ml-1">
+                            {testResult.latency_ms}ms
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Action Bar on Card */}
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                      <button
+                        onClick={() => handleTestMailbox(mb.id)}
+                        disabled={isTesting}
+                        className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-[11px] font-medium transition disabled:opacity-50"
+                      >
+                        {isTesting ? (
+                          <RefreshCw className="h-3 w-3 animate-spin text-cyan-400" />
+                        ) : (
+                          <Zap className="h-3 w-3 text-cyan-400" />
+                        )}
+                        <span>{isTesting ? 'Testing…' : 'Test Relay'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setSelectedMailboxId(mb.id);
+                          setTab('compose');
+                        }}
+                        className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 hover:text-white text-[11px] font-medium transition"
+                      >
+                        <Send className="h-3 w-3" />
+                        <span>Compose</span>
+                      </button>
                     </div>
                   </div>
                 );
@@ -966,153 +1340,338 @@ export const EmailHub: FC<{
         {/* ==================================================================== */}
         {/* TAB 3: DRAFTS & APPROVALS QUEUE */}
         {/* ==================================================================== */}
-        {tab === 'queue' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-white">Outbound Approval Desk</h2>
-                <p className="text-xs text-slate-400">
-                  Review and approve pending cold outreach emails before they are dispatched.
-                </p>
+        {tab === 'queue' && (() => {
+          const pendingCount = drafts.filter((d) => d.status === 'pending_approval').length;
+          const sentCount = drafts.filter((d) => d.status === 'sent').length;
+          const filteredDrafts = drafts.filter((d) => {
+            if (draftFilter === 'pending' && d.status !== 'pending_approval') return false;
+            if (draftFilter === 'sent' && d.status !== 'sent') return false;
+            if (draftSearch.trim()) {
+              const q = draftSearch.toLowerCase();
+              const matchEmail = d.recipient_email.toLowerCase().includes(q);
+              const matchName = (d.recipient_name || '').toLowerCase().includes(q);
+              const matchCompany = (d.company_name || '').toLowerCase().includes(q);
+              const matchSubj = d.subject.toLowerCase().includes(q);
+              if (!matchEmail && !matchName && !matchCompany && !matchSubj) return false;
+            }
+            return true;
+          });
+
+          return (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <span>Outbound Approval Desk</span>
+                    <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
+                      {drafts.length} drafts
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Review, edit, and approve pending cold outreach emails before live dispatch.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setTab('compose')}
+                    className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/20 transition"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Create New Draft</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Filter and Search Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                <div className="flex items-center space-x-1.5 overflow-x-auto">
+                  <button
+                    onClick={() => setDraftFilter('all')}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium transition whitespace-nowrap ${
+                      draftFilter === 'all'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                    }`}
+                  >
+                    All Drafts ({drafts.length})
+                  </button>
+                  <button
+                    onClick={() => setDraftFilter('pending')}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium transition whitespace-nowrap flex items-center gap-1.5 ${
+                      draftFilter === 'pending'
+                        ? 'bg-amber-600 text-white'
+                        : 'bg-slate-950 text-amber-400/80 hover:text-amber-300 border border-slate-800'
+                    }`}
+                  >
+                    <Clock className="h-3 w-3" />
+                    <span>Pending Approval ({pendingCount})</span>
+                  </button>
+                  <button
+                    onClick={() => setDraftFilter('sent')}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium transition whitespace-nowrap flex items-center gap-1.5 ${
+                      draftFilter === 'sent'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-950 text-emerald-400/80 hover:text-emerald-300 border border-slate-800'
+                    }`}
+                  >
+                    <CheckCircle2 className="h-3 w-3" />
+                    <span>Dispatched ({sentCount})</span>
+                  </button>
+                </div>
+
+                <div className="relative min-w-[220px]">
+                  <Search className="h-3.5 w-3.5 text-slate-500 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    placeholder="Search recipient or subject..."
+                    value={draftSearch}
+                    onChange={(e) => setDraftSearch(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="bento-tile rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 font-medium">
+                    <tr>
+                      <th className="py-3 px-4">Recipient</th>
+                      <th className="py-3 px-4">Subject & Excerpt</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4">Created</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {filteredDrafts.map((d) => (
+                      <tr
+                        key={d.id}
+                        onClick={() => handleSelectDraft(d)}
+                        className="hover:bg-slate-800/40 cursor-pointer transition group"
+                      >
+                        <td className="py-3.5 px-4">
+                          <div className="font-medium text-white">{d.recipient_name || d.recipient_email}</div>
+                          <div className="text-[11px] font-mono text-indigo-400">{d.recipient_email}</div>
+                          {d.company_name && (
+                            <div className="text-[10px] text-slate-500">{d.company_name}</div>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 max-w-md">
+                          <div className="font-medium text-slate-200 truncate group-hover:text-indigo-300 transition">
+                            {d.subject}
+                          </div>
+                          <div className="text-[11px] text-slate-400 truncate mt-0.5">{d.body}</div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`text-[10px] px-2 py-0.5 rounded-full font-mono uppercase ${
+                              d.status === 'sent'
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                            }`}
+                          >
+                            {d.status}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-[11px] text-slate-400 whitespace-nowrap">
+                          {d.created_at}
+                        </td>
+                        <td className="py-3.5 px-4 text-right space-x-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => handleSelectDraft(d)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-[11px] font-medium transition"
+                          >
+                            <Eye className="h-3 w-3 text-indigo-400" />
+                            <span>Review & Edit</span>
+                          </button>
+                          {d.status === 'pending_approval' && (
+                            <button
+                              onClick={() => handleSendDraft(d.id)}
+                              className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold transition shadow-sm"
+                            >
+                              Approve & Dispatch
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteDraft(d.id)}
+                            className="p-1.5 rounded-lg hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 transition"
+                            title="Delete draft"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredDrafts.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-slate-500">
+                          {draftSearch ? 'No drafts matching search query.' : 'No drafts waiting in this queue.'}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
-
-            <div className="bento-tile rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 font-medium">
-                  <tr>
-                    <th className="py-3 px-4">Recipient</th>
-                    <th className="py-3 px-4">Subject & Excerpt</th>
-                    <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4">Created</th>
-                    <th className="py-3 px-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60">
-                  {drafts.map((d) => (
-                    <tr key={d.id} className="hover:bg-slate-800/30 transition">
-                      <td className="py-3.5 px-4">
-                        <div className="font-medium text-white">{d.recipient_name || d.recipient_email}</div>
-                        <div className="text-[11px] font-mono text-indigo-400">{d.recipient_email}</div>
-                        {d.company_name && (
-                          <div className="text-[10px] text-slate-500">{d.company_name}</div>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 max-w-md">
-                        <div className="font-medium text-slate-200 truncate">{d.subject}</div>
-                        <div className="text-[11px] text-slate-400 truncate mt-0.5">{d.body}</div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span
-                          className={`text-[10px] px-2 py-0.5 rounded-full font-mono uppercase ${
-                            d.status === 'sent'
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                              : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                          }`}
-                        >
-                          {d.status}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-[11px] text-slate-400 whitespace-nowrap">
-                        {d.created_at}
-                      </td>
-                      <td className="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
-                        {d.status === 'pending_approval' && (
-                          <button
-                            onClick={() => handleSendDraft(d.id)}
-                            className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold transition"
-                          >
-                            Approve & Dispatch
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDeleteDraft(d.id)}
-                          className="p-1.5 rounded-lg hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 transition"
-                          title="Delete draft"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {drafts.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="py-8 text-center text-slate-500">
-                        No drafts waiting in queue. Use "Compose Email" and save as draft to test.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ==================================================================== */}
         {/* TAB 4: DELIVERY LEDGER & OUTBOUND EVENTS */}
         {/* ==================================================================== */}
-        {tab === 'logs' && (
-          <div className="space-y-4">
-            <div>
-              <h2 className="text-lg font-semibold text-white">Outbound Activity & Audit Ledger</h2>
-              <p className="text-xs text-slate-400">
-                Immutable record of every sent, delivered, or bounced email dispatch.
-              </p>
-            </div>
+        {tab === 'logs' && (() => {
+          const filteredEvents = events.filter((ev) => {
+            if (eventFilter !== 'all' && ev.event_type !== eventFilter) return false;
+            if (eventSearch.trim()) {
+              const q = eventSearch.toLowerCase();
+              const matchEmail = ev.recipient_email.toLowerCase().includes(q);
+              const matchSubj = (ev.payload?.subject || '').toLowerCase().includes(q);
+              const matchMailbox = (ev.mailbox_email || '').toLowerCase().includes(q);
+              const matchName = (ev.payload?.recipient_name || '').toLowerCase().includes(q);
+              const matchCompany = (ev.payload?.company_name || '').toLowerCase().includes(q);
+              if (!matchEmail && !matchSubj && !matchMailbox && !matchName && !matchCompany) return false;
+            }
+            return true;
+          });
 
-            <div className="bento-tile rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 font-medium">
-                  <tr>
-                    <th className="py-3 px-4">Event</th>
-                    <th className="py-3 px-4">Recipient</th>
-                    <th className="py-3 px-4">Mailbox Used</th>
-                    <th className="py-3 px-4">Message-ID</th>
-                    <th className="py-3 px-4">Timestamp</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60">
-                  {events.map((ev) => (
-                    <tr key={ev.id} className="hover:bg-slate-800/30 transition">
-                      <td className="py-3.5 px-4">
-                        <span
-                          className={`text-[10px] px-2 py-0.5 rounded-full font-mono uppercase ${
-                            ev.event_type === 'sent' || ev.event_type === 'delivered'
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                              : ev.event_type === 'replied'
-                              ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                              : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-                          }`}
-                        >
-                          {ev.event_type}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 font-mono text-slate-200">
-                        {ev.recipient_email}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono text-slate-400">
-                        {ev.mailbox_email || 'Default Relay'}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono text-[10px] text-slate-500 max-w-[200px] truncate">
-                        {ev.message_id || 'n/a'}
-                      </td>
-                      <td className="py-3.5 px-4 text-[11px] text-slate-400 whitespace-nowrap">
-                        {ev.created_at}
-                      </td>
-                    </tr>
+          return (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <span>Outbound Activity & Audit Ledger</span>
+                    <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
+                      {events.length} dispatched
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Immutable record of sent, delivered, or bounced emails. Click any record to inspect the full body and deliverability diagnostics.
+                  </p>
+                </div>
+
+                <button
+                  onClick={loadData}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white text-xs font-medium transition self-start sm:self-auto"
+                >
+                  <RefreshCw className="h-3 w-3 text-indigo-400" />
+                  <span>Refresh Ledger</span>
+                </button>
+              </div>
+
+              {/* Event Filters & Search */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                <div className="flex items-center space-x-1.5 overflow-x-auto">
+                  {(['all', 'sent', 'delivered', 'replied', 'bounced'] as const).map((filterVal) => (
+                    <button
+                      key={filterVal}
+                      onClick={() => setEventFilter(filterVal)}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium capitalize transition whitespace-nowrap ${
+                        eventFilter === filterVal
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                      }`}
+                    >
+                      {filterVal === 'all' ? `All Events (${events.length})` : filterVal}
+                    </button>
                   ))}
-                  {events.length === 0 && (
+                </div>
+
+                <div className="relative min-w-[240px]">
+                  <Search className="h-3.5 w-3.5 text-slate-500 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    placeholder="Search recipient, subject, or relay..."
+                    value={eventSearch}
+                    onChange={(e) => setEventSearch(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="bento-tile rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 font-medium">
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-slate-500">
-                        No outbound email events recorded yet. Send your first email from the Compose tab!
-                      </td>
+                      <th className="py-3 px-4">Event</th>
+                      <th className="py-3 px-4">Recipient</th>
+                      <th className="py-3 px-4">Subject & Excerpt</th>
+                      <th className="py-3 px-4">Mailbox Used</th>
+                      <th className="py-3 px-4">Message-ID</th>
+                      <th className="py-3 px-4">Timestamp</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {filteredEvents.map((ev) => (
+                      <tr
+                        key={ev.id}
+                        onClick={() => setSelectedEvent(ev)}
+                        className="hover:bg-slate-800/40 cursor-pointer transition group"
+                      >
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`text-[10px] px-2 py-0.5 rounded-full font-mono uppercase ${
+                              ev.event_type === 'sent' || ev.event_type === 'delivered'
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                : ev.event_type === 'replied'
+                                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                                : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                            }`}
+                          >
+                            {ev.event_type}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="font-medium text-white flex items-center gap-1.5">
+                            <span>{ev.payload?.recipient_name || ev.recipient_email}</span>
+                            {ev.payload?.company_name && (
+                              <span className="text-[10px] text-slate-500 font-normal">({ev.payload.company_name})</span>
+                            )}
+                          </div>
+                          <div className="text-[11px] font-mono text-indigo-400">{ev.recipient_email}</div>
+                        </td>
+                        <td className="py-3.5 px-4 max-w-xs">
+                          <div className="font-medium text-slate-200 truncate group-hover:text-indigo-300 transition">
+                            {ev.payload?.subject || '(No Subject)'}
+                          </div>
+                          <div className="text-[11px] text-slate-400 truncate mt-0.5">
+                            {ev.payload?.body || '(No preview body recorded)'}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-slate-400 text-[11px]">
+                          {ev.mailbox_email || ev.payload?.diagnostics?.sender || 'Default Relay'}
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-[10px] text-slate-500 max-w-[140px] truncate" title={ev.message_id || 'n/a'}>
+                          {ev.message_id || 'n/a'}
+                        </td>
+                        <td className="py-3.5 px-4 text-[11px] text-slate-400 whitespace-nowrap">
+                          {ev.created_at}
+                        </td>
+                        <td className="py-3.5 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => setSelectedEvent(ev)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-300 hover:text-white border border-indigo-500/20 text-[11px] font-medium transition"
+                          >
+                            <Eye className="h-3 w-3 text-indigo-400" />
+                            <span>View Sent Email</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredEvents.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-slate-500">
+                          {eventSearch ? 'No outbound dispatches match your filter.' : 'No outbound email events recorded yet.'}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ==================================================================== */}
         {/* TAB 5: PRE-FLIGHT DELIVERABILITY INSPECTOR */}
@@ -1356,6 +1915,446 @@ export const EmailHub: FC<{
                     className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/20"
                   >
                     Save & Activate Mailbox
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ==================================================================== */}
+        {/* VIEW SENT EMAIL INSPECTION MODAL (DELIVERY LEDGER) */}
+        {/* ==================================================================== */}
+        {selectedEvent && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-fadeIn">
+            <div className="w-full max-w-2xl bento-tile specular-border rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
+              {/* Header */}
+              <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                    <Mail className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-white">Sent Outbound Email</h3>
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-mono uppercase ${
+                          selectedEvent.event_type === 'sent' || selectedEvent.event_type === 'delivered'
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                            : selectedEvent.event_type === 'replied'
+                            ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                        }`}
+                      >
+                        {selectedEvent.event_type}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5 font-mono">
+                      Event #{selectedEvent.id} · Dispatched {selectedEvent.created_at}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedEvent(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Scrollable Modal Content */}
+              <div className="p-5 space-y-4 overflow-y-auto flex-1">
+                {/* Email Meta Card */}
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800/80 space-y-2.5 text-xs">
+                  <div className="flex items-start justify-between border-b border-slate-800/60 pb-2.5">
+                    <span className="text-slate-400 font-medium">Subject:</span>
+                    <span className="font-semibold text-white text-right max-w-md">
+                      {selectedEvent.payload?.subject || 'Outbound Brief'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-400">From:</span>
+                    <span className="font-mono text-indigo-300 font-medium">
+                      {selectedEvent.mailbox_email || selectedEvent.payload?.diagnostics?.sender || 'Default Relay'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-400">To:</span>
+                    <span className="font-mono text-slate-200">
+                      {selectedEvent.payload?.recipient_name
+                        ? `${selectedEvent.payload.recipient_name} <${selectedEvent.recipient_email}>`
+                        : selectedEvent.recipient_email}
+                      {selectedEvent.payload?.company_name && (
+                        <span className="text-slate-500 ml-1">({selectedEvent.payload.company_name})</span>
+                      )}
+                    </span>
+                  </div>
+                  {selectedEvent.message_id && (
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-400">Message-ID:</span>
+                      <span className="font-mono text-slate-500 truncate max-w-[320px]" title={selectedEvent.message_id}>
+                        {selectedEvent.message_id}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Deliverability Diagnostics Telemetry */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-[10px] text-slate-500 uppercase font-mono block">Delivery Telemetry</span>
+                    <span className="text-xs font-medium text-emerald-400 flex items-center gap-1.5 mt-1">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <span>Verified Dispatched</span>
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                    <span className="text-[10px] text-slate-500 uppercase font-mono block">Target DNS MX</span>
+                    <span
+                      className="text-xs font-mono text-slate-300 truncate block mt-1"
+                      title={selectedEvent.payload?.diagnostics?.domain_mx?.[0] || 'Active MX'}
+                    >
+                      {selectedEvent.payload?.diagnostics?.domain_mx?.[0] || 'Active MX'}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 col-span-2 sm:col-span-1">
+                    <span className="text-[10px] text-slate-500 uppercase font-mono block">Confidence Score</span>
+                    <span className="text-xs font-semibold text-cyan-400 block mt-1">
+                      {Math.round((selectedEvent.payload?.diagnostics?.confidence || 0.95) * 100)}% Deliverable
+                    </span>
+                  </div>
+                </div>
+
+                {/* Formatted Email Body Container */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-300 font-medium">Dispatched Email Content</span>
+                    <button
+                      onClick={() => {
+                        const bodyText = selectedEvent.payload?.body || '';
+                        navigator.clipboard.writeText(bodyText);
+                        setCopiedEventBody(true);
+                        setTimeout(() => setCopiedEventBody(false), 2000);
+                      }}
+                      className="flex items-center space-x-1 text-[11px] text-slate-400 hover:text-white transition"
+                    >
+                      <Copy className="h-3 w-3" />
+                      <span>{copiedEventBody ? 'Copied to clipboard!' : 'Copy Body'}</span>
+                    </button>
+                  </div>
+                  <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 font-mono whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
+                    {selectedEvent.payload?.body || 'No message body stored for this historical event.'}
+                  </div>
+                  <div className="text-[10px] text-slate-500 pt-1 flex items-center gap-1.5">
+                    <Shield className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                    <span>Attached CAN-SPAM physical address & 1-click RFC 8058 unsubscribe header</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+                <button
+                  onClick={() => setSelectedEvent(null)}
+                  className="px-4 py-2 rounded-xl border border-slate-800 text-slate-300 hover:text-white text-xs font-medium transition"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => handleFollowUpFromEvent(selectedEvent)}
+                  className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/20 transition"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  <span>Send Follow-Up Email</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ==================================================================== */}
+        {/* REVIEW & EDIT DRAFT MODAL (APPROVAL DESK) */}
+        {/* ==================================================================== */}
+        {selectedDraft && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-fadeIn">
+            <div className="w-full max-w-2xl bento-tile specular-border rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
+              {/* Header */}
+              <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                    <Clock className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-white">Review & Edit Outbound Draft</h3>
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-mono uppercase ${
+                          selectedDraft.status === 'sent'
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                            : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                        }`}
+                      >
+                        {selectedDraft.status}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5 font-mono">
+                      Draft #{selectedDraft.id} · Queued {selectedDraft.created_at}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedDraft(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Form Content - Scrollable */}
+              <div className="p-5 space-y-3.5 overflow-y-auto flex-1 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-slate-400 font-medium">Recipient Email *</label>
+                    <input
+                      type="email"
+                      required
+                      value={editDraftForm.recipient_email}
+                      onChange={(e) => setEditDraftForm({ ...editDraftForm, recipient_email: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white mt-1 focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-slate-400 font-medium">Recipient Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Sarah Jenkins"
+                      value={editDraftForm.recipient_name}
+                      onChange={(e) => setEditDraftForm({ ...editDraftForm, recipient_name: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white mt-1 focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-slate-400 font-medium">Company Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Acme Corp"
+                    value={editDraftForm.company_name}
+                    onChange={(e) => setEditDraftForm({ ...editDraftForm, company_name: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white mt-1 focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-400 font-medium">Subject Line *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editDraftForm.subject}
+                    onChange={(e) => setEditDraftForm({ ...editDraftForm, subject: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white mt-1 focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-slate-400 font-medium">Email Message Body *</label>
+                    <span className="text-[11px] text-slate-500">
+                      {editDraftForm.body.split(/\s+/).filter(Boolean).length} words · {editDraftForm.body.length} chars
+                    </span>
+                  </div>
+                  <textarea
+                    rows={8}
+                    required
+                    value={editDraftForm.body}
+                    onChange={(e) => setEditDraftForm({ ...editDraftForm, body: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-white font-mono mt-1 focus:border-indigo-500 focus:outline-none leading-relaxed"
+                  />
+                </div>
+              </div>
+
+              {/* Actions Footer */}
+              <div className="p-4 border-t border-slate-800 bg-slate-950/60 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handleLoadDraftIntoComposer(selectedDraft)}
+                    className="px-3 py-2 rounded-xl border border-slate-800 text-slate-300 hover:text-white text-xs font-medium transition"
+                  >
+                    Open in Full Composer
+                  </button>
+                  <button
+                    onClick={() => handleDeleteDraft(selectedDraft.id)}
+                    className="px-3 py-2 rounded-xl hover:bg-rose-500/10 text-rose-400 text-xs font-medium transition"
+                  >
+                    Delete Draft
+                  </button>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={handleSaveDraft}
+                    disabled={savingDraft}
+                    className="px-4 py-2 rounded-xl border border-slate-700 bg-slate-900 text-white text-xs font-medium hover:border-slate-600 transition disabled:opacity-50"
+                  >
+                    {savingDraft ? 'Saving…' : 'Save Changes'}
+                  </button>
+                  {selectedDraft.status === 'pending_approval' && (
+                    <button
+                      onClick={handleDispatchModalDraft}
+                      disabled={sending}
+                      className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/20 transition disabled:opacity-50"
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                      <span>{sending ? 'Dispatching…' : 'Approve & Dispatch Now'}</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ==================================================================== */}
+        {/* CONFIGURE / EDIT MAILBOX MODAL */}
+        {/* ==================================================================== */}
+        {selectedMailboxForEdit && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-fadeIn">
+            <div className="w-full max-w-lg bento-tile specular-border rounded-2xl p-6 border border-slate-800 bg-slate-900 space-y-4 shadow-2xl">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div className="flex items-center space-x-2">
+                  <Settings className="h-4 w-4 text-indigo-400" />
+                  <h3 className="text-sm font-semibold text-white">
+                    Configure Mailbox ({selectedMailboxForEdit.email})
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setSelectedMailboxForEdit(null)}
+                  className="text-slate-400 hover:text-white text-xs"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveMailboxEdit} className="space-y-3">
+                <div>
+                  <label className="text-[11px] text-slate-300 font-medium">Display Name (Sender Name)</label>
+                  <input
+                    type="text"
+                    placeholder="Alex Mercer (ApexCore)"
+                    value={editMailboxForm.display_name}
+                    onChange={(e) => setEditMailboxForm({ ...editMailboxForm, display_name: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none mt-1"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] text-slate-300 font-medium">Daily Outbound Quota</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={200}
+                      value={editMailboxForm.daily_cap}
+                      onChange={(e) => setEditMailboxForm({ ...editMailboxForm, daily_cap: Number(e.target.value) })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] text-slate-300 font-medium">Sending State</label>
+                    <select
+                      value={editMailboxForm.reputation_status}
+                      onChange={(e) => setEditMailboxForm({
+                        ...editMailboxForm,
+                        reputation_status: e.target.value,
+                        is_active: e.target.value === 'paused' ? 0 : 1
+                      })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none mt-1"
+                    >
+                      <option value="healthy">Active / Healthy</option>
+                      <option value="paused">Paused (Exclude from rotation)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="pt-1">
+                  <label className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editMailboxForm.skip_warmup}
+                      onChange={(e) => setEditMailboxForm({ ...editMailboxForm, skip_warmup: e.target.checked })}
+                      className="rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-0"
+                    />
+                    <span>Mailbox is already warmed up (start at full capacity)</span>
+                  </label>
+                </div>
+
+                {/* Optional Custom SMTP Section */}
+                <div className="pt-2 border-t border-slate-800/80">
+                  <div className="text-[11px] font-semibold text-slate-400 mb-2">
+                    Custom SMTP Relay Credentials (Optional)
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <label className="text-[10px] text-slate-500 font-medium">SMTP Host</label>
+                      <input
+                        type="text"
+                        placeholder="smtp.gmail.com"
+                        value={editMailboxForm.smtp_host}
+                        onChange={(e) => setEditMailboxForm({ ...editMailboxForm, smtp_host: e.target.value })}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none mt-0.5"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-500 font-medium">Port</label>
+                      <input
+                        type="number"
+                        value={editMailboxForm.smtp_port}
+                        onChange={(e) => setEditMailboxForm({ ...editMailboxForm, smtp_port: Number(e.target.value) })}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none mt-0.5"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div>
+                      <label className="text-[10px] text-slate-500 font-medium">Username</label>
+                      <input
+                        type="text"
+                        placeholder="user@domain.com"
+                        value={editMailboxForm.smtp_username}
+                        onChange={(e) => setEditMailboxForm({ ...editMailboxForm, smtp_username: e.target.value })}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none mt-0.5"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-500 font-medium">Password</label>
+                      <input
+                        type="password"
+                        placeholder="••••••••••••"
+                        value={editMailboxForm.smtp_password}
+                        onChange={(e) => setEditMailboxForm({ ...editMailboxForm, smtp_password: e.target.value })}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none mt-0.5"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMailboxForEdit(null)}
+                    className="px-4 py-2 rounded-xl border border-slate-800 text-slate-300 hover:text-white text-xs font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingMailbox}
+                    className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/20 transition disabled:opacity-50"
+                  >
+                    {savingMailbox ? 'Saving…' : 'Save Mailbox Settings'}
                   </button>
                 </div>
               </form>

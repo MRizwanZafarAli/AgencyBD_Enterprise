@@ -27,7 +27,7 @@ export type Target = { kind: 'site'; domain: string } | { kind: 'business'; name
 
 const DOMAIN = /^(?:https?:\/\/)?(?:www\.)?([a-z0-9-]+(?:\.[a-z0-9-]+)+)(?::\d+)?(?:[/?#].*)?$/i;
 
-/** One box for everything: a pasted link or domain, or a business and its place ("Acme Plumbing, Austin" / "Acme Plumbing in Austin"). */
+/** One box for everything: a pasted link or domain, a business and place, or a business name/keyword (e.g. "dental", "stripe", "Acme Plumbing, Austin", "stripe.com"). */
 export function parseTarget(text: string): Target | null {
   const t = text.trim();
   if (t.length < 2) return null;
@@ -35,6 +35,8 @@ export function parseTarget(text: string): Target | null {
   if (site) return { kind: 'site', domain: site[1].toLowerCase() };
   const m = /^(.+?)\s*(?:,|\s+in\s+|\s+near\s+|\s+at\s+)\s*(.+)$/i.exec(t);
   if (m && m[1].trim().length >= 2 && m[2].trim().length >= 2) return { kind: 'business', name: m[1].trim(), city: m[2].trim() };
+  const clean = t.replace(/^[/\s]+|[/\s]+$/g, '');
+  if (clean.length >= 2) return { kind: 'business', name: clean, city: '' };
   return null;
 }
 
