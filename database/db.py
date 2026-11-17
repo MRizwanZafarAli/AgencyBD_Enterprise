@@ -853,6 +853,32 @@ def init_db():
         last_error TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS lifecycle_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        event_name TEXT NOT NULL,
+        payload_json TEXT NOT NULL,
+        source_agent TEXT,
+        status TEXT NOT NULL DEFAULT 'emitted',
+        handlers_count INTEGER DEFAULT 0,
+        duration_ms REAL DEFAULT 0.0,
+        error_message TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_lifecycle_events_name ON lifecycle_events(org_id, event_name);
+    CREATE INDEX IF NOT EXISTS idx_lifecycle_events_created ON lifecycle_events(created_at);
+    CREATE TABLE IF NOT EXISTS agent_skills_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        skill_name TEXT NOT NULL,
+        agent_name TEXT,
+        input_summary TEXT,
+        status TEXT NOT NULL DEFAULT 'success',
+        duration_ms REAL DEFAULT 0.0,
+        error_message TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_skills_name ON agent_skills_log(org_id, skill_name);
     """)
     cursor.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS idx_opp_org_source_ext

@@ -1360,6 +1360,8 @@ from routers.video_pitch import router as video_pitch_router
 app.include_router(video_pitch_router)
 from routers.voice_relay import router as voice_relay_router
 app.include_router(voice_relay_router)
+from routers.swarm import router as swarm_router
+app.include_router(swarm_router)
 
 # ==================== Autopilot, priority, inbox, reports, assistant ====================
 from orchestrator.autopilot import DiscoveryRun

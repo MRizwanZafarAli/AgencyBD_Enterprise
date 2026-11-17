@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { FC } from 'react';
-import { ArrowLeft, Stethoscope, GitCompare, FileText, Mail, Sparkles, Phone, Video, ListOrdered } from 'lucide-react';
+import { ArrowLeft, Stethoscope, GitCompare, FileText, Mail, Sparkles, Phone, Video, ListOrdered, Cpu } from 'lucide-react';
 import { Button, Card, PageHeader, SearchInput, field } from '../components/ui';
 import { SiteClinic } from '../components/clinic/SiteClinic';
 import { parseTarget } from '../components/clinic/types';
@@ -11,12 +11,14 @@ import { CallIntel } from '../components/modules/CallIntel';
 import { MultimodalStudio } from '../components/modules/MultimodalStudio';
 import { SequencesManager } from '../components/modules/SequencesManager';
 import { CompareSites, ClientReportTool } from '../components/tools/QuickTools';
+import { AgentSwarmMissionControl } from '../components/modules/AgentSwarmMissionControl';
 
 const noop = () => undefined;
 type Seed = { text: string; n: number } | null;
 interface Tool { id: string; label: string; desc: string; idea: string; keywords: string; group: string; icon: FC<{ className?: string }> }
 
 const TOOLS: Tool[] = [
+  { id: 'swarm', label: 'Autonomous Agent Swarm', desc: 'Real-time telemetry, lifecycle event bus, and controls for the 8 BD agents.', idea: 'Toggle autonomous lead waterfall and inspect live events.', keywords: 'swarm agent autonomous telemetry hook waterfall skills', group: 'Autonomous Systems', icon: Cpu },
   { id: 'doctor', label: 'Site Clinic', desc: 'Paste a website, or a business and its place. Triage, examine, diagnose, then a surgery plan you tick off.', idea: 'Re-examine after a fix to see the score move.', keywords: 'website doctor audit surgery seo security speed accessibility scan', group: 'Research a prospect', icon: Stethoscope },
   { id: 'compare', label: 'Compare two sites', desc: 'Same checks on a prospect and a competitor; measured differences only.', idea: 'Open with the competitor gap as your hook.', keywords: 'competitor versus head to head', group: 'Research a prospect', icon: GitCompare },
   { id: 'report', label: 'Client report', desc: 'A printable health report (PDF and web) for any website.', idea: 'Send it as the free first deliverable.', keywords: 'pdf teardown deliverable', group: 'Research a prospect', icon: FileText },
@@ -61,6 +63,7 @@ export const Tools: FC<{ onOpenClient: (leadId: number) => void }> = ({ onOpenCl
   const tool = TOOLS.find((t) => t.id === active);
   if (tool) {
     const body: Record<string, ReactNode> = {
+      swarm: <AgentSwarmMissionControl />,
       doctor: <SiteClinic key={seed?.n ?? 0} initial={seed?.text ?? ''} autoRun={!!seed} onOpenClient={onOpenClient} onHandoff={handoff} />,
       compare: <CompareSites initialA={domain} />, report: <ClientReportTool initialDomain={domain} />,
       email: <WaterfallEnrich initialFirst="" initialLast="" initialCompany="" initialDomain={domain} onBridgeToCopyCoach={noop} setActiveTab={noop} />,

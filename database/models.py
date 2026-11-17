@@ -58,6 +58,25 @@ class LeadRepository:
             log_audit_trail(lead_id, "SourcingEngine", "LEAD_CREATED", {"domain": domain, "channel": source_channel, "org_id": org_id}, conn=conn)
             conn.commit()
             
+            try:
+                from core.hooks import event_bus, HOOK_LEAD_SOURCED
+                event_bus.emit(
+                    HOOK_LEAD_SOURCED,
+                    {
+                        "lead_id": lead_id,
+                        "company_name": company_name,
+                        "domain": domain,
+                        "phone": phone,
+                        "source_channel": source_channel,
+                        "org_id": org_id,
+                    },
+                    source_agent="SourcingEngine",
+                    org_id=org_id,
+                    sync=False,
+                )
+            except Exception:
+                pass
+
             cursor.execute("SELECT * FROM leads WHERE id = ?", (lead_id,))
             return dict(cursor.fetchone())
 
@@ -275,6 +294,27 @@ class AuditRepository:
             cursor.execute("UPDATE leads SET status = 'audited' WHERE id = ?", (lead_id,))
             log_audit_trail(lead_id, "TechAuditAgent", "AUDIT_COMPLETED", {"lcp": lcp_score, "stack": tech_stack, "org_id": org_id}, conn=conn)
             conn.commit()
+
+            try:
+                from core.hooks import event_bus, HOOK_AUDIT_COMPLETED
+                event_bus.emit(
+                    HOOK_AUDIT_COMPLETED,
+                    {
+                        "audit_id": audit_id,
+                        "lead_id": lead_id,
+                        "lcp_score": lcp_score,
+                        "load_time_ms": load_time_ms,
+                        "tech_stack": tech_stack,
+                        "pitch_angle": calculated_pitch_angle,
+                        "org_id": org_id,
+                    },
+                    source_agent="TechAuditAgent",
+                    org_id=org_id,
+                    sync=False,
+                )
+            except Exception:
+                pass
+
             cursor.execute("SELECT * FROM tech_audits WHERE id = ?", (audit_id,))
             return dict(cursor.fetchone())
 
@@ -337,6 +377,28 @@ class ContactRepository:
 
             log_audit_trail(lead_id, "EnrichmentAgent", "CONTACT_VERIFIED", {"email": email, "status": verification_status, "org_id": org_id}, conn=conn)
             conn.commit()
+
+            try:
+                from core.hooks import event_bus, HOOK_CONTACT_VERIFIED
+                event_bus.emit(
+                    HOOK_CONTACT_VERIFIED,
+                    {
+                        "decision_maker_id": dm_id,
+                        "lead_id": lead_id,
+                        "first_name": first_name,
+                        "last_name": last_name,
+                        "email": email,
+                        "title": title,
+                        "verification_status": verification_status,
+                        "org_id": org_id,
+                    },
+                    source_agent="EnrichmentAgent",
+                    org_id=org_id,
+                    sync=False,
+                )
+            except Exception:
+                pass
+
             cursor.execute("SELECT * FROM decision_makers WHERE id = ?", (dm_id,))
             return dict(cursor.fetchone())
 
@@ -376,8 +438,28 @@ class OutreachRepository:
             cursor.execute("UPDATE leads SET status = 'queued' WHERE id = ?", (lead_id,))
             log_audit_trail(lead_id, "CopywriterAgent", "SEQUENCES_GENERATED", {"count": len(steps), "org_id": org_id}, conn=conn)
             conn.commit()
+
+            try:
+                from core.hooks import event_bus, HOOK_DRAFT_CREATED
+                event_bus.emit(
+                    HOOK_DRAFT_CREATED,
+                    {
+                        "lead_id": lead_id,
+                        "decision_maker_id": decision_maker_id,
+                        "steps_count": len(steps),
+                        "org_id": org_id,
+                    },
+                    source_agent="CopywriterAgent",
+                    org_id=org_id,
+                    sync=False,
+                )
+            except Exception:
+                pass
+
             cursor.execute("SELECT * FROM outreach_sequences WHERE lead_id = ? ORDER BY step_number ASC", (lead_id,))
             return [dict(r) for r in cursor.fetchall()]
+
+    create_sequences = save_sequence_steps
 
     @staticmethod
     def get_sequences_by_lead(lead_id: int, org_id: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -421,6 +503,40 @@ class ReplyRepository:
             cursor.execute("UPDATE leads SET status = ? WHERE id = ?", (new_status, lead_id))
             log_audit_trail(lead_id, "ObjectionAgent", "REPLY_LOGGED", {"sentiment": sentiment, "category": objection_category, "org_id": org_id}, conn=conn)
             conn.commit()
+
+            try:
+                from core.hooks import event_bus, HOOK_REPLY_RECEIVED, HOOK_OBJECTION_CLASSIFIED
+                event_bus.emit(
+                    HOOK_REPLY_RECEIVED,
+                    {
+                        "reply_id": reply_id,
+                        "lead_id": lead_id,
+                        "reply_text": reply_text,
+                        "sentiment": sentiment,
+                        "category": objection_category,
+                        "org_id": org_id,
+                    },
+                    source_agent="ObjectionAgent",
+                    org_id=org_id,
+                    sync=False,
+                )
+                event_bus.emit(
+                    HOOK_OBJECTION_CLASSIFIED,
+                    {
+                        "reply_id": reply_id,
+                        "lead_id": lead_id,
+                        "sentiment": sentiment,
+                        "category": objection_category,
+                        "rebuttal_draft": auto_rebuttal_draft,
+                        "org_id": org_id,
+                    },
+                    source_agent="ObjectionAgent",
+                    org_id=org_id,
+                    sync=False,
+                )
+            except Exception:
+                pass
+
             cursor.execute("SELECT * FROM inbound_replies WHERE id = ?", (reply_id,))
             return dict(cursor.fetchone())
 
