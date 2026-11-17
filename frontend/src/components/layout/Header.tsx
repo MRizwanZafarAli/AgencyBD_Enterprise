@@ -1,12 +1,19 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
-import { Menu, OctagonX, Play, Sun, Moon, Search, ChevronRight } from 'lucide-react';
+import { Menu, OctagonX, Play, Sun, Moon, Search, ChevronRight, Globe } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { useTheme } from '../../lib/useTheme';
 
-interface HeaderProps { halted: boolean; onToggleHalt: () => void; setMobileMenuOpen: (o: boolean) => void; onPalette: () => void; crumbs: string[] }
+interface HeaderProps { 
+  halted: boolean; 
+  onToggleHalt: () => void; 
+  setMobileMenuOpen: (o: boolean) => void; 
+  onPalette: () => void; 
+  crumbs: string[];
+  onOpenScraper?: () => void;
+}
 
-export const Header: FC<HeaderProps> = ({ halted, onToggleHalt, setMobileMenuOpen, onPalette, crumbs }) => {
+export const Header: FC<HeaderProps> = ({ halted, onToggleHalt, setMobileMenuOpen, onPalette, crumbs, onOpenScraper }) => {
   const { theme, toggleTheme } = useTheme();
   const [api, setApi] = useState<{ ok: boolean; ms: number | null }>({ ok: false, ms: null });
 
@@ -46,6 +53,16 @@ export const Header: FC<HeaderProps> = ({ halted, onToggleHalt, setMobileMenuOpe
         <span className={`hidden sm:flex items-center gap-1.5 text-xs ${api.ok ? 'text-emerald-400' : 'text-rose-400'}`} role="status">
           <span className={`h-2 w-2 rounded-full ${api.ok ? 'bg-emerald-500' : 'bg-rose-500'}`} />{api.ok ? 'Online' : 'Offline'}{api.ms !== null && <span className="text-slate-500 tabular hidden xl:inline">{api.ms} ms</span>}
         </span>
+        {onOpenScraper && (
+          <button
+            onClick={onOpenScraper}
+            title="Open Interactive Universal Scraper & Headless Browser Sidepanel"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-semibold shadow-sm transition"
+          >
+            <Globe className="h-3.5 w-3.5 text-amber-400" />
+            <span className="hidden sm:inline">Scraper / Browser</span>
+          </button>
+        )}
         <button onClick={onToggleHalt} aria-label={halted ? 'Resume sending' : 'Stop sending'} title={halted ? 'Sending is stopped. Click to resume.' : 'Stop all sending for this workspace, including scheduled emails'}
           className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold ${halted ? 'bg-rose-500/15 border-rose-500/50 text-rose-300' : 'border-slate-700 text-slate-300 hover:border-rose-500/50 hover:text-rose-300'}`}>
           {halted ? <Play className="h-3.5 w-3.5" /> : <OctagonX className="h-3.5 w-3.5" />}<span className="hidden sm:inline">{halted ? 'Resume sending' : 'Stop sending'}</span><span className="sm:hidden" aria-hidden="true">{halted ? 'Resume' : 'Stop'}</span>

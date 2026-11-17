@@ -8,6 +8,7 @@ from routers.sequences import router as sequences_router
 from routers.connectors import router as connectors_router
 from routers.system import router as system_router
 from routers.swarm import router as swarm_router
+from routers.browser_sidepanel import router as browser_sidepanel_router
 
 __all__ = [
     "outbound_router",
@@ -20,4 +21,5 @@ __all__ = [
     "connectors_router",
     "system_router",
     "swarm_router",
+    "browser_sidepanel_router",
 ]

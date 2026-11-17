@@ -879,6 +879,35 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_agent_skills_name ON agent_skills_log(org_id, skill_name);
+
+    CREATE TABLE IF NOT EXISTS browser_session_vault (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        domain TEXT NOT NULL,
+        session_cookies_enc TEXT,
+        storage_state_json TEXT,
+        last_intervened_by TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(org_id, domain)
+    );
+    CREATE INDEX IF NOT EXISTS idx_browser_session_domain ON browser_session_vault(org_id, domain);
+
+    CREATE TABLE IF NOT EXISTS scraped_pages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        url TEXT NOT NULL,
+        domain TEXT NOT NULL,
+        title TEXT,
+        fit_markdown TEXT,
+        extracted_json TEXT,
+        crawl_depth INTEGER DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'completed',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(org_id, url)
+    );
+    CREATE INDEX IF NOT EXISTS idx_scraped_pages_domain ON scraped_pages(org_id, domain);
     """)
     cursor.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS idx_opp_org_source_ext

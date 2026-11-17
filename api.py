@@ -1362,6 +1362,8 @@ from routers.voice_relay import router as voice_relay_router
 app.include_router(voice_relay_router)
 from routers.swarm import router as swarm_router
 app.include_router(swarm_router)
+from routers.browser_sidepanel import router as browser_sidepanel_router
+app.include_router(browser_sidepanel_router)
 
 # ==================== Autopilot, priority, inbox, reports, assistant ====================
 from orchestrator.autopilot import DiscoveryRun

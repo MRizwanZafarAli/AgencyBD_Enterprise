@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { FC } from 'react';
-import { ArrowLeft, Stethoscope, GitCompare, FileText, Mail, Sparkles, Phone, Video, ListOrdered, Cpu } from 'lucide-react';
+import { ArrowLeft, Stethoscope, GitCompare, FileText, Mail, Sparkles, Phone, Video, ListOrdered, Cpu, Radar } from 'lucide-react';
 import { Button, Card, PageHeader, SearchInput, field } from '../components/ui';
 import { SiteClinic } from '../components/clinic/SiteClinic';
 import { parseTarget } from '../components/clinic/types';
@@ -12,6 +12,8 @@ import { MultimodalStudio } from '../components/modules/MultimodalStudio';
 import { SequencesManager } from '../components/modules/SequencesManager';
 import { CompareSites, ClientReportTool } from '../components/tools/QuickTools';
 import { AgentSwarmMissionControl } from '../components/modules/AgentSwarmMissionControl';
+import { VisitorRadar } from '../components/today/VisitorRadar';
+import { DiscoveryPanel } from '../components/today/DiscoveryPanel';
 
 const noop = () => undefined;
 type Seed = { text: string; n: number } | null;
@@ -27,6 +29,8 @@ const TOOLS: Tool[] = [
   { id: 'sequences', label: 'Email sequences', desc: 'Multi-step follow-ups with delays; every first touch waits for your approval.', idea: 'Three short touches beat one long one.', keywords: 'follow up drip cadence', group: 'Write and follow up', icon: ListOrdered },
   { id: 'call', label: 'Call notes to scope of work', desc: 'Paste a call transcript; get objections, needs and a draft scope.', idea: 'Paste it straight after the call.', keywords: 'transcript scope intel objections', group: 'Write and follow up', icon: Phone },
   { id: 'video', label: 'Video pitch script', desc: 'A short script built only from facts you supply.', idea: 'Record it in one take, under a minute.', keywords: 'loom script pitch', group: 'Write and follow up', icon: Video },
+  { id: 'intent', label: 'Visitor Intent Radar', desc: 'Deanonymize visiting companies and convert high-intent traffic into qualified leads.', idea: 'Convert inbound accounts before they bounce.', keywords: 'visitor intent deanonymize radar tracking ip analytics', group: 'Research a prospect', icon: Radar },
+  { id: 'autopilot', label: 'Autopilot Prospector', desc: 'Launch autonomous sourcing runs across engineering hiring, local businesses, or SEC filings.', idea: 'Queue automated sourcing runs and review outcomes.', keywords: 'autopilot sourcing discovery sec hiring pipeline', group: 'Autonomous Systems', icon: Sparkles },
 ];
 
 const MOVED = [
@@ -68,6 +72,8 @@ export const Tools: FC<{ onOpenClient: (leadId: number) => void }> = ({ onOpenCl
       compare: <CompareSites initialA={domain} />, report: <ClientReportTool initialDomain={domain} />,
       email: <WaterfallEnrich initialFirst="" initialLast="" initialCompany="" initialDomain={domain} onBridgeToCopyCoach={noop} setActiveTab={noop} />,
       copy: <CopyCoach initialSubject="" initialBody="" />, sequences: <SequencesManager />, call: <CallIntel />, video: <MultimodalStudio />,
+      intent: <VisitorRadar onOpenClient={onOpenClient} />,
+      autopilot: <DiscoveryPanel onDone={() => {}} onOpenClient={onOpenClient} />,
     };
     return (
       <div className="space-y-4">

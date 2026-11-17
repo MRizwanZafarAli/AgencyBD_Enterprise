@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { MapPin, Phone, Star, ExternalLink, Search, ShieldAlert, Copy, Mail } from 'lucide-react';
+import { MapPin, Star, ExternalLink, Search, ShieldAlert, Copy, Mail } from 'lucide-react';
 import { Badge, Button, Card, Drawer, EmptyState, Pager, ScoreBar, Skeletons, SuggestInput, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
+import { CopyablePhone } from '../shared/ClickableContact';
 import { send, useApi } from '../../lib/hooks';
 import { normalizeUrl } from '../../lib/urls';
 import { ResultsMap } from './ResultsMap';
@@ -160,7 +161,7 @@ export const FindLocal: FC<{
             <div className="flex flex-wrap gap-2"><Badge tone={(STATUS[open.classification] ?? STATUS.has_site).tone}>{(STATUS[open.classification] ?? STATUS.has_site).text}</Badge><Badge tone="accent">Win score {Math.round(open.score)}</Badge></div>
             <div className="space-y-1.5 text-xs text-slate-300">
               {open.address && <div className="flex gap-2"><MapPin className="h-3.5 w-3.5 mt-0.5 text-slate-500" />{open.address}</div>}
-              {open.phone && <div className="flex gap-2 font-mono"><Phone className="h-3.5 w-3.5 mt-0.5 text-slate-500" />{open.phone}</div>}
+              {open.phone && <div className="flex gap-2 items-center"><CopyablePhone phone={open.phone} /></div>}
               {open.website && <a className="flex gap-2 text-indigo-300 hover:text-indigo-200" href={normalizeUrl(open.website)} target="_blank" rel="noreferrer noopener"><ExternalLink className="h-3.5 w-3.5 mt-0.5" />{open.domain ?? open.website}</a>}
               {open.maps_url && <a className="flex gap-2 text-indigo-300 hover:text-indigo-200" href={open.maps_url} target="_blank" rel="noreferrer noopener"><MapPin className="h-3.5 w-3.5 mt-0.5" />Open on the map</a>}
             </div>

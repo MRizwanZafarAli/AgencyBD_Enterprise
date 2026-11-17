@@ -16,6 +16,7 @@ import { EmailHub } from './surfaces/EmailHub';
 import type { EmailSeed } from './surfaces/EmailHub';
 import { SECTION_LABEL } from './components/settings/sections';
 import { BrowserDock } from './components/channels/BrowserDock';
+import { InteractiveBrowserSidepanel } from './components/browser/InteractiveBrowserSidepanel';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { apiFetch, getToken, clearToken, verifySession, UNAUTHORIZED_EVENT } from './lib/api';
 import type { Me } from './lib/api';
@@ -56,6 +57,7 @@ export function App() {
   const [collapsed, toggleCollapsed] = useSidebarState();
   const [helpOpen, setHelpOpen] = useState(false);
   const [dockOpen, setDockOpen] = useState(false);
+  const [scraperOpen, setScraperOpen] = useState(false);
   const [channel, setChannel] = useState('linkedin');
   const [seed, setSeed] = useState<{ find?: string; quicklog?: string; n: number }>({ n: 0 });
   const [emailSeed, setEmailSeed] = useState<EmailSeed | null>(null);
@@ -243,6 +245,7 @@ export function App() {
           setMobileMenuOpen={setMobileMenuOpen}
           onPalette={() => setPaletteSignal((n) => n + 1)}
           crumbs={crumbs}
+          onOpenScraper={() => setScraperOpen(true)}
         />
         <main id="main" className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-[1400px] w-full mx-auto">
           <ErrorBoundary fallbackTitle="Application Workspace Encountered an Issue" onReset={() => setSurface('today')}>
@@ -321,6 +324,10 @@ export function App() {
           setChannel(id);
           setSurface('channels');
         }}
+      />
+      <InteractiveBrowserSidepanel
+        isOpen={scraperOpen}
+        onClose={() => setScraperOpen(false)}
       />
       <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>

@@ -9,6 +9,7 @@ import type { Me } from '../../lib/api';
 import { apiFetch } from '../../lib/api';
 import type { TodaySummary } from '../today/TodayOverview';
 import { DigestPanel } from '../shared/DigestPanel';
+import { Scorecard } from '../today/Scorecard';
 
 interface SystemStatus {
   environment: string;
@@ -113,6 +114,9 @@ export const AdminDashboard: FC<{
           <div className="text-[11px] text-slate-500">Operational tasks</div>
         </div>
       </div>
+
+      {/* Weekly GTM Performance Scorecard */}
+      <Scorecard />
 
       {/* Admin Master Switch & System Control */}
       <Card>
