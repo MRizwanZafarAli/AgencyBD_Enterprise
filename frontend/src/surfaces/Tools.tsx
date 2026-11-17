@@ -43,7 +43,10 @@ const MOVED = [
 const RECENT_KEY = 'agencybd.tools.recent';
 const loadRecent = (): string[] => { try { const v = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]'); return Array.isArray(v) ? v.filter((x) => TOOLS.some((t) => t.id === x)).slice(0, 3) : []; } catch { return []; } };
 
-export const Tools: FC<{ onOpenClient: (leadId: number) => void }> = ({ onOpenClient }) => {
+export const Tools: FC<{
+  onOpenClient: (leadId: number) => void;
+  onOpenScraper?: (url: string, mode?: 'general' | 'client_audit' | 'job_spec' | 'local_audit', title?: string) => void;
+}> = ({ onOpenClient, onOpenScraper }) => {
   const [active, setActive] = useState<string | null>(null);
   const [find, setFind] = useState('');
   const [paste, setPaste] = useState('');
@@ -68,7 +71,7 @@ export const Tools: FC<{ onOpenClient: (leadId: number) => void }> = ({ onOpenCl
   if (tool) {
     const body: Record<string, ReactNode> = {
       swarm: <AgentSwarmMissionControl />,
-      doctor: <SiteClinic key={seed?.n ?? 0} initial={seed?.text ?? ''} autoRun={!!seed} onOpenClient={onOpenClient} onHandoff={handoff} />,
+      doctor: <SiteClinic key={seed?.n ?? 0} initial={seed?.text ?? ''} autoRun={!!seed} onOpenClient={onOpenClient} onHandoff={handoff} onOpenScraper={onOpenScraper} />,
       compare: <CompareSites initialA={domain} />, report: <ClientReportTool initialDomain={domain} />,
       email: <WaterfallEnrich initialFirst="" initialLast="" initialCompany="" initialDomain={domain} onBridgeToCopyCoach={noop} setActiveTab={noop} />,
       copy: <CopyCoach initialSubject="" initialBody="" />, sequences: <SequencesManager />, call: <CallIntel />, video: <MultimodalStudio />,
@@ -96,6 +99,18 @@ export const Tools: FC<{ onOpenClient: (leadId: number) => void }> = ({ onOpenCl
           <input className={`${field} flex-1 min-w-64`} aria-label="Paste a website or a business and place" autoComplete="off" spellCheck={false} placeholder="Paste a website, or a business and place: acme.com  ·  Acme Plumbing, Austin"
             value={paste} onChange={(e) => { setPaste(e.target.value); setPasteError(''); }} />
           <Button type="submit" variant="primary" disabled={!paste.trim()}>Examine</Button>
+          {onOpenScraper && (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={!paste.trim()}
+              onClick={() => onOpenScraper(paste.trim(), 'client_audit', 'Site Clinic Inspection')}
+              title="Universal Scraper Technical Audit with Bot Radar"
+            >
+              <Cpu className="h-4 w-4 mr-1 text-indigo-400" />
+              Scraper Audit
+            </Button>
+          )}
         </form>
         {pasteError && <p role="alert" className="text-xs text-amber-300 mt-2">{pasteError}</p>}
         <div className="flex flex-wrap items-center gap-1.5 mt-2.5 text-xs text-slate-400">

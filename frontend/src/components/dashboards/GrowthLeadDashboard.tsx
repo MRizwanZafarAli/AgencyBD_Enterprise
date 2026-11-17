@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { FC } from 'react';
-import { TrendingUp, CheckCircle, XCircle, Send, ArrowRight, RefreshCw, Sparkles, Mail, Building2, ExternalLink, UserPlus, CheckCircle2, Radar } from 'lucide-react';
+import { TrendingUp, CheckCircle, XCircle, Send, ArrowRight, RefreshCw, Sparkles, Mail, Building2, ExternalLink, UserPlus, CheckCircle2, Radar, Cpu } from 'lucide-react';
 import { Badge, Card, Skeletons, Button, Drawer, ScoreBar } from '../ui';
 import type { RelatedReadData } from '../find/FindJobs';
 import { ErrorBanner } from '../shared/ErrorBanner';
@@ -63,7 +63,8 @@ export const GrowthLeadDashboard: FC<{
   onGo: (s: Surface) => void;
   onOpenClient: (leadId: number) => void;
   onSettings: (section?: string) => void;
-}> = ({ identity, onGo }) => {
+  onOpenScraper?: (url: string, mode?: 'general' | 'client_audit' | 'job_spec' | 'local_audit', title?: string) => void;
+}> = ({ identity, onGo, onOpenScraper }) => {
   const sum = useApi<TodaySummary>('/api/today/summary');
   const approvals = useApi<PendingApproval[]>('/api/approvals/pending');
   const deals = useApi<PipelineResponse | Deal[]>('/api/pipeline/deals');
@@ -559,6 +560,16 @@ export const GrowthLeadDashboard: FC<{
                 <Building2 className="h-4 w-4" />
                 {relatedLoading ? 'Reading Business Details…' : relatedRead ? 'Refresh Business Details' : '🏢 See Business Details'}
               </Button>
+              {onOpenScraper && selectedOpp.url && (
+                <Button
+                  variant="secondary"
+                  onClick={() => onOpenScraper(selectedOpp.url!, 'job_spec', selectedOpp.title)}
+                  title="Universal Scraper Job & Tech Stack Extraction"
+                >
+                  <Cpu className="h-4 w-4 text-teal-400" />
+                  Scrape Job Specs
+                </Button>
+              )}
             </div>
 
             {/* Related Read Surface */}

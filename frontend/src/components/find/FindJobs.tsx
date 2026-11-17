@@ -15,6 +15,7 @@ import {
   Compass,
   Building2,
   UserPlus,
+  Cpu,
 } from 'lucide-react';
 import { Badge, Button, Card, Drawer, EmptyState, Pager, ScoreBar, Skeletons, SuggestInput, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
@@ -126,7 +127,8 @@ export const FindJobs: FC<{
     leadId?: number;
   }) => void;
   onOpenClient?: (leadId: number) => void;
-}> = ({ types, preset, onSendEmail, onOpenClient }) => {
+  onOpenScraper?: (url: string, mode?: 'general' | 'client_audit' | 'job_spec' | 'local_audit', title?: string) => void;
+}> = ({ types, preset, onSendEmail, onOpenClient, onOpenScraper }) => {
   const opps = useApi<Opp[]>('/api/opportunities?limit=200');
   const sources = useApi<Source[]>('/api/connectors');
   const [q, setQ] = useState('');
@@ -663,15 +665,26 @@ export const FindJobs: FC<{
             </div>
 
             {open.url && (
-              <a
-                className="inline-flex gap-1.5 text-xs text-indigo-300 hover:text-indigo-200"
-                href={normalizeUrl(open.url)}
-                target="_blank"
-                rel="noreferrer noopener"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                Open original post on {open.source || 'website'}
-              </a>
+              <div className="flex flex-wrap items-center gap-2">
+                <a
+                  className="inline-flex gap-1.5 text-xs text-indigo-300 hover:text-indigo-200"
+                  href={normalizeUrl(open.url)}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Open original post on {open.source || 'website'}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => onOpenScraper?.(open.url!, 'job_spec', open.company_name || open.title)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs bg-amber-500/10 text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 transition font-mono"
+                  title="Deep scrape job requirements, tech stack, and budget cues with Universal Scraper"
+                >
+                  <Cpu className="h-3.5 w-3.5 text-amber-400" />
+                  Scrape Job Specs
+                </button>
+              </div>
             )}
 
             {open.fit_reasons.length > 0 && (

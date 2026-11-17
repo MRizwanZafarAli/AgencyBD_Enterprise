@@ -57,7 +57,29 @@ export function App() {
   const [collapsed, toggleCollapsed] = useSidebarState();
   const [helpOpen, setHelpOpen] = useState(false);
   const [dockOpen, setDockOpen] = useState(false);
-  const [scraperOpen, setScraperOpen] = useState(false);
+  const [scraperState, setScraperState] = useState<{
+    isOpen: boolean;
+    url: string;
+    mode: 'general' | 'client_audit' | 'job_spec' | 'local_audit';
+    title?: string;
+  }>({
+    isOpen: false,
+    url: 'stripe.com',
+    mode: 'general',
+  });
+
+  const handleOpenScraper = (
+    targetUrl: string,
+    mode: 'general' | 'client_audit' | 'job_spec' | 'local_audit' = 'general',
+    title?: string
+  ) => {
+    setScraperState({
+      isOpen: true,
+      url: targetUrl || 'stripe.com',
+      mode,
+      title,
+    });
+  };
   const [channel, setChannel] = useState('linkedin');
   const [seed, setSeed] = useState<{ find?: string; quicklog?: string; n: number }>({ n: 0 });
   const [emailSeed, setEmailSeed] = useState<EmailSeed | null>(null);
@@ -245,7 +267,7 @@ export function App() {
           setMobileMenuOpen={setMobileMenuOpen}
           onPalette={() => setPaletteSignal((n) => n + 1)}
           crumbs={crumbs}
-          onOpenScraper={() => setScraperOpen(true)}
+          onOpenScraper={() => handleOpenScraper('stripe.com', 'general')}
         />
         <main id="main" className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-[1400px] w-full mx-auto">
           <ErrorBoundary fallbackTitle="Application Workspace Encountered an Issue" onReset={() => setSurface('today')}>
@@ -258,6 +280,7 @@ export function App() {
                   onGo={navigate}
                   onSearch={(q) => fromText('find', q)}
                   onSendEmail={openEmailComposer}
+                  onOpenScraper={handleOpenScraper}
                 />
               )}
               {surface === 'find' && allowedSurfaces.includes('find') && (
@@ -267,6 +290,7 @@ export function App() {
                   seed={seed.find ? { text: seed.find, n: seed.n } : null}
                   onSendEmail={openEmailComposer}
                   identity={me}
+                  onOpenScraper={handleOpenScraper}
                 />
               )}
               {surface === 'clients' && (
@@ -275,6 +299,7 @@ export function App() {
                   setOpenLead={setOpenLead}
                   identity={me}
                   onSendEmail={openEmailComposer}
+                  onOpenScraper={handleOpenScraper}
                 />
               )}
               {surface === 'channels' && allowedSurfaces.includes('channels') && (
@@ -293,7 +318,7 @@ export function App() {
                   onOpenClient={openClient}
                 />
               )}
-              {surface === 'tools' && <Tools onOpenClient={openClient} />}
+              {surface === 'tools' && <Tools onOpenClient={openClient} onOpenScraper={handleOpenScraper} />}
               {surface === 'settings' && allowedSurfaces.includes('settings') && (
                 <Settings
                   me={me}
@@ -326,8 +351,11 @@ export function App() {
         }}
       />
       <InteractiveBrowserSidepanel
-        isOpen={scraperOpen}
-        onClose={() => setScraperOpen(false)}
+        isOpen={scraperState.isOpen}
+        onClose={() => setScraperState((prev) => ({ ...prev, isOpen: false }))}
+        initialUrl={scraperState.url}
+        mode={scraperState.mode}
+        contextTitle={scraperState.title}
       />
       <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>

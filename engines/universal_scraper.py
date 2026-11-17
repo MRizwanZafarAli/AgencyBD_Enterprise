@@ -39,6 +39,8 @@ class ScrapeResult(BaseModel):
     challenge_detected: bool = False
     challenge_type: Optional[str] = None
     extracted_data: Dict[str, Any] = Field(default_factory=dict)
+    developer_audit: Dict[str, Any] = Field(default_factory=dict)
+    mode: str = "general"
     duration_ms: float = 0.0
     status: str = "success"
 
@@ -213,6 +215,46 @@ class UniversalScraperEngine:
                 if l_clean and any(role in l_clean.lower() for role in ["engineer", "developer", "designer", "product", "manager", "architect"]):
                     hiring_roles.append(l_clean)
 
+        # 4. Expert Developer Technical Audit
+        gaps = []
+        has_title = bool(dom_intel.get("title"))
+        has_desc = bool(dom_intel.get("meta_description"))
+        has_og = bool(soup.find("meta", property="og:image") or soup.find("meta", attrs={"name": "og:image"}))
+        has_viewport = bool(soup.find("meta", attrs={"name": "viewport"}))
+        has_canonical = bool(soup.find("link", rel="canonical"))
+        missing_alts = len(soup.find_all("img", alt="")) + len(soup.find_all("img", alt=False))
+
+        if not has_desc:
+            gaps.append("Missing meta description (hurts organic SEO click-through rate)")
+        if not has_og:
+            gaps.append("Missing OpenGraph preview image (poor link sharing previews)")
+        if not has_viewport:
+            gaps.append("Missing mobile viewport configuration tag")
+        if missing_alts > 2:
+            gaps.append(f"{missing_alts} image(s) missing accessibility alt attributes")
+        if not dom_intel.get("emails") and not dom_intel.get("phones"):
+            gaps.append("No direct public contact email or phone found on landing page")
+
+        health_score = max(35, 100 - (len(gaps) * 15))
+
+        dev_audit = {
+            "health_score": health_score,
+            "cms_frameworks": dom_intel.get("detected_stack", ["Modern Web Architecture"]),
+            "seo_audit": {
+                "has_title": has_title,
+                "title_length": len(dom_intel.get("title", "")),
+                "has_meta_description": has_desc,
+                "has_og_image": has_og,
+                "has_viewport": has_viewport,
+                "has_canonical": has_canonical,
+            },
+            "technical_gaps": gaps,
+            "recommended_hook": (
+                f"We performed a technical scan of {domain} and noticed {gaps[0].lower()}."
+                if gaps else f"We analyzed {domain}'s architecture ({', '.join(dom_intel.get('detected_stack', ['modern stack']))}) and identified high-impact scaling opportunities."
+            ),
+        }
+
         return {
             "title": dom_intel.get("title", ""),
             "meta_description": dom_intel.get("meta_description", ""),
@@ -223,21 +265,33 @@ class UniversalScraperEngine:
             "leadership_mentions": team_members[:6],
             "pricing_signals": list(set(pricing_tiers)),
             "open_roles": hiring_roles[:8],
+            "developer_audit": dev_audit,
         }
 
     def scrape_url(
         self,
         target: str,
         query_keywords: Optional[List[str]] = None,
+        mode: str = "general",
         org_id: str = "org_default",
     ) -> ScrapeResult:
         """
         Executes sovereign scrape: SSRF validation -> headless render -> challenge check
         -> Fit-Markdown conversion -> entity extraction -> persistent database storage.
+        Adapts extraction filtering and developer audit based on mode (client_audit, job_spec, local_audit).
         """
         start_time = time.time()
         clean_host = clean_domain(target)
         target_url = f"https://{clean_host}" if not target.startswith("http") else target
+        
+        # Mode-tailored keyword defaults if not explicitly provided
+        if not query_keywords:
+            if mode == "job_spec":
+                query_keywords = ["requirements", "qualifications", "responsibilities", "skills", "tech stack", "budget", "salary", "experience", "role", "deliverables"]
+            elif mode == "client_audit":
+                query_keywords = ["technology", "stack", "services", "pricing", "leadership", "team", "security", "api", "about", "contact", "performance"]
+            elif mode == "local_audit":
+                query_keywords = ["services", "contact", "phone", "hours", "booking", "location", "pricing", "reviews"]
         
         # 1. Validate SSRF
         self.browser_service._validate_ssrf_for_url(target_url)
@@ -301,6 +355,8 @@ class UniversalScraperEngine:
             challenge_detected=has_challenge,
             challenge_type=challenge_type,
             extracted_data=entities,
+            developer_audit=entities.get("developer_audit", {}),
+            mode=mode,
             duration_ms=duration_ms,
             status="challenge_blocked" if has_challenge else "success",
         )

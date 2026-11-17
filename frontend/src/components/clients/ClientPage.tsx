@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { ExternalLink, FileText, Presentation, Search, ShieldCheck, Sparkles, UserPlus, Video } from 'lucide-react';
+import { ExternalLink, FileText, Presentation, Search, ShieldCheck, Sparkles, UserPlus, Video, Cpu } from 'lucide-react';
 import { Badge, Button, Card, Drawer, EmptyState, ScoreBar, Skeletons, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { VideoStoryboardDrawer } from '../shared/VideoStoryboardDrawer';
@@ -33,7 +33,8 @@ export const ClientPage: FC<{
   leadId: number | null;
   onClose: () => void;
   onSendEmail?: (params: { recipient: string; recipientName?: string; companyName?: string; subject?: string; body?: string; leadId?: number }) => void;
-}> = ({ leadId, onClose, onSendEmail }) => {
+  onOpenScraper?: (url: string, mode?: 'general' | 'client_audit' | 'job_spec' | 'local_audit', title?: string) => void;
+}> = ({ leadId, onClose, onSendEmail, onOpenScraper }) => {
   const detail = useApi<Detail>(leadId ? `/api/clients/${leadId}` : null);
   const d = detail.data;
   const advice = useApi<Advice>(d && d.audit?.status === 'completed' ? `/api/companies/${d.company_id}/advice` : null);
@@ -84,7 +85,25 @@ export const ClientPage: FC<{
         <div className="space-y-5 text-sm">
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone={d.priority.band === 'hot' ? 'good' : d.priority.band === 'warm' ? 'accent' : 'neutral'}>{d.priority.band} · {d.priority.score}</Badge>
-            {d.has_website ? <a className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-indigo-200" href={normalizeUrl(d.lead.domain)} target="_blank" rel="noreferrer noopener"><ExternalLink className="h-3.5 w-3.5" />{d.lead.domain}</a> : <Badge tone="warn">No website</Badge>}
+            {d.has_website ? (
+              <div className="inline-flex items-center gap-1.5">
+                <a className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-indigo-200" href={normalizeUrl(d.lead.domain)} target="_blank" rel="noreferrer noopener">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  {d.lead.domain}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => onOpenScraper?.(d.lead.domain, 'client_audit', d.lead.company_name)}
+                  title="Open Universal Scraper for full developer audit & tech stack"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 transition"
+                >
+                  <Cpu className="h-3 w-3 text-amber-400" />
+                  Scrape & Inspect
+                </button>
+              </div>
+            ) : (
+              <Badge tone="warn">No website</Badge>
+            )}
             {d.lead.phone && <span className="font-mono text-xs text-slate-300">{d.lead.phone}</span>}
           </div>
           <div><ScoreBar value={d.priority.score} />
@@ -98,8 +117,19 @@ export const ClientPage: FC<{
           <Card>
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <h3 className="text-sm font-semibold text-white flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-slate-400" />Website check</h3>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {d.has_website && <Button small variant="primary" disabled={busy !== ''} onClick={audit}>{busy === 'audit' ? 'Checking…' : d.audit ? 'Re-run audit' : 'Run audit'}</Button>}
+                {d.has_website && (
+                  <Button
+                    small
+                    variant="secondary"
+                    className="bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20"
+                    onClick={() => onOpenScraper?.(d.lead.domain, 'client_audit', d.lead.company_name)}
+                  >
+                    <Cpu className="h-3.5 w-3.5 text-amber-400" />
+                    Deep Scraper Audit
+                  </Button>
+                )}
                 {d.audit?.status === 'completed' && <Button small disabled={busy !== ''} onClick={report}><FileText className="h-3.5 w-3.5" />Client report</Button>}
                 {d.audit?.status === 'completed' && <Button small disabled={busy !== ''} onClick={deck}><Presentation className="h-3.5 w-3.5 text-amber-400" />Executive deck</Button>}
                 {d.audit?.status === 'completed' && <Button small disabled={busy !== ''} onClick={openStoryboard}><Video className="h-3.5 w-3.5 text-purple-400" />Video script</Button>}
@@ -107,7 +137,20 @@ export const ClientPage: FC<{
             </div>
             {!d.has_website ? <p className="text-xs text-slate-400">This business has no website to audit. The pitch is building one; see the opener on its Find result.</p>
               : !d.audit ? <p className="text-xs text-slate-400">Not audited yet. The audit reads the public site (headers, TLS, SEO, accessibility, email DNS, visible software versions) and never tests anything intrusively.</p>
-              : d.audit.status === 'blocked' ? <p className="text-xs text-amber-300">This site answered but refuses automated access, so its pages were not graded (only the certificate and email DNS were checked). Review it by hand in your own browser.</p>
+              : d.audit.status === 'blocked' ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-amber-300">This site answered but refuses automated access or presents an anti-bot challenge. Launch the Sovereign Scraper to clear barriers and inspect.</p>
+                  <Button
+                    small
+                    variant="secondary"
+                    className="bg-amber-500/10 text-amber-300 border-amber-500/30"
+                    onClick={() => onOpenScraper?.(d.lead.domain, 'client_audit', d.lead.company_name)}
+                  >
+                    <Cpu className="h-3.5 w-3.5 text-amber-400" />
+                    Solve Barrier & Scrape with Universal Browser
+                  </Button>
+                </div>
+              )
               : d.audit.status !== 'completed' ? <p className="text-xs text-amber-300">The site could not be reached from our servers. One failed check is not proof it is down.</p>
               : <p className="text-xs text-slate-300">Health score <strong className="text-white tabular">{d.audit.overall_score}</strong>/100, checked {d.audit.created_at}.</p>}
           </Card>

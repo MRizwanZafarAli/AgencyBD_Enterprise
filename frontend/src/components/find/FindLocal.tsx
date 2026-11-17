@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FC, FormEvent } from 'react';
-import { MapPin, Star, ExternalLink, Search, ShieldAlert, Copy, Mail } from 'lucide-react';
+import { MapPin, Star, ExternalLink, Search, ShieldAlert, Copy, Mail, Cpu } from 'lucide-react';
 import { Badge, Button, Card, Drawer, EmptyState, Pager, ScoreBar, Skeletons, SuggestInput, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { CopyablePhone } from '../shared/ClickableContact';
@@ -37,7 +37,8 @@ export const FindLocal: FC<{
     body?: string;
     leadId?: number;
   }) => void;
-}> = ({ onSaved, preset, onAddGoogleKey, onSendEmail }) => {
+  onOpenScraper?: (url: string, mode?: 'general' | 'client_audit' | 'job_spec' | 'local_audit', title?: string) => void;
+}> = ({ onSaved, preset, onAddGoogleKey, onSendEmail, onOpenScraper }) => {
   const providers = useApi<{ google: boolean }>('/api/hunt/local/providers');
   const google = providers.data?.google ?? false;
   const [category, setCategory] = useState('');
@@ -162,7 +163,23 @@ export const FindLocal: FC<{
             <div className="space-y-1.5 text-xs text-slate-300">
               {open.address && <div className="flex gap-2"><MapPin className="h-3.5 w-3.5 mt-0.5 text-slate-500" />{open.address}</div>}
               {open.phone && <div className="flex gap-2 items-center"><CopyablePhone phone={open.phone} /></div>}
-              {open.website && <a className="flex gap-2 text-indigo-300 hover:text-indigo-200" href={normalizeUrl(open.website)} target="_blank" rel="noreferrer noopener"><ExternalLink className="h-3.5 w-3.5 mt-0.5" />{open.domain ?? open.website}</a>}
+              {open.website && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <a className="flex gap-2 text-indigo-300 hover:text-indigo-200" href={normalizeUrl(open.website)} target="_blank" rel="noreferrer noopener">
+                    <ExternalLink className="h-3.5 w-3.5 mt-0.5" />
+                    {open.domain ?? open.website}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => onOpenScraper?.(open.website!, 'local_audit', open.name)}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 transition"
+                    title="Deep scrape website for booking forms, mobile responsiveness, and contact emails"
+                  >
+                    <Cpu className="h-3 w-3 text-amber-400" />
+                    Scrape Site & Gaps
+                  </button>
+                </div>
+              )}
               {open.maps_url && <a className="flex gap-2 text-indigo-300 hover:text-indigo-200" href={open.maps_url} target="_blank" rel="noreferrer noopener"><MapPin className="h-3.5 w-3.5 mt-0.5" />Open on the map</a>}
             </div>
             <div><h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Why this score</h3>
@@ -178,6 +195,16 @@ export const FindLocal: FC<{
               <Button variant="primary" disabled={!!saved[open.place_id]} onClick={() => save([open])}>
                 {saved[open.place_id] ? 'Saved to Clients' : 'Save to Clients'}
               </Button>
+              {open.website && (
+                <Button
+                  variant="secondary"
+                  className="bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20"
+                  onClick={() => onOpenScraper?.(open.website!, 'local_audit', open.name)}
+                >
+                  <Cpu className="h-4 w-4 text-amber-400" />
+                  Universal Scraper Scan
+                </Button>
+              )}
               {onSendEmail && (
                 <Button
                   variant="secondary"

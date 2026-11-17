@@ -30,7 +30,8 @@ export const Find: FC<{
     leadId?: number;
   }) => void;
   identity?: Me | null;
-}> = ({ onOpenClient, onAddGoogleKey, seed, onSendEmail, identity }) => {
+  onOpenScraper?: (url: string, mode?: 'general' | 'client_audit' | 'job_spec' | 'local_audit', title?: string) => void;
+}> = ({ onOpenClient, onAddGoogleKey, seed, onSendEmail, identity, onOpenScraper }) => {
   const [tab, setTab] = useState('local');
   const [local, setLocal] = useState<LocalPreset | null>(null);
   const [jobs, setJobs] = useState<JobsPreset | null>(null);
@@ -74,6 +75,7 @@ export const Find: FC<{
           preset={local}
           onAddGoogleKey={onAddGoogleKey}
           onSendEmail={onSendEmail}
+          onOpenScraper={onOpenScraper}
         />
       )}
       {tab === 'jobs' && (
@@ -82,6 +84,7 @@ export const Find: FC<{
           preset={jobs}
           onSendEmail={onSendEmail}
           onOpenClient={onOpenClient}
+          onOpenScraper={onOpenScraper}
         />
       )}
       {!isGrowthLead && tab === 'tenders' && (
@@ -90,6 +93,7 @@ export const Find: FC<{
           preset={tenders}
           onSendEmail={onSendEmail}
           onOpenClient={onOpenClient}
+          onOpenScraper={onOpenScraper}
         />
       )}
       {tab === 'watch' && <LeadFinder onOpenClient={onOpenClient} onAddKey={onAddGoogleKey} />}

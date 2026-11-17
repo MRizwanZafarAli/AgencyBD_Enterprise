@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FC } from 'react';
-import { Check, Copy, Download, FileText, GitCompare, Loader2, Presentation, RefreshCw, Stethoscope, UserPlus, Video } from 'lucide-react';
+import { Check, Copy, Cpu, Download, FileText, GitCompare, Loader2, Presentation, RefreshCw, Stethoscope, UserPlus, Video } from 'lucide-react';
 import { Badge, Button, Card, Drawer, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { VideoStoryboardDrawer } from '../shared/VideoStoryboardDrawer';
@@ -21,7 +21,13 @@ async function get<T>(path: string): Promise<T> {
   return body as T;
 }
 
-export const SiteClinic: FC<{ initial?: string; autoRun?: boolean; onOpenClient: (leadId: number) => void; onHandoff: (tool: 'compare' | 'report' | 'email', domain: string) => void }> = ({ initial = '', autoRun = false, onOpenClient, onHandoff }) => {
+export const SiteClinic: FC<{
+  initial?: string;
+  autoRun?: boolean;
+  onOpenClient: (leadId: number) => void;
+  onHandoff: (tool: 'compare' | 'report' | 'email', domain: string) => void;
+  onOpenScraper?: (url: string, mode?: 'general' | 'client_audit' | 'job_spec' | 'local_audit', title?: string) => void;
+}> = ({ initial = '', autoRun = false, onOpenClient, onHandoff, onOpenScraper }) => {
   const [text, setText] = useState(initial);
   const [step, setStep] = useState(-1);
   const [error, setError] = useState('');
@@ -177,6 +183,17 @@ export const SiteClinic: FC<{ initial?: string; autoRun?: boolean; onOpenClient:
                 <a href={`https://${domain}`} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-300 hover:underline">{domain}</a>
                 {chart.audit?.status && chart.audit.status !== 'completed' && <Badge tone="warn">{chart.audit.status}</Badge>}</div>
               <Button small onClick={() => examine(chart.target, domain)} disabled={busy}><RefreshCw className="h-3.5 w-3.5" />Re-examine</Button>
+              {onOpenScraper && domain && (
+                <Button
+                  small
+                  variant="secondary"
+                  onClick={() => onOpenScraper(domain, 'client_audit', chart.resolve.name || domain)}
+                  title="Deep Universal Scraper Technical Audit with Bot Radar"
+                >
+                  <Cpu className="h-3.5 w-3.5 text-indigo-400" />
+                  Scraper Audit
+                </Button>
+              )}
               <Button small onClick={openTeardown} disabled={chart.audit?.status !== 'completed'}><FileText className="h-3.5 w-3.5" />Teardown</Button>
               <Button small onClick={openOffer} disabled={chart.audit?.status !== 'completed'}><FileText className="h-3.5 w-3.5" />Offer</Button>
               <Button small onClick={report} disabled={chart.audit?.status !== 'completed'}><Download className="h-3.5 w-3.5" />PDF report</Button>
@@ -187,7 +204,7 @@ export const SiteClinic: FC<{ initial?: string; autoRun?: boolean; onOpenClient:
             </div>
           </Card>
           {chart.audit && chart.audit.status === 'unreachable' && <Card><p className="text-sm text-amber-300">The site could not be reached from our servers. One failed check is not proof it is down, so nothing was scored.</p></Card>}
-          <BlockedNotice chart={chart} />
+          <BlockedNotice chart={chart} onOpenScraper={onOpenScraper} />
           <Vitals chart={chart} />
           <div className="grid gap-5 xl:grid-cols-2"><Diagnosis chart={chart} /><Surgery chart={chart} /></div>
           <PitchAndPresence chart={chart} />

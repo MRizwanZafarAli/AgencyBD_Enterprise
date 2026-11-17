@@ -14,7 +14,8 @@ export const Today: FC<{
   onSearch?: (q: string) => void;
   identity?: Me | null;
   onSendEmail?: (params: { recipient: string; recipientName?: string; companyName?: string; subject?: string; body?: string; leadId?: number }) => void;
-}> = ({ onOpenClient, onSettings, onGo, onSearch, identity }) => {
+  onOpenScraper?: (url: string, mode?: 'general' | 'client_audit' | 'job_spec' | 'local_audit', title?: string) => void;
+}> = ({ onOpenClient, onSettings, onGo, onSearch, identity, onOpenScraper }) => {
   const role = identity?.role || 'super_admin';
 
   if (!identity) {
@@ -31,13 +32,13 @@ export const Today: FC<{
   } else if (role === 'sdr_rep') {
     dashboard = (
       <ErrorBoundary fallbackTitle="SDR Dashboard Error">
-        <SdrDashboard identity={identity} onGo={onGo} onOpenClient={onOpenClient} onSearch={onSearch} />
+        <SdrDashboard identity={identity} onGo={onGo} onOpenClient={onOpenClient} onSearch={onSearch} onOpenScraper={onOpenScraper} />
       </ErrorBoundary>
     );
   } else if (role === 'growth_lead') {
     dashboard = (
       <ErrorBoundary fallbackTitle="Growth Lead Dashboard Error">
-        <GrowthLeadDashboard identity={identity} onGo={onGo} onOpenClient={onOpenClient} onSettings={onSettings} />
+        <GrowthLeadDashboard identity={identity} onGo={onGo} onOpenClient={onOpenClient} onSettings={onSettings} onOpenScraper={onOpenScraper} />
       </ErrorBoundary>
     );
   } else {

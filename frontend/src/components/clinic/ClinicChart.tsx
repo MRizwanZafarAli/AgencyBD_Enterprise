@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FC } from 'react';
-import { Check, ChevronDown, ChevronRight } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Cpu } from 'lucide-react';
 import { Badge, Card, Tabs } from '../ui';
 import { CATEGORY_LABEL, PHASES, SEVERITY_ORDER, SEVERITY_TONE } from './types';
 import type { Chart, Finding } from './types';
@@ -144,7 +144,10 @@ export const PitchAndPresence: FC<{ chart: Chart }> = ({ chart }) => {
 };
 
 /** A site that answered but refuses automated reads. We say exactly what happened, what was still checked, and what a person can do. */
-export const BlockedNotice: FC<{ chart: Chart }> = ({ chart }) => {
+export const BlockedNotice: FC<{
+  chart: Chart;
+  onOpenScraper?: (url: string, mode?: 'general' | 'client_audit' | 'job_spec' | 'local_audit', title?: string) => void;
+}> = ({ chart, onOpenScraper }) => {
   const a = chart.audit;
   if (!a || a.status !== 'blocked') return null;
   const domain = chart.resolve.domain ?? a.domain;
@@ -158,7 +161,17 @@ export const BlockedNotice: FC<{ chart: Chart }> = ({ chart }) => {
         <div><div className="font-medium text-emerald-300">Still checked</div><p className="text-slate-300 mt-1">{(a.checks_run ?? []).map((c) => c.replace(/_/g, ' ')).join(', ') || 'nothing'}: the certificate and the email DNS records, which do not need the site&apos;s pages.</p></div>
         <div><div className="font-medium text-amber-300">Not checked</div><p className="text-slate-300 mt-1">Speed, security headers, SEO, accessibility, AI readiness and exposure.</p></div>
       </div>
-      <div className="flex flex-wrap gap-2 mt-3">
+      <div className="flex flex-wrap items-center gap-2 mt-3">
+        {onOpenScraper && (
+          <button
+            type="button"
+            onClick={() => onOpenScraper(domain, 'client_audit', chart.resolve.name || domain)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-500/20 text-amber-200 border border-amber-500/40 hover:bg-amber-500/30 transition shadow-sm"
+          >
+            <Cpu className="h-3.5 w-3.5 text-amber-300" />
+            Solve Barrier &amp; Scrape with Universal Browser
+          </button>
+        )}
         <a className="text-xs text-indigo-300 hover:underline" href={`https://${domain}`} target="_blank" rel="noopener noreferrer">Open it in your own browser</a>
         <span className="text-slate-600">·</span>
         <a className="text-xs text-indigo-300 hover:underline" href={`https://pagespeed.web.dev/analysis?url=${encodeURIComponent(`https://${domain}`)}`} target="_blank" rel="noopener noreferrer">Run Google PageSpeed Insights on it</a>

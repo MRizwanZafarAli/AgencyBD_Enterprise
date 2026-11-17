@@ -19,12 +19,15 @@ router = APIRouter(prefix="/api/v1/browser", tags=["Universal Scraper & Browser"
 class ScrapeRequest(BaseModel):
     target: str = Field(..., description="Target website URL or apex domain")
     query_keywords: Optional[List[str]] = Field(default=None, description="Keywords to isolate in Fit-Markdown")
+    mode: Optional[str] = Field(default="general", description="Scrape mode: client_audit | job_spec | local_audit | general")
+    context_title: Optional[str] = Field(default=None, description="Display title or company name")
 
 
 class BrowserNavigateRequest(BaseModel):
     target: str = Field(..., description="Target URL to navigate and preview")
     session_id: str = Field(default="default_session", description="Unique interactive session ID")
     viewport: str = Field(default="desktop", description="'desktop' or 'mobile'")
+    mode: Optional[str] = Field(default="general")
 
 
 class LaunchHeadedRequest(BaseModel):
@@ -50,6 +53,7 @@ def execute_universal_scrape(
         res = universal_scraper.scrape_url(
             target=req.target,
             query_keywords=req.query_keywords,
+            mode=req.mode or "general",
             org_id=principal.org_id,
         )
         return {
