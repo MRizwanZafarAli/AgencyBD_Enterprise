@@ -220,8 +220,9 @@ def clean(rtype: str, data: Dict[str, Any]) -> Dict[str, Any]:
             cost = float(cost)
             if cost < 0:
                 raise ValueError("cost cannot be negative.")
+        crm_lead_id = int(d["crm_lead_id"]) if d.get("crm_lead_id") not in (None, "") else None
         return {"title": _text(d.get("title"), "title", 160), "url": _url(d.get("url")), "cost": cost if cost not in (None, "") else None, "counterparty": _text(d.get("counterparty"), "counterparty", 120, False), "status": status,
-                "value": value if value not in (None, "") else None, "next_followup": _day(d.get("next_followup"), "next_followup"), "notes": _text(d.get("notes"), "notes", 1000, False)}
+                "value": value if value not in (None, "") else None, "next_followup": _day(d.get("next_followup"), "next_followup"), "notes": _text(d.get("notes"), "notes", 1000, False), "crm_lead_id": crm_lead_id}
     if rtype == "template":
         return {"name": _text(d.get("name"), "name", 100), "body": _text(d.get("body"), "body", 4000)}
     if rtype == "routine":
@@ -408,6 +409,62 @@ def overview(org_id: str) -> List[Dict[str, Any]]:
         if pid == "other":
             continue
         s = summary(org_id, pid)
-        out.append({"platform": pid, "label": p["label"], "open": s["pipeline"]["open"], "followups_due": s["pipeline"]["followups_due"], "routine": s["routine"],
-                    "unanswered": s["response"]["unanswered"], "average_minutes": s["response"]["average_minutes"]})
+        out.append({
+            "platform": pid,
+            "label": p["label"],
+            "kind": p["kind"],
+            "open": s["pipeline"]["open"],
+            "followups_due": s["pipeline"]["followups_due"],
+            "value_open": s["pipeline"]["value_open"],
+            "value_won": s["pipeline"]["value_won"],
+            "win_rate_percent": s["pipeline"]["win_rate_percent"],
+            "applications": s["funnel"]["applications"],
+            "cost_total": s["funnel"]["cost_total"],
+            "routine": s["routine"],
+            "unanswered": s["response"]["unanswered"],
+            "average_minutes": s["response"]["average_minutes"],
+        })
     return out
+
+
+def promote_to_crm(org_id: str, platform: str, record_id: int) -> Optional[Dict[str, Any]]:
+    """Promotes a channel pipeline record into the main CRM leads table."""
+    _check_platform(platform)
+    with get_db() as db:
+        row = db.execute(
+            "SELECT * FROM channel_records WHERE id = ? AND org_id = ? AND platform = ? AND type = 'pipeline'",
+            (record_id, org_id, platform),
+        ).fetchone()
+    if not row:
+        return None
+    data = json.loads(row["data_json"])
+    from database.models import LeadRepository
+
+    url = data.get("url") or ""
+    domain = ""
+    if url:
+        parsed = urlparse(url if "://" in url else f"https://{url}")
+        domain = (parsed.hostname or "").lower()
+    if not domain:
+        domain = f"channel-{platform}-{record_id}.local"
+    company = data.get("counterparty") or data.get("title") or f"{PLATFORMS[platform]['label']} Lead #{record_id}"
+    notes_parts = [f"Promoted from {PLATFORMS[platform]['label']} ({data.get('status', 'applied')})"]
+    if data.get("title"):
+        notes_parts.append(f"Project: {data['title']}")
+    if data.get("value") is not None:
+        notes_parts.append(f"Est. Value: ${data['value']}")
+    if url:
+        notes_parts.append(f"URL: {url}")
+    if data.get("notes"):
+        notes_parts.append(f"Notes: {data['notes']}")
+
+    lead = LeadRepository.create_or_get_lead(
+        company_name=company[:120],
+        domain=domain,
+        source_channel=platform,
+        source_query=data.get("title"),
+        notes="\n".join(notes_parts),
+        org_id=org_id,
+    )
+    updated = update_record(org_id, platform, record_id, {"crm_lead_id": lead["id"]})
+    return {"lead": lead, "record": updated}

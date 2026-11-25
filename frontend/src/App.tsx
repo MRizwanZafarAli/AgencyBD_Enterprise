@@ -308,6 +308,7 @@ export function App() {
                   onActive={setChannel}
                   quick={seed.quicklog ? { text: seed.quicklog, n: seed.n } : null}
                   onOpenAlerts={() => goSettings('alerts')}
+                  onOpenScraper={handleOpenScraper}
                 />
               )}
               {surface === 'email' && allowedSurfaces.includes('email') && (

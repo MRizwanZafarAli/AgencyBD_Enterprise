@@ -10,6 +10,10 @@ export function openSide(url: string, dock: boolean = true): boolean {
   const width = Math.max(420, Math.min(760, Math.round(s.availWidth * 0.42)));
   const height = s.availHeight;
   const left = (s.availLeft ?? 0) + s.availWidth - width;
-  const features = dock ? `popup=yes,width=${width},height=${height},left=${left},top=${s.availTop ?? 0},noopener,noreferrer` : 'noopener,noreferrer';
-  return window.open(u.toString(), dock ? SIDE_WINDOW : '_blank', features) !== null;
+  const features = dock ? `popup=yes,width=${width},height=${height},left=${left},top=${s.availTop ?? 0}` : 'noopener,noreferrer';
+  const win = window.open(u.toString(), dock ? SIDE_WINDOW : '_blank', features);
+  if (win && dock) {
+    try { win.opener = null; } catch { /* cross-origin opener guard */ }
+  }
+  return win !== null;
 }

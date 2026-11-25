@@ -5,10 +5,11 @@ import { Card, Skeletons, Stat, Tabs } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { apiFetch } from '../../lib/api';
 import { send, useApi } from '../../lib/hooks';
-import { Activity, Availability, Experiments, Features, Funnel, Pacing, Messages, OpenInBrowser, Performance, Pipeline, ProfileHealth, QuickPages, Routine, Templates } from './ChannelSections';
+import { Activity, Availability, Experiments, Features, FeeCalculator, Funnel, Pacing, Messages, OpenInBrowser, Performance, Pipeline, ProfileHealth, QuickActivityBar, QuickPages, Routine, Templates } from './ChannelSections';
 import { fmtMinutes, localDay } from './types';
 import type { Catalog, Platform, Rec, Summary } from './types';
 import type { Run } from './shared';
+import type { ScraperMode } from '../browser/InteractiveBrowserSidepanel';
 
 const money = (n: number) => `$${Math.round(n).toLocaleString()}`;
 
@@ -19,13 +20,18 @@ function useAction(reload: () => void): { error: string; run: Run } {
   return { error, run };
 }
 
-export const ChannelPanel: FC<{ platform: Platform; catalog: Catalog }> = ({ platform, catalog }) => {
+export const ChannelPanel: FC<{
+  platform: Platform;
+  catalog: Catalog;
+  onOpenScraper?: (url: string, mode?: ScraperMode, title?: string) => void;
+  onOverviewDirty?: () => void;
+}> = ({ platform, catalog, onOpenScraper, onOverviewDirty }) => {
   const id = platform.id;
   const [subTab, setSubTab] = useState<'daily' | 'pipeline' | 'analytics' | 'playbook'>('daily');
   const summary = useApi<Summary>(`/api/channels/${id}/summary`);
   const records = useApi<{ records: Rec[] }>(`/api/channels/${id}/records`);
   const routines = useApi<{ records: Rec[] }>(`/api/channels/${id}/records?type=routine`);   // first read seeds the default routine
-  const reload = () => { summary.reload(); records.reload(); routines.reload(); };
+  const reload = () => { summary.reload(); records.reload(); routines.reload(); onOverviewDirty?.(); };
   const { error, run } = useAction(reload);
   const all = records.data?.records ?? [];
   const of = (t: string) => all.filter((r) => r.type === t);
@@ -38,6 +44,7 @@ export const ChannelPanel: FC<{ platform: Platform; catalog: Catalog }> = ({ pla
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Could not save');
   });
   const remove = (rid: number) => run(() => send(`/api/channels/${id}/records/${rid}`, 'DELETE'));
+  const promote = (rid: number) => run(() => send(`/api/channels/${id}/records/${rid}/promote`, 'POST', {}));
   const loading = (records.loading && !records.data) || (summary.loading && !summary.data);
 
   return (
@@ -77,20 +84,21 @@ export const ChannelPanel: FC<{ platform: Platform; catalog: Catalog }> = ({ pla
 
       {subTab === 'daily' && (
         <div className="space-y-5">
-          <QuickPages platform={platform} />
+          <QuickPages platform={platform} onOpenScraper={onOpenScraper} />
+          <QuickActivityBar platform={platform} s={s} today={today} run={run} post={post} />
           <Pacing s={s} />
           <div className="grid gap-5 lg:grid-cols-2">
             <Routine id={id} routines={routines.data?.records ?? []} doneToday={doneToday} today={today} run={run} post={post} remove={remove} />
-            <OpenInBrowser platform={platform} links={of('link')} run={run} post={post} remove={remove} />
+            <OpenInBrowser platform={platform} links={of('link')} run={run} post={post} remove={remove} onOpenScraper={onOpenScraper} />
           </div>
         </div>
       )}
 
       {subTab === 'pipeline' && (
         <div className="space-y-5">
-          <Pipeline platformId={id} statuses={catalog.statuses} items={of('pipeline')} run={run} post={post} update={update} remove={remove} />
+          <Pipeline platformId={id} statuses={catalog.statuses} items={of('pipeline')} run={run} post={post} update={update} remove={remove} promote={promote} />
           <div className="grid gap-5 lg:grid-cols-2">
-            <Templates platform={platform} items={of('template')} run={run} post={post} remove={remove} />
+            <Templates platform={platform} items={of('template')} run={run} post={post} update={update} remove={remove} />
             <Messages items={of('message')} s={s} run={run} post={post} update={update} remove={remove} />
           </div>
         </div>
@@ -110,7 +118,10 @@ export const ChannelPanel: FC<{ platform: Platform; catalog: Catalog }> = ({ pla
       {subTab === 'playbook' && (
         <div className="space-y-5">
           <Features platform={platform} />
-          <ProfileHealth platform={platform} />
+          <div className="grid gap-5 lg:grid-cols-2">
+            <ProfileHealth platform={platform} />
+            <FeeCalculator platform={platform} />
+          </div>
           {platform.kind === 'marketplace' && (
             <Availability platform={platform} setting={s?.setting ?? null} s={s} run={run} post={post} />
           )}

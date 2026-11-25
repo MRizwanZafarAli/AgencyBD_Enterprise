@@ -109,3 +109,12 @@ def remove_record(platform: str, record_id: int, principal: Principal = Depends(
     if not _guard(ch.delete_record, principal.org_id, platform, record_id):
         raise HTTPException(status_code=404, detail="Record not found")
     return {"deleted": record_id}
+
+
+@router.post("/{platform}/records/{record_id}/promote")
+def promote_record(platform: str, record_id: int, principal: Principal = Depends(WRITE)):
+    """Promote a channel pipeline item into the main CRM leads table."""
+    out = _guard(ch.promote_to_crm, principal.org_id, platform, record_id)
+    if not out:
+        raise HTTPException(status_code=404, detail="Record not found")
+    return out
