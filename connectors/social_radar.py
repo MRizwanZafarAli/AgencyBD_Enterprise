@@ -43,6 +43,17 @@ REDDIT_INTENT_FEEDS = [
 ]
 
 
+NOISE_PHRASES = [
+    "for hire",
+    "looking for a job",
+    "junior devs",
+    "my resume",
+    "getting hired",
+    "leetcode",
+    "interview prep",
+]
+
+
 class SocialIntentRadarConnector(BaseConnector):
     source_name = "social_radar"
     terms_url = "https://www.redditinc.com/policies/data-api-terms"
@@ -52,6 +63,8 @@ class SocialIntentRadarConnector(BaseConnector):
 
     def _match_intent(self, text: str, query: Optional[str]) -> Optional[str]:
         low = text.lower()
+        if any(n in low for n in NOISE_PHRASES):
+            return None
         if query and query.strip().lower() not in low:
             return None
         for phrase in INTENT_PHRASES:
@@ -111,9 +124,7 @@ class SocialIntentRadarConnector(BaseConnector):
                 title = (hit.get("title") or "").strip()
                 body = clean_html(hit.get("story_text") or "")
                 matched = self._match_intent(f"{title} {body[:500]}", query)
-                if not matched and not query:
-                    continue
-                if query and query.strip().lower() not in f"{title} {body}".lower():
+                if not matched:
                     continue
                 oid = hit.get("objectID", "")
                 items.append(

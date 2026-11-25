@@ -77,13 +77,16 @@ export const FindLocal: FC<{
   const payload = (r: Result) => ({ name: r.name, city, domain: r.domain, phone: r.phone, address: r.address, rating: r.rating ?? 0, reviews: r.reviews,
     classification: r.classification, place_id: r.place_id, category, provider: r.provider, pitch_strategy: r.pitch_strategy });
 
+  const [savedNotice, setSavedNotice] = useState<{ count: number; lastId: number | null } | null>(null);
+
   const save = async (list: Result[]) => {
     setError('');
+    setSavedNotice(null);
     try {
       const out = await send<{ leads: Array<{ id: number }> }>('/api/hunt/local/batch_save', 'POST', list.map(payload));
       setSaved((s) => ({ ...s, ...Object.fromEntries(list.map((r, i) => [r.place_id, out.leads[i].id])) }));
       setPicked(new Set());
-      if (list.length === 1) onSaved(out.leads[0].id);
+      setSavedNotice({ count: out.leads.length, lastId: out.leads[0]?.id ?? null });
     } catch (err) { setError(err instanceof Error ? err.message : 'Save failed'); }
   };
 
@@ -119,7 +122,38 @@ export const FindLocal: FC<{
           <p className="mt-3 flex gap-2 text-xs text-slate-400"><ShieldAlert className="h-4 w-4 text-amber-400 shrink-0" />
             Google ratings, review counts and a verified &quot;no website&quot; need GOOGLE_PLACES_API_KEY in .env. Until then OpenStreetMap is used: free, but incomplete. {onAddGoogleKey && <button type="button" onClick={onAddGoogleKey} className="text-indigo-300 hover:text-indigo-200 underline ml-1">Add a Google key</button>}</p>
         )}
+        <div className="flex flex-wrap items-center gap-1.5 mt-3 text-xs text-slate-400">
+          <span className="text-[11px] text-slate-500">Quick-start:</span>
+          {[
+            { cat: 'dentist', loc: 'Leeds, UK' },
+            { cat: 'plumber', loc: 'Austin, TX' },
+            { cat: 'medspa', loc: 'Miami, FL' },
+          ].map((ex) => (
+            <button
+              key={`${ex.cat}-${ex.loc}`}
+              type="button"
+              onClick={() => {
+                setCategory(ex.cat);
+                setCity(ex.loc);
+                runSearch(ex.cat, ex.loc, provider);
+              }}
+              className="px-2.5 py-0.5 rounded-full text-[11px] bg-slate-800/80 hover:bg-slate-700 text-indigo-300 hover:text-white border border-slate-700/60 transition"
+            >
+              {ex.cat} · {ex.loc}
+            </button>
+          ))}
+        </div>
       </Card>
+      {savedNotice && (
+        <div role="status" className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-xs text-slate-100 flex items-center justify-between gap-2">
+          <span>Saved {savedNotice.count} business{savedNotice.count === 1 ? '' : 'es'} to Clients without clearing your search results.</span>
+          {savedNotice.lastId && (
+            <button type="button" onClick={() => onSaved(savedNotice.lastId!)} className="text-indigo-300 hover:underline font-medium shrink-0">
+              View in Clients →
+            </button>
+          )}
+        </div>
+      )}
       <ErrorBanner message={error || providers.error} />
       {busy && <Skeletons rows={5} />}
 

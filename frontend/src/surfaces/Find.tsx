@@ -9,6 +9,7 @@ import { LeadFinder } from '../components/leadfinder/LeadFinder';
 import { SmartSearch } from '../components/find/SmartSearch';
 import type { SearchRun } from '../components/find/SmartSearch';
 import { SocialIntentRadar } from '../components/find/SocialIntentRadar';
+import { TabGuide } from '../components/find/TabGuide';
 import type { Me } from '../lib/api';
 
 const ALL_TABS = [
@@ -72,6 +73,66 @@ export const Find: FC<{
       <SmartSearch onRun={run} seed={seed} />
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
       {tab === 'local' && (
+        <TabGuide
+          id="local"
+          title="Local businesses"
+          note="Best for selling web redesigns, SEO & booking setups"
+          steps={[
+            'Enter a business type and city (or click a quick-start preset).',
+            'Check "Hide businesses with a working site" to isolate easy wins.',
+            'Scrape Site & Gaps or Save selected directly to Clients.',
+          ]}
+        />
+      )}
+      {tab === 'jobs' && (
+        <TabGuide
+          id="jobs"
+          title="Jobs & projects"
+          note="Live freelance, remote & engineering hiring signals"
+          steps={[
+            'Filter by Source, Minimum fit %, Budget, or Remote status.',
+            'Click any row or "See Business Details" to resolve owner & company intel.',
+            'Use "Scrape Job Specs" for deep tech-stack extraction or Draft Proposal.',
+          ]}
+        />
+      )}
+      {tab === 'social' && (
+        <TabGuide
+          id="social"
+          title="Social intent"
+          note="Real-time buyers asking for help on Reddit & Hacker News"
+          steps={[
+            'Pick an intent topic chip (e.g. website, developer, seo) and scan.',
+            'Inspect the buyer post and intent phrase in the right-hand preview pane.',
+            'Open the thread to reply helpfully or Save to Clients.',
+          ]}
+        />
+      )}
+      {!isGrowthLead && tab === 'tenders' && (
+        <TabGuide
+          id="tenders"
+          title="Government & public tenders"
+          note="Official procurement notices from SAM.gov, TED EU & UK FTS"
+          steps={[
+            'Filter by procurement portal (TED EU, UK FTS, SAM.gov) and budget.',
+            'Click "Agency & Tender Details" to inspect scope and procuring body.',
+            'Use "Scrape Job Specs" on the official portal notice for full RFP requirements.',
+          ]}
+        />
+      )}
+      {tab === 'watch' && (
+        <TabGuide
+          id="watch"
+          title="Watching & X-Ray"
+          note="Automated background monitors + safe LinkedIn X-Ray links"
+          steps={[
+            'Create a recurring Watch for new jobs, UK/IE companies, or site problems.',
+            'Triage paginated New leads below (Keep to Clients or Dismiss).',
+            'Use LinkedIn X-Ray & Official Portals for manual high-value research.',
+          ]}
+        />
+      )}
+      {tab === 'local' && (
         <FindLocal
           onSaved={onOpenClient}
           preset={local}
@@ -82,6 +143,7 @@ export const Find: FC<{
       )}
       {tab === 'jobs' && (
         <FindJobs
+          mode="jobs"
           types={['marketplace', 'hiring_signal', 'inbound', 'outbound']}
           preset={jobs}
           onSendEmail={onSendEmail}
@@ -91,6 +153,7 @@ export const Find: FC<{
       )}
       {!isGrowthLead && tab === 'tenders' && (
         <FindJobs
+          mode="tender"
           types={['tender']}
           preset={tenders}
           onSendEmail={onSendEmail}

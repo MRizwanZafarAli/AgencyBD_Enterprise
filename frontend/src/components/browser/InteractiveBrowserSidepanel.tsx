@@ -133,6 +133,12 @@ export const InteractiveBrowserSidepanel: FC<InteractiveBrowserSidepanelProps> =
   useEffect(() => {
     if (isOpen && initialUrl && initialUrl.trim()) {
       setUrl(initialUrl);
+      setNavData(null);
+      setScrapeData(null);
+      setStatusMessage(null);
+      setCapturedMsg('');
+      setRadarState('idle');
+      setRadarActive(false);
       if (mode === 'client_audit') setActiveTab('expert_audit');
       else if (mode === 'job_spec') setActiveTab('markdown');
       else if (mode === 'local_audit') setActiveTab('entities');

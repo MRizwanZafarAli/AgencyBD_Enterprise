@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FC } from 'react';
 import { ExternalLink, Pause, Play, Plus, RefreshCw, Trash2, X } from 'lucide-react';
-import { Badge, Button, Card, EmptyState, field } from '../ui';
+import { Badge, Button, Card, EmptyState, Pager, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { send, useApi } from '../../lib/hooks';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
@@ -31,6 +31,8 @@ export const LeadFinder: FC<{ onOpenClient: (leadId: number) => void; onAddKey: 
   const [site, setSite] = useState<Record<number, string>>({});
   const [x, setX] = useState({ role: '', industry: '', location: '' });
   const [links, setLinks] = useState<Link[]>([]);
+  const [hitsPage, setHitsPage] = useState(0);
+  const HITS_PAGE_SIZE = 10;
 
   const all = () => { searches.reload(); hits.reload(); kept.reload(); };
   const run = async (fn: () => Promise<unknown>) => { setError(''); setNote(''); try { await fn(); } catch (e) { setError((e as Error).message); } };
@@ -101,9 +103,10 @@ export const LeadFinder: FC<{ onOpenClient: (leadId: number) => void; onAddKey: 
       </Card>
 
       <Card>
-        <h2 className="text-sm font-semibold text-white mb-2">New leads</h2>
+        <h2 className="text-sm font-semibold text-white mb-2">New leads ({(hits.data?.hits ?? []).length})</h2>
         {(hits.data?.hits ?? []).length === 0 ? <EmptyState title="No new leads" hint="They appear here when a watch finds something it has not shown you." /> : (
-          <ul className="divide-y divide-slate-800">{hits.data!.hits.map((h) => (
+          <>
+          <ul className="divide-y divide-slate-800">{hits.data!.hits.slice(hitsPage * HITS_PAGE_SIZE, (hitsPage + 1) * HITS_PAGE_SIZE).map((h) => (
             <li key={h.id} className="py-3 space-y-1.5">
               <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-medium text-white">{h.title}</span><Badge>{h.search_name}</Badge>
                 {h.url && <a href={h.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:underline">Open <ExternalLink className="h-3 w-3" /></a>}
@@ -113,7 +116,9 @@ export const LeadFinder: FC<{ onOpenClient: (leadId: number) => void; onAddKey: 
                 <input className={`${field} max-w-[16rem]`} aria-label={`Website of ${h.title} (optional)`} placeholder="Their website, if you know it" value={site[h.id] ?? ''} onChange={(e) => setSite({ ...site, [h.id]: e.target.value })} />
                 <Button small variant="primary" onClick={() => save(h)} aria-label={`Keep ${h.title}`}>Keep</Button>
               </div>
-            </li>))}</ul>)}
+            </li>))}</ul>
+            <Pager page={hitsPage} pageSize={HITS_PAGE_SIZE} total={hits.data!.hits.length} onPage={setHitsPage} />
+          </>)}
         {(kept.data?.hits ?? []).length > 0 && <details className="mt-3"><summary className="text-xs text-slate-400 cursor-pointer">Kept ({kept.data!.hits.length})</summary>
           <ul className="mt-2 space-y-1">{kept.data!.hits.map((h) => <li key={h.id} className="text-xs text-slate-300">{h.title} · {h.search_name}{h.lead_id ? <> · <button type="button" className="text-indigo-400 hover:underline" onClick={() => onOpenClient(h.lead_id!)}>open client</button></> : ' · no website yet'}</li>)}</ul></details>}
       </Card>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FC } from 'react';
-import { Cpu, ExternalLink, MessageSquare, Radio, RefreshCw, Search } from 'lucide-react';
+import { Check, Cpu, ExternalLink, MessageSquare, Radio, RefreshCw, Search, UserPlus } from 'lucide-react';
 import { Badge, Button, Card, field } from '../ui';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
 
@@ -26,12 +26,14 @@ export const SocialIntentRadar: FC<{
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [hasScanned, setHasScanned] = useState(false);
+  const [savedIds, setSavedIds] = useState<Record<string, boolean>>({});
 
-  const scan = async () => {
+  const scan = async (overrideQuery?: string) => {
+    const activeQ = overrideQuery !== undefined ? overrideQuery : query;
     setLoading(true);
     setError('');
     try {
-      const qs = query.trim() ? `?query=${encodeURIComponent(query.trim())}` : '';
+      const qs = activeQ.trim() ? `?query=${encodeURIComponent(activeQ.trim())}` : '';
       const res = await apiFetch(`/api/leadfinder/social${qs}`);
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(apiErrorMessage(res.status, body));
@@ -44,6 +46,23 @@ export const SocialIntentRadar: FC<{
     } finally {
       setLoading(false);
     }
+  };
+
+  const saveSignalToClients = async (sig: SocialSignal) => {
+    const key = `${sig.source}-${sig.external_id}`;
+    const res = await apiFetch('/api/v1/browser/session/capture-leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        leads: [{
+          company_name: sig.title.slice(0, 80),
+          contact_name: sig.author || '',
+          linkedin_url: sig.url || '',
+        }],
+        source: `social_${sig.platform.toLowerCase().replace(/\s+/g, '_')}`,
+      }),
+    });
+    if (res.ok) setSavedIds((prev) => ({ ...prev, [key]: true }));
   };
 
   return (
@@ -81,8 +100,32 @@ export const SocialIntentRadar: FC<{
             {loading ? 'Scanning Feeds…' : 'Scan Social Intent'}
           </Button>
         </form>
+        <div className="flex flex-wrap items-center gap-1.5 mt-2.5 text-xs text-slate-400">
+          <span className="text-[11px] text-slate-500">Quick-start topics:</span>
+          {['website', 'developer', 'seo', 'shopify', 'ai'].map((topic) => (
+            <button
+              key={topic}
+              type="button"
+              onClick={() => {
+                setQuery(topic);
+                scan(topic);
+              }}
+              className="px-2.5 py-0.5 rounded-full text-[11px] bg-slate-800/80 hover:bg-slate-700 text-indigo-300 hover:text-white border border-slate-700/60 transition"
+            >
+              {topic}
+            </button>
+          ))}
+        </div>
         {error && <p className="text-xs text-rose-400 mt-2">{error}</p>}
       </Card>
+
+      {!hasScanned && !loading && (
+        <Card>
+          <p className="text-xs text-slate-400">
+            Click <strong>Scan Social Intent</strong> or pick a quick-start topic chip above to pull live buying-intent posts from Reddit &amp; Hacker News.
+          </p>
+        </Card>
+      )}
 
       {hasScanned && signals.length === 0 && !loading && (
         <Card>
@@ -113,7 +156,7 @@ export const SocialIntentRadar: FC<{
                   </div>
                   <div className="text-xs font-semibold line-clamp-2 text-white">{sig.title}</div>
                   <div className="text-[11px] text-slate-400 mt-1 flex items-center justify-between">
-                    <span>{sig.author ? `u/${sig.author}` : sig.source}</span>
+                    <span>{sig.author ? (sig.platform === 'Reddit' ? `u/${sig.author}` : `@${sig.author}`) : sig.source}</span>
                     {sig.posted_at && <span>{sig.posted_at.slice(0, 10)}</span>}
                   </div>
                 </button>
@@ -159,6 +202,18 @@ export const SocialIntentRadar: FC<{
                       Inspect Thread in Scraper
                     </Button>
                   )}
+                  <Button
+                    small
+                    variant="secondary"
+                    disabled={!!savedIds[`${selected.source}-${selected.external_id}`]}
+                    onClick={() => saveSignalToClients(selected)}
+                  >
+                    {savedIds[`${selected.source}-${selected.external_id}`] ? (
+                      <><Check className="h-3.5 w-3.5 text-emerald-400" />Saved to Clients</>
+                    ) : (
+                      <><UserPlus className="h-3.5 w-3.5 text-indigo-400" />Save to Clients</>
+                    )}
+                  </Button>
                 </div>
                 <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-400 flex items-start gap-2">
                   <MessageSquare className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" />

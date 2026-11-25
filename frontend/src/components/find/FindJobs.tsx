@@ -116,6 +116,7 @@ export interface JobsPreset {
 }
 
 export const FindJobs: FC<{
+  mode?: 'jobs' | 'tender';
   types?: string[];
   preset?: JobsPreset | null;
   onSendEmail?: (params: {
@@ -128,7 +129,7 @@ export const FindJobs: FC<{
   }) => void;
   onOpenClient?: (leadId: number) => void;
   onOpenScraper?: (url: string, mode?: 'general' | 'client_audit' | 'job_spec' | 'local_audit', title?: string) => void;
-}> = ({ types, preset, onSendEmail, onOpenClient, onOpenScraper }) => {
+}> = ({ mode = 'jobs', types = ['marketplace', 'hiring_signal', 'inbound', 'outbound'], preset, onSendEmail, onOpenClient, onOpenScraper }) => {
   const opps = useApi<Opp[]>('/api/opportunities?limit=200');
   const sources = useApi<Source[]>('/api/connectors');
   const [q, setQ] = useState('');
@@ -170,16 +171,13 @@ export const FindJobs: FC<{
   useEffect(() => {
     if (!preset || preset.nonce === seen.current) return;
     seen.current = preset.nonce;
-    const t = window.setTimeout(() => {
-      setQ(preset.q);
-      setMinBudget(preset.min_budget ? String(preset.min_budget) : '');
-      setMaxBudget(preset.max_budget ? String(preset.max_budget) : '');
-      setRemoteOnly(!!preset.remote);
-      setSource('');
-      setMinFit(0);
-      setPage(0);
-    }, 0);
-    return () => window.clearTimeout(t);
+    setQ(preset.q);
+    setMinBudget(preset.min_budget ? String(preset.min_budget) : '');
+    setMaxBudget(preset.max_budget ? String(preset.max_budget) : '');
+    setRemoteOnly(!!preset.remote);
+    setSource('');
+    setMinFit(0);
+    setPage(0);
   }, [preset]);
 
   const rows = useMemo(() => (opps.data ?? []).filter((o) =>
@@ -512,17 +510,19 @@ export const FindJobs: FC<{
               }}
             />
           </label>
-          <label className="flex items-center gap-2 text-xs text-slate-300 pb-2">
-            <input
-              type="checkbox"
-              checked={remoteOnly}
-              onChange={(e) => {
-                setRemoteOnly(e.target.checked);
-                setPage(0);
-              }}
-            />
-            Remote only
-          </label>
+          {mode !== 'tender' && (
+            <label className="flex items-center gap-2 text-xs text-slate-300 pb-2">
+              <input
+                type="checkbox"
+                checked={remoteOnly}
+                onChange={(e) => {
+                  setRemoteOnly(e.target.checked);
+                  setPage(0);
+                }}
+              />
+              Remote only
+            </label>
+          )}
           <Button variant="primary" onClick={scan} disabled={scanning}>
             <RefreshCw className={`h-4 w-4 ${scanning ? 'animate-spin' : ''}`} />
             {scanning ? 'Scanning…' : 'Scan sources'}
@@ -543,7 +543,13 @@ export const FindJobs: FC<{
                 Connect Upwork
               </Button>
             )}
-            {sources.data.map((s) => (
+            {sources.data
+              .filter((s) =>
+                mode === 'tender'
+                  ? ['sam_gov', 'ted', 'uk_fts'].includes(s.source)
+                  : !['sam_gov', 'ted', 'uk_fts'].includes(s.source)
+              )
+              .map((s) => (
               <Badge
                 key={s.source}
                 tone={
@@ -585,7 +591,11 @@ export const FindJobs: FC<{
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
                 <span className="tabular font-semibold text-white">{rows.length}</span> opportunities detected & scored
               </span>
-              <span className="text-[11px] text-slate-500">Click any job/project to run Related Read for business owner details</span>
+              <span className="text-[11px] text-slate-500">
+                {mode === 'tender'
+                  ? 'Click any tender to inspect the procuring agency and deliverables'
+                  : 'Click any job/project to run Related Read for business owner details'}
+              </span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -638,7 +648,7 @@ export const FindJobs: FC<{
                           }}
                         >
                           <Building2 className="h-3.5 w-3.5" />
-                          See Business Details
+                          {mode === 'tender' ? 'Agency & Tender Details' : 'See Business Details'}
                         </Button>
                       </td>
                     </tr>

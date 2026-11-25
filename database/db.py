@@ -986,6 +986,13 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_outbound_drafts_status ON outbound_drafts(org_id, status, sent_at);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_runs_org ON audit_runs(org_id, created_at);")
 
+    for sql in (
+        "ALTER TABLE lead_hits ADD COLUMN lead_id INTEGER",
+    ):
+        try:
+            cursor.execute(sql)
+        except Exception:
+            pass
     conn.commit()
     conn.close()
 
