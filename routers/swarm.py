@@ -108,3 +108,64 @@ def execute_skill_endpoint(
         raise HTTPException(status_code=500, detail=str(exec_err))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Skill execution failed: {exc}")
+
+
+class ScheduleCreateRequest(BaseModel):
+    name: str = Field(..., min_length=2, max_length=80)
+    channel: str = Field(..., pattern="^(hiring|local|sec_edgar|social|radar_scan)$")
+    query: str = ""
+    location: str = ""
+    limit_per_run: int = Field(5, ge=1, le=25)
+    cadence_hours: int = Field(24, ge=1, le=168)
+    assign_mode: str = Field("round_robin", pattern="^(round_robin|unassigned)$")
+    auto_send_tier_a: bool = False
+
+
+@router.get("/schedules")
+def get_autopilot_schedules(principal: Principal = Depends(require_permission("leads:read"))):
+    from orchestrator.schedule_runner import list_schedules
+    return {"ok": True, "schedules": list_schedules(principal.org_id)}
+
+
+@router.post("/schedules")
+def add_autopilot_schedule(
+    req: ScheduleCreateRequest,
+    principal: Principal = Depends(require_permission("pipeline:run")),
+):
+    from orchestrator.schedule_runner import create_schedule
+    try:
+        sched = create_schedule(
+            org_id=principal.org_id,
+            name=req.name,
+            channel=req.channel,
+            query=req.query,
+            location=req.location,
+            limit_per_run=req.limit_per_run,
+            cadence_hours=req.cadence_hours,
+            assign_mode=req.assign_mode,
+            auto_send_tier_a=req.auto_send_tier_a,
+        )
+        return {"ok": True, "schedule": sched}
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+
+@router.post("/schedules/{schedule_id}/toggle")
+def toggle_autopilot_schedule(
+    schedule_id: int,
+    enabled: bool = Query(...),
+    principal: Principal = Depends(require_permission("pipeline:run")),
+):
+    from orchestrator.schedule_runner import toggle_schedule
+    try:
+        return {"ok": True, "schedule": toggle_schedule(principal.org_id, schedule_id, enabled)}
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+
+
+@router.post("/schedules/run-due")
+def trigger_due_autopilot_schedules(
+    principal: Principal = Depends(require_permission("pipeline:run")),
+):
+    from orchestrator.schedule_runner import run_due_schedules
+    return {"ok": True, "triggered": run_due_schedules(principal.org_id)}

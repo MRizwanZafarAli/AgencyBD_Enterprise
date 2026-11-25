@@ -959,3 +959,114 @@ def list_email_templates(
             "description": "Strategic B2B agency partnership outreach."
         }
     ]
+
+
+class ImapSyncRequest(BaseModel):
+    imap_host: str
+    imap_port: int = 993
+    username: str
+    password: str
+    mailbox_email: Optional[str] = None
+    mailbox_id: Optional[int] = None
+    limit: int = Field(20, ge=1, le=100)
+
+
+class IngestInboxRequest(BaseModel):
+    sender_email: str
+    recipient_email: str = "outreach@agencybd.enterprise"
+    subject: str = "(no subject)"
+    body: str = Field(..., min_length=1)
+
+
+@router.get("/inbox")
+def list_master_inbox(
+    status: Optional[str] = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    principal: Principal = Depends(require_permission("leads:read")),
+):
+    """Unified Master Inbox across all connected mailboxes."""
+    with get_db() as conn:
+        if status and status != "all":
+            rows = conn.execute(
+                """
+                SELECT m.*, l.company_name
+                FROM inbox_messages m
+                LEFT JOIN leads l ON l.id = m.lead_id
+                WHERE m.org_id = ? AND m.status = ?
+                ORDER BY m.received_at DESC, m.id DESC LIMIT ?
+                """,
+                (principal.org_id, status, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT m.*, l.company_name
+                FROM inbox_messages m
+                LEFT JOIN leads l ON l.id = m.lead_id
+                WHERE m.org_id = ?
+                ORDER BY m.received_at DESC, m.id DESC LIMIT ?
+                """,
+                (principal.org_id, limit),
+            ).fetchall()
+        unread = conn.execute(
+            "SELECT COUNT(*) FROM inbox_messages WHERE org_id = ? AND status = 'unread'",
+            (principal.org_id,),
+        ).fetchone()[0]
+    return {"messages": [dict(r) for r in rows], "unread_count": unread}
+
+
+@router.post("/inbox/sync")
+def sync_master_inbox(
+    req: ImapSyncRequest,
+    principal: Principal = Depends(require_permission("outbound:write")),
+):
+    """Polls an IMAP/TLS mailbox and ingests unread prospect replies into Master Inbox."""
+    from engines.native_imap_sync import imap_sync_engine
+    try:
+        return imap_sync_engine.sync_imap_mailbox(
+            org_id=principal.org_id,
+            imap_host=req.imap_host,
+            imap_port=req.imap_port,
+            username=req.username,
+            password=req.password,
+            mailbox_email=req.mailbox_email or req.username,
+            mailbox_id=req.mailbox_id,
+            limit=req.limit,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"IMAP sync failed: {e}")
+
+
+@router.post("/inbox/ingest")
+def ingest_master_inbox_reply(
+    req: IngestInboxRequest,
+    principal: Principal = Depends(require_permission("pipeline:run")),
+):
+    """Ingests an inbound reply (webhook or manual test), pauses sequences, and generates AI reply draft."""
+    from engines.native_imap_sync import imap_sync_engine
+    return imap_sync_engine.ingest_inbound_message(
+        org_id=principal.org_id,
+        sender_email=req.sender_email,
+        recipient_email=req.recipient_email,
+        subject=req.subject,
+        body=req.body,
+    )
+
+
+@router.post("/inbox/{msg_id}/status")
+def update_inbox_message_status(
+    msg_id: int,
+    status: str = Query(..., pattern="^(unread|read|replied|archived)$"),
+    principal: Principal = Depends(require_permission("leads:read")),
+):
+    with get_db() as conn:
+        cur = conn.execute(
+            "UPDATE inbox_messages SET status = ? WHERE id = ? AND org_id = ?",
+            (status, msg_id, principal.org_id),
+        )
+        conn.commit()
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Inbox message not found.")
+    return {"ok": True, "id": msg_id, "status": status}

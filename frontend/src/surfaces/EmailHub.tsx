@@ -4,11 +4,12 @@ import {
   Mail, Send, CheckCircle2, AlertTriangle, XCircle, Shield,
   RefreshCw, Plus, Clock, Server, Eye, FileText, Check, ChevronRight,
   Sparkles, Trash2, Copy, ArrowRight, Search, X,
-  Settings, Play, Pause, Zap, RotateCcw
+  Settings, Play, Pause, Zap, RotateCcw, Inbox
 } from 'lucide-react';
 import { apiFetch, apiErrorMessage } from '../lib/api';
 import type { Me } from '../lib/api';
 import { ErrorBoundary } from '../components/shared/ErrorBoundary';
+import { MasterInbox } from '../components/email/MasterInbox';
 
 export interface EmailSeed {
   recipient?: string;
@@ -109,7 +110,7 @@ export const EmailHub: FC<{
   onClearSeed?: () => void;
   onOpenClient?: (id: number) => void;
 }> = ({ identity: _identity, seed, onClearSeed, onOpenClient: _onOpenClient }) => {
-  const [tab, setTab] = useState<'compose' | 'fleet' | 'queue' | 'logs' | 'inspector'>('compose');
+  const [tab, setTab] = useState<'compose' | 'inbox' | 'fleet' | 'queue' | 'logs' | 'inspector'>('compose');
   const [overview, setOverview] = useState<EmailOverview | null>(null);
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
   const [events, setEvents] = useState<OutboundEvent[]>([]);
@@ -785,6 +786,16 @@ export const EmailHub: FC<{
           </button>
 
           <button
+            onClick={() => setTab('inbox')}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-xs font-medium transition shrink-0 ${
+              tab === 'inbox' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Inbox className="h-3.5 w-3.5" />
+            <span>Master Inbox</span>
+          </button>
+
+          <button
             onClick={() => setTab('fleet')}
             className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-xs font-medium transition shrink-0 ${
               tab === 'fleet' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
@@ -824,6 +835,18 @@ export const EmailHub: FC<{
             <span>Pre-Flight Deliverability Inspector</span>
           </button>
         </div>
+
+        {tab === 'inbox' && (
+          <MasterInbox
+            onLoadDraftToComposer={(params) => {
+              setToEmail(params.to);
+              setSubject(params.subject);
+              setBody(params.body);
+              if (params.leadId) setLeadId(params.leadId);
+              setTab('compose');
+            }}
+          />
+        )}
 
         {/* ==================================================================== */}
         {/* TAB 1: COMPOSE & DISPATCH DESK */}

@@ -235,3 +235,56 @@ def list_session_vault(
             }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+class CapturedLeadItem(BaseModel):
+    company_name: str = Field(..., min_length=1, max_length=120)
+    domain: str = ""
+    contact_name: str = ""
+    contact_title: str = ""
+    linkedin_url: str = ""
+    email: str = ""
+
+
+class CaptureLeadsRequest(BaseModel):
+    leads: List[CapturedLeadItem] = Field(..., min_length=1, max_length=50)
+    source: str = "sales_nav_companion"
+
+
+@router.post("/session/capture-leads")
+def capture_sales_nav_leads(
+    req: CaptureLeadsRequest,
+    principal: Principal = Depends(require_permission("leads:write")),
+) -> Dict[str, Any]:
+    """
+    Sales Navigator Companion Capture:
+    Saves leads captured from an authenticated human Chrome session into CRM `leads` & `decision_makers`.
+    """
+    from database.models import ContactRepository, LeadRepository
+
+    saved = []
+    for item in req.leads:
+        dom = (item.domain or "").strip() or f"{item.company_name.lower().replace(' ', '')[:24]}.invalid"
+        lead = LeadRepository.create_or_get_lead(
+            company_name=item.company_name.strip(),
+            domain=dom,
+            source_channel=req.source,
+            notes=f"Captured via Sales Navigator Companion ({item.linkedin_url})" if item.linkedin_url else "Captured via Sales Navigator Companion",
+            org_id=principal.org_id,
+        )
+        if item.contact_name.strip() and item.email.strip():
+            parts = item.contact_name.strip().split(" ", 1)
+            first_n = parts[0]
+            last_n = parts[1] if len(parts) > 1 else ""
+            ContactRepository.add_decision_maker(
+                lead_id=lead["id"],
+                first_name=first_n,
+                last_name=last_n,
+                title=item.contact_title.strip() or "Decision Maker",
+                email=item.email.strip(),
+                linkedin_url=item.linkedin_url.strip() or None,
+                org_id=principal.org_id,
+            )
+        saved.append({"lead_id": lead["id"], "company_name": lead["company_name"], "domain": lead["domain"]})
+
+    return {"ok": True, "captured_count": len(saved), "leads": saved}

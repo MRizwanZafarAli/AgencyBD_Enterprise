@@ -1364,6 +1364,8 @@ from routers.swarm import router as swarm_router
 app.include_router(swarm_router)
 from routers.browser_sidepanel import router as browser_sidepanel_router
 app.include_router(browser_sidepanel_router)
+from routers.proposals_smartlinks import router as proposals_smartlinks_router
+app.include_router(proposals_smartlinks_router)
 
 # ==================== Autopilot, priority, inbox, reports, assistant ====================
 from orchestrator.autopilot import DiscoveryRun

@@ -892,6 +892,74 @@ def init_db():
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(org_id, domain)
     );
+
+    CREATE TABLE IF NOT EXISTS inbox_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        mailbox_id INTEGER,
+        lead_id INTEGER,
+        direction TEXT NOT NULL DEFAULT 'inbound', -- inbound | outbound
+        sender_email TEXT NOT NULL,
+        recipient_email TEXT NOT NULL,
+        subject TEXT NOT NULL DEFAULT '',
+        body TEXT NOT NULL,
+        category TEXT DEFAULT 'generic',
+        sentiment TEXT DEFAULT 'neutral',
+        auto_reply_draft TEXT,
+        message_id TEXT,
+        in_reply_to TEXT,
+        status TEXT NOT NULL DEFAULT 'unread', -- unread | read | replied | archived
+        received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_inbox_messages_org ON inbox_messages(org_id, status, received_at DESC);
+
+    CREATE TABLE IF NOT EXISTS autopilot_schedules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        name TEXT NOT NULL,
+        channel TEXT NOT NULL, -- hiring | local | sec_edgar | social
+        query TEXT DEFAULT '',
+        location TEXT DEFAULT '',
+        limit_per_run INTEGER NOT NULL DEFAULT 5,
+        cadence_hours INTEGER NOT NULL DEFAULT 24,
+        assign_mode TEXT NOT NULL DEFAULT 'round_robin', -- round_robin | unassigned
+        auto_send_tier_a INTEGER NOT NULL DEFAULT 0,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        last_run_at TIMESTAMP,
+        next_run_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS smart_link_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        token TEXT NOT NULL,
+        lead_id INTEGER,
+        report_type TEXT NOT NULL DEFAULT 'audit', -- audit | proposal
+        viewer_ip TEXT,
+        user_agent TEXT,
+        referrer TEXT,
+        dwell_seconds INTEGER DEFAULT 0,
+        viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_smart_links_token ON smart_link_events(token, viewed_at DESC);
+
+    CREATE TABLE IF NOT EXISTS interactive_proposals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        lead_id INTEGER NOT NULL,
+        token TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        summary TEXT NOT NULL DEFAULT '',
+        scope_json TEXT NOT NULL DEFAULT '[]',
+        price_amount REAL,
+        currency TEXT NOT NULL DEFAULT 'USD',
+        booking_link TEXT DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'draft', -- draft | sent | viewed | accepted
+        signed_by TEXT,
+        signed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE INDEX IF NOT EXISTS idx_browser_session_domain ON browser_session_vault(org_id, domain);
 
     CREATE TABLE IF NOT EXISTS scraped_pages (

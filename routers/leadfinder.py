@@ -108,3 +108,10 @@ def places(principal: Principal = Depends(READ)):
 @router.get("/xray")
 def xray(role: str, industry: str = "", location: str = "", principal: Principal = Depends(READ)):
     return {"links": _guard(sources.xray_links, role, industry, location)}
+
+
+@router.get("/social")
+def social_intent_scan(query: Optional[str] = None, limit: int = 25, principal: Principal = Depends(READ)):
+    """Scans Reddit & Hacker News buying-intent discussions without paid API keys."""
+    from connectors.social_radar import scan_social_intent
+    return {"signals": scan_social_intent(query=query, limit=min(max(limit, 1), 60))}

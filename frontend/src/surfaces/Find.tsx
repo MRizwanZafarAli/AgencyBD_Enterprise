@@ -8,11 +8,13 @@ import type { JobsPreset } from '../components/find/FindJobs';
 import { LeadFinder } from '../components/leadfinder/LeadFinder';
 import { SmartSearch } from '../components/find/SmartSearch';
 import type { SearchRun } from '../components/find/SmartSearch';
+import { SocialIntentRadar } from '../components/find/SocialIntentRadar';
 import type { Me } from '../lib/api';
 
 const ALL_TABS = [
   { id: 'local', label: 'Local businesses' },
   { id: 'jobs', label: 'Jobs and projects' },
+  { id: 'social', label: 'Social intent' },
   { id: 'tenders', label: 'Tenders' },
   { id: 'watch', label: 'Watching' },
 ];
@@ -96,6 +98,7 @@ export const Find: FC<{
           onOpenScraper={onOpenScraper}
         />
       )}
+      {tab === 'social' && <SocialIntentRadar onOpenScraper={onOpenScraper} />}
       {tab === 'watch' && <LeadFinder onOpenClient={onOpenClient} onAddKey={onAddGoogleKey} />}
     </div>
   );
