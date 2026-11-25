@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FC } from 'react';
 import { ExternalLink, ShieldCheck } from 'lucide-react';
-import { Card, Skeletons, Stat } from '../ui';
+import { Card, Skeletons, Stat, Tabs } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { apiFetch } from '../../lib/api';
 import { send, useApi } from '../../lib/hooks';
@@ -21,6 +21,7 @@ function useAction(reload: () => void): { error: string; run: Run } {
 
 export const ChannelPanel: FC<{ platform: Platform; catalog: Catalog }> = ({ platform, catalog }) => {
   const id = platform.id;
+  const [subTab, setSubTab] = useState<'daily' | 'pipeline' | 'analytics' | 'playbook'>('daily');
   const summary = useApi<Summary>(`/api/channels/${id}/summary`);
   const records = useApi<{ records: Rec[] }>(`/api/channels/${id}/records`);
   const routines = useApi<{ records: Rec[] }>(`/api/channels/${id}/records?type=routine`);   // first read seeds the default routine
@@ -63,30 +64,58 @@ export const ChannelPanel: FC<{ platform: Platform; catalog: Catalog }> = ({ pla
         </div>
       )}
 
-      <QuickPages platform={platform} />
-      <Pacing s={s} />
-      <Funnel s={s} />
+      <Tabs
+        tabs={[
+          { id: 'daily', label: 'Daily workspace' },
+          { id: 'pipeline', label: 'Pipeline & templates', count: of('pipeline').length || undefined },
+          { id: 'analytics', label: 'Analytics & activity' },
+          { id: 'playbook', label: 'Playbook & profile health' },
+        ]}
+        active={subTab}
+        onChange={(t) => setSubTab(t as typeof subTab)}
+      />
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Routine id={id} routines={routines.data?.records ?? []} doneToday={doneToday} today={today} run={run} post={post} remove={remove} />
-        <OpenInBrowser platform={platform} links={of('link')} run={run} post={post} remove={remove} />
-      </div>
+      {subTab === 'daily' && (
+        <div className="space-y-5">
+          <QuickPages platform={platform} />
+          <Pacing s={s} />
+          <div className="grid gap-5 lg:grid-cols-2">
+            <Routine id={id} routines={routines.data?.records ?? []} doneToday={doneToday} today={today} run={run} post={post} remove={remove} />
+            <OpenInBrowser platform={platform} links={of('link')} run={run} post={post} remove={remove} />
+          </div>
+        </div>
+      )}
 
-      <Pipeline statuses={catalog.statuses} items={of('pipeline')} run={run} post={post} update={update} remove={remove} />
+      {subTab === 'pipeline' && (
+        <div className="space-y-5">
+          <Pipeline platformId={id} statuses={catalog.statuses} items={of('pipeline')} run={run} post={post} update={update} remove={remove} />
+          <div className="grid gap-5 lg:grid-cols-2">
+            <Templates platform={platform} items={of('template')} run={run} post={post} remove={remove} />
+            <Messages items={of('message')} s={s} run={run} post={post} update={update} remove={remove} />
+          </div>
+        </div>
+      )}
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Templates platform={platform} items={of('template')} run={run} post={post} remove={remove} />
-        <Messages items={of('message')} s={s} run={run} post={post} update={update} remove={remove} />
-      </div>
+      {subTab === 'analytics' && (
+        <div className="space-y-5">
+          <Funnel s={s} />
+          <div className="grid gap-5 lg:grid-cols-2">
+            <Activity platformId={id} kinds={catalog.activity_kinds} s={s} today={today} run={run} post={post} />
+            <Performance platform={platform} s={s} />
+          </div>
+          <Experiments platform={platform} items={of('experiment')} s={s} run={run} post={post} update={update} remove={remove} />
+        </div>
+      )}
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Activity kinds={catalog.activity_kinds} s={s} today={today} run={run} post={post} />
-        <Availability platform={platform} setting={s?.setting ?? null} s={s} run={run} post={post} />
-      </div>
-      <Performance platform={platform} s={s} />
-      <Experiments items={of('experiment')} s={s} run={run} post={post} update={update} remove={remove} />
-      <Features platform={platform} />
-      <ProfileHealth platform={platform} />
+      {subTab === 'playbook' && (
+        <div className="space-y-5">
+          <Features platform={platform} />
+          <ProfileHealth platform={platform} />
+          {platform.kind === 'marketplace' && (
+            <Availability platform={platform} setting={s?.setting ?? null} s={s} run={run} post={post} />
+          )}
+        </div>
+      )}
     </div>
   );
 };

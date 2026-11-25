@@ -104,11 +104,27 @@ export const OpenInBrowser: FC<{ platform: Platform; links: Rec[]; run: Run; pos
   );
 };
 
-export const Pipeline: FC<{ statuses: string[]; items: Rec[]; run: Run; post: Post; update: (id: number, d: Record<string, unknown>) => void; remove: (id: number) => void }> = ({ statuses, items, run, post, update, remove }) => {
+const PLATFORM_ACTIVITY: Record<string, string[]> = {
+  linkedin: ['invite_sent', 'message_sent', 'reply_received', 'profile_view', 'post_published', 'call_booked'],
+  fiverr: ['gig_impression', 'gig_click', 'gig_order', 'message_sent', 'reply_received', 'call_booked'],
+  upwork: ['proposal_sent', 'connects_spent', 'message_sent', 'reply_received', 'call_booked'],
+  freelancer: ['proposal_sent', 'connects_spent', 'message_sent', 'reply_received', 'call_booked'],
+  peopleperhour: ['proposal_sent', 'connects_spent', 'message_sent', 'reply_received', 'call_booked'],
+  guru: ['proposal_sent', 'connects_spent', 'message_sent', 'reply_received', 'call_booked'],
+  clutch: ['message_sent', 'reply_received', 'profile_view', 'call_booked'],
+  contra: ['proposal_sent', 'message_sent', 'reply_received', 'call_booked'],
+  toptal: ['proposal_sent', 'message_sent', 'reply_received', 'call_booked'],
+};
+const BID_COST_PLATFORMS = new Set(['upwork', 'freelancer', 'peopleperhour', 'guru']);
+
+export const Pipeline: FC<{ platformId?: string; statuses: string[]; items: Rec[]; run: Run; post: Post; update: (id: number, d: Record<string, unknown>) => void; remove: (id: number) => void }> = ({ platformId = 'upwork', statuses, items, run, post, update, remove }) => {
   const blank = { title: '', counterparty: '', url: '', value: '', cost: '', next_followup: '', status: 'applied' };
   const [f, setF] = useState(blank);
   const [filter, setFilter] = useState('all');
   const [find, setFind] = useState('');
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ title: '', counterparty: '', value: '', url: '' });
+  const showCost = BID_COST_PLATFORMS.has(platformId);
   const today = localDay();
   const shown = items.filter((r) => (filter === 'all' || r.status === filter) && (!find.trim() || `${r.title} ${r.counterparty ?? ''} ${r.notes ?? ''}`.toLowerCase().includes(find.trim().toLowerCase())));
   const exportCsv = () => {
@@ -125,12 +141,14 @@ export const Pipeline: FC<{ statuses: string[]; items: Rec[]; run: Run; post: Po
     <Section title="Applications and outreach" hint="Log every proposal, bid or message you send, with a follow-up date. Overdue follow-ups are surfaced on Today.">
       <form className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6 mb-4" onSubmit={(e) => { e.preventDefault(); run(() => post('pipeline', { ...f, value: f.value === '' ? null : Number(f.value), cost: f.cost === '' ? null : Number(f.cost) })).then(() => setF(blank)); }}>
         <input className={`${field} lg:col-span-2`} aria-label="Title" placeholder="Project or person" value={f.title} onChange={set('title')} required />
-        <input className={field} aria-label="Client" placeholder="Client or company" value={f.counterparty} onChange={set('counterparty')} />
+        <input className={field} aria-label="Client" placeholder="Client" value={f.counterparty} onChange={set('counterparty')} />
         <input className={field} aria-label="Value in dollars" placeholder="Value $" inputMode="decimal" value={f.value} onChange={set('value')} />
         <select className={field} aria-label="Status" value={f.status} onChange={set('status')}>{statuses.map((s) => <option key={s} value={s}>{STATUS_LABEL[s] ?? s}</option>)}</select>
         <input className={field} type="date" aria-label="Follow up on" value={f.next_followup} onChange={set('next_followup')} />
-        <input className={`${field} sm:col-span-2 lg:col-span-3`} aria-label="Link" placeholder="Link to the post or thread (optional)" value={f.url} onChange={set('url')} />
-        <input className={`${field} lg:col-span-2`} aria-label="Cost to apply in dollars" inputMode="decimal" placeholder="Cost to apply $ (Connects, fees)" value={f.cost} onChange={set('cost')} />
+        <input className={`${field} sm:col-span-2 ${showCost ? 'lg:col-span-3' : 'lg:col-span-5'}`} aria-label="Link" placeholder="Link to the post or thread (optional)" value={f.url} onChange={set('url')} />
+        {showCost && (
+          <input className={`${field} lg:col-span-2`} aria-label="Cost to apply in dollars" inputMode="decimal" placeholder="Cost $ (Connects, fees)" value={f.cost} onChange={set('cost')} />
+        )}
         <Button type="submit" variant="primary"><Plus className="h-3.5 w-3.5" />Log it</Button>
       </form>
       {items.length > 0 && (
@@ -138,7 +156,7 @@ export const Pipeline: FC<{ statuses: string[]; items: Rec[]; run: Run; post: Po
           {['all', ...statuses].map((st) => { const n = st === 'all' ? items.length : items.filter((r) => r.status === st).length; return (
             <button key={st} aria-pressed={filter === st} onClick={() => setFilter(st)}
               className={`px-2.5 py-1 rounded-md text-xs border ${filter === st ? 'bg-indigo-500/15 border-indigo-500/40 text-indigo-300' : 'border-slate-700 text-slate-400'}`}>{st === 'all' ? 'All' : STATUS_LABEL[st] ?? st} <span className="tabular opacity-70">{n}</span></button>); })}
-          <SearchInput className="w-48 ml-auto" label="Search applications" value={find} onChange={setFind} />
+          <SearchInput className="w-48 ml-auto" label="Search…" value={find} onChange={setFind} />
           <Button small onClick={exportCsv}><Download className="h-3.5 w-3.5" />CSV</Button>
         </div>)}
       {items.length === 0 ? <EmptyState title="Nothing logged yet" hint="Add each application after you send it in your own browser." /> : shown.length === 0 ? <p className="text-xs text-slate-500 py-3">Nothing matches.</p> : (
@@ -146,16 +164,46 @@ export const Pipeline: FC<{ statuses: string[]; items: Rec[]; run: Run; post: Po
           {[...shown].reverse().map((r) => {
             const open = r.status !== 'won' && r.status !== 'lost';
             const overdue = open && r.next_followup && r.next_followup <= today;
+            const isEditing = editingId === r.id;
             return (
-              <li key={r.id} className="py-2.5 flex flex-wrap items-center gap-2">
-                <div className="flex-1 min-w-[12rem]">
-                  <div className="text-sm text-slate-100">{r.url ? <a href={r.url} target="_blank" rel="noopener noreferrer" className="hover:underline text-indigo-400">{r.title}</a> : r.title}</div>
-                  <div className="text-[11px] text-slate-500">{[r.counterparty, r.value ? `$${Number(r.value).toLocaleString()}` : null].filter(Boolean).join(' · ') || 'no client or value'}</div>
+              <li key={r.id} className="py-2.5 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex-1 min-w-[12rem]">
+                    <div className="text-sm text-slate-100">{r.url ? <a href={r.url} target="_blank" rel="noopener noreferrer" className="hover:underline text-indigo-400">{r.title}</a> : r.title}</div>
+                    <div className="text-[11px] text-slate-500">{[r.counterparty, r.value ? `$${Number(r.value).toLocaleString()}` : null].filter(Boolean).join(' · ') || 'no client or value'}</div>
+                  </div>
+                  {overdue && <Badge tone="warn">Follow up</Badge>}
+                  <select className={`${field} !w-auto`} aria-label={`Status of ${r.title}`} value={r.status} onChange={(e) => update(r.id, { status: e.target.value })}>{statuses.map((s) => <option key={s} value={s}>{STATUS_LABEL[s] ?? s}</option>)}</select>
+                  <input className={`${field} !w-auto`} type="date" aria-label={`Follow up date for ${r.title}`} value={r.next_followup ?? ''} onChange={(e) => update(r.id, { next_followup: e.target.value || null })} />
+                  <Button small variant="ghost" onClick={() => {
+                    if (isEditing) setEditingId(null);
+                    else {
+                      setEditingId(r.id);
+                      setEditForm({ title: r.title ?? '', counterparty: r.counterparty ?? '', value: r.value != null ? String(r.value) : '', url: r.url ?? '' });
+                    }
+                  }}>{isEditing ? 'Cancel' : 'Edit'}</Button>
+                  <button aria-label={`Delete ${r.title}`} onClick={() => remove(r.id)} className="text-slate-500 hover:text-rose-400"><Trash2 className="h-4 w-4" /></button>
                 </div>
-                {overdue && <Badge tone="warn">Follow up</Badge>}
-                <select className={`${field} !w-auto`} aria-label={`Status of ${r.title}`} value={r.status} onChange={(e) => update(r.id, { status: e.target.value })}>{statuses.map((s) => <option key={s} value={s}>{STATUS_LABEL[s] ?? s}</option>)}</select>
-                <input className={`${field} !w-auto`} type="date" aria-label={`Follow up date for ${r.title}`} value={r.next_followup ?? ''} onChange={(e) => update(r.id, { next_followup: e.target.value || null })} />
-                <button aria-label={`Delete ${r.title}`} onClick={() => remove(r.id)} className="text-slate-500 hover:text-rose-400"><Trash2 className="h-4 w-4" /></button>
+                {isEditing && (
+                  <form className="grid gap-2 sm:grid-cols-4 p-2.5 rounded-xl bg-slate-900/70 border border-slate-800" onSubmit={(e) => {
+                    e.preventDefault();
+                    update(r.id, {
+                      title: editForm.title.trim() || r.title,
+                      counterparty: editForm.counterparty.trim(),
+                      value: editForm.value === '' ? null : Number(editForm.value),
+                      url: editForm.url.trim(),
+                    });
+                    setEditingId(null);
+                  }}>
+                    <input className={field} required value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} placeholder="Project or person" />
+                    <input className={field} value={editForm.counterparty} onChange={(e) => setEditForm({ ...editForm, counterparty: e.target.value })} placeholder="Client" />
+                    <input className={field} inputMode="decimal" value={editForm.value} onChange={(e) => setEditForm({ ...editForm, value: e.target.value })} placeholder="Value $" />
+                    <div className="flex gap-1.5">
+                      <input className={`${field} flex-1`} value={editForm.url} onChange={(e) => setEditForm({ ...editForm, url: e.target.value })} placeholder="URL" />
+                      <Button small type="submit" variant="primary">Save</Button>
+                    </div>
+                  </form>
+                )}
               </li>);
           })}
         </ul>)}
@@ -220,16 +268,19 @@ export const Messages: FC<{ items: Rec[]; s: Summary | null; run: Run; post: Pos
   );
 };
 
-export const Activity: FC<{ kinds: string[]; s: Summary | null; today: string; run: Run; post: Post }> = ({ kinds, s, today, run, post }) => {
-  const [kind, setKind] = useState(kinds[0] ?? 'message_sent');
+export const Activity: FC<{ platformId?: string; kinds: string[]; s: Summary | null; today: string; run: Run; post: Post }> = ({ platformId = 'upwork', kinds, s, today, run, post }) => {
+  const allowed = PLATFORM_ACTIVITY[platformId];
+  const filteredKinds = allowed ? kinds.filter((k) => allowed.includes(k)) : kinds;
+  const activeKinds = filteredKinds.length > 0 ? filteredKinds : kinds;
+  const [kind, setKind] = useState(activeKinds[0] ?? 'message_sent');
   const [qty, setQty] = useState('1');
   const week = s?.activity_this_week ?? {};
   return (
-    <Section title="Activity this week" hint="Count what you did (and the numbers your dashboard shows you), so you can see what is working.">
+    <Section title="Activity this week" hint="Count platform-specific activity to measure conversion and ROI.">
       {Object.keys(week).length === 0 ? <p className="text-xs text-slate-500 mb-3">Nothing logged since Monday.</p> : (
         <div className="flex flex-wrap gap-2 mb-3">{Object.entries(week).map(([k, v]) => <Badge key={k} tone="accent">{KIND_LABEL[k] ?? k}: {v}</Badge>)}</div>)}
       <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); run(() => post('activity', { kind, qty: Number(qty), day: today })); }}>
-        <select className={`${field} !w-auto flex-1`} aria-label="Activity" value={kind} onChange={(e) => setKind(e.target.value)}>{kinds.map((k) => <option key={k} value={k}>{KIND_LABEL[k] ?? k}</option>)}</select>
+        <select className={`${field} !w-auto flex-1`} aria-label="Activity" value={kind} onChange={(e) => setKind(e.target.value)}>{activeKinds.map((k) => <option key={k} value={k}>{KIND_LABEL[k] ?? k}</option>)}</select>
         <input className={`${field} !w-24`} type="number" min={0} aria-label="How many" value={qty} onChange={(e) => setQty(e.target.value)} />
         <Button small type="submit"><Plus className="h-3.5 w-3.5" />Add for today</Button>
       </form>
@@ -374,14 +425,22 @@ export const Pacing: FC<{ s: Summary | null }> = ({ s }) => {
   );
 };
 
-export const Experiments: FC<{ items: Rec[]; s: Summary | null; run: Run; post: Post; update: (id: number, d: Record<string, unknown>) => void; remove: (id: number) => void }> = ({ items, s, run, post, update, remove }) => {
+const EXPERIMENT_HINTS: Record<string, string> = {
+  linkedin: 'e.g. Updated headline, Featured case study, or 300-char connection note',
+  fiverr: 'e.g. New gig thumbnail, 3-tier pricing update, or FAQ rewrite',
+  upwork: 'e.g. New 2-line proposal hook, rate change, or portfolio sample',
+  clutch: 'e.g. Added verified case study or updated service focus %',
+};
+
+export const Experiments: FC<{ platform?: Platform; items: Rec[]; s: Summary | null; run: Run; post: Post; update: (id: number, d: Record<string, unknown>) => void; remove: (id: number) => void }> = ({ platform, items, s, run, post, update, remove }) => {
   const [what, setWhat] = useState('');
   const [changed, setChanged] = useState(localDay());
   const due = new Set((s?.experiments_due ?? []).map((e) => e.id));
+  const placeholder = EXPERIMENT_HINTS[platform?.id ?? ''] ?? 'What did you change? (new hook, portfolio item, rate…)';
   return (
-    <Section title="Change log" hint="Change one thing at a time and judge it after about 30 days, as Fiverr's own help advises. Log what you changed; it comes due for review automatically.">
+    <Section title="Change log" hint={`Test one ${platform?.label ?? 'channel'} improvement at a time and review its impact after 30 days.`}>
       <form className="flex flex-wrap gap-2 mb-3" onSubmit={(e) => { e.preventDefault(); run(() => post('experiment', { what, changed_on: changed })).then(() => setWhat('')); }}>
-        <input className={`${field} flex-1 min-w-48`} aria-label="What did you change" placeholder="What did you change? (new gig thumbnail, new headline…)" value={what} onChange={(e) => setWhat(e.target.value)} required />
+        <input className={`${field} flex-1 min-w-48`} aria-label="What did you change" placeholder={placeholder} value={what} onChange={(e) => setWhat(e.target.value)} required />
         <input className={`${field} !w-auto`} type="date" aria-label="Changed on" value={changed} onChange={(e) => setChanged(e.target.value)} />
         <Button small type="submit"><Plus className="h-3.5 w-3.5" />Log change</Button>
       </form>

@@ -66,6 +66,14 @@ PLATFORMS: Dict[str, Dict[str, Any]] = {
     "guru": {"label": "Guru", "kind": "marketplace", "home": "https://www.guru.com/", "terms": "https://www.guru.com/terms-of-service", "search": "https://www.guru.com/d/jobs/q/{q}/",
              "rules": ["Quote by hand; avoid automated bidding."], "routine": ["Check new jobs", "Send 1-2 quotes", "Reply to messages", "Log the day here"],
              "profile": ["SEO-friendly headline", "Portfolio and certifications you can prove"], "templates": [{"name": "Quote", "body": "Hi {first_name}, I can deliver {deliverable} for {project} in {timeline}. Proof: {proof}."}], "limits": {}},
+    "clutch": {"label": "Clutch", "kind": "directory", "home": "https://clutch.co/", "terms": "https://clutch.co/terms", "search": "https://clutch.co/search?q={q}",
+               "rules": ["Clutch drives high-intent inbound agency leads via verified client reviews and Leader Matrix rankings.",
+                         "Invite completed Upwork, LinkedIn, or direct retainer clients to submit verified Clutch reviews.",
+                         "Track referral traffic and inbound inquiries here with UTM portfolio links."],
+               "routine": ["Request 1 verified review from a delivered client", "Check Clutch profile messages & referral clicks", "Update portfolio case studies & hourly rate band", "Log inbound Clutch inquiries here"],
+               "profile": ["5+ verified client reviews with project cost & outcomes", "Clear service-line focus percentages", "Portfolio case studies with live links", "UTM-tagged website & booking link"],
+               "templates": [{"name": "Verified review request", "body": "Hi {first_name}, really glad the {project} launch hit {measurable_result}. Would you be open to sharing a quick 3-minute verified review on Clutch? It helps other teams find us: {clutch_review_link}."}],
+               "limits": {}},
     "other": {"label": "Other site", "kind": "marketplace", "home": None, "terms": None, "search": None, "rules": ["Use any site by hand; add its links and templates here."], "routine": ["Check for new work", "Reply to messages", "Follow up", "Log the day here"], "profile": [], "templates": [], "limits": {}},
 }
 
@@ -80,7 +88,7 @@ EXTRAS: Dict[str, Dict[str, Any]] = {
                   ("Jobs", "https://www.linkedin.com/jobs/"), ("Notifications", "https://www.linkedin.com/notifications/"), ("Who viewed my profile", "https://www.linkedin.com/me/profile-views/")],
         "features": [_f("Profile and Services page", "Your headline, About and Featured sections are what people read after your message.", "Feature two case studies you can prove, and switch the Services section on."),
                      _f("People and company search", "Filter by title, company and location. Sales Navigator (paid) adds deeper filters and lead lists.", "Use the link builder on this page to open searches for a company's decision makers."),
-                     _f("Connection notes", "A note on a request is limited to 300 characters.", "Mention one specific thing you noticed about their business. The counter below helps."),
+                     _f("Connection notes", "A note on a request is limited to 300 characters.", "Mention one specific thing you noticed about their business. Use the 300-character counter in Pipeline & Templates."),
                      _f("Posts and comments", "Useful comments on target companies' posts get you seen without cold outreach.", "Three genuine comments a day beats a mass message."),
                      _f("Jobs and company pages", "Hiring posts show what a company is investing in.", "Log a promising job here as an application so you remember to follow up.")],
     },
@@ -129,6 +137,12 @@ EXTRAS: Dict[str, Dict[str, Any]] = {
         "features": [_f("Quotes", "You send a quote against an employer's job.", "Quote for a defined scope, with proof of similar work."),
                      _f("Workrooms and payment protection", "Each job has a workroom to share files and agree on payments.", "Keep agreements and files in the workroom."),
                      _f("Categories and specialties", "Profiles are searchable by category.", "Use the exact words clients search for in your headline.")],
+    },
+    "clutch": {
+        "pages": [("Directory", "https://clutch.co/"), ("Leave a review", "https://review.clutch.co/")],
+        "features": [_f("Verified Client Reviews", "B2B buyers filter agencies by verified third-party interviews.", "Ask every satisfied retainer or Upwork client for a 3-minute Clutch review."),
+                     _f("Leader Matrix & Service Focus", "Rankings depend on verified reviews, service focus percentages, and portfolio.", "Keep your core service lines focused rather than listing 20 generic skills."),
+                     _f("UTM Referral Tracking", "Track clicks from your Clutch profile back to your agency site.", "Tag your Clutch website link with ?utm_source=clutch so Visitor Radar spots referrals.")],
     },
     "other": {"pages": [], "features": [_f("Your own checklist", "Any site works here: add its links, templates and routine.", "Save the pages you open daily as links.")]},
 }
