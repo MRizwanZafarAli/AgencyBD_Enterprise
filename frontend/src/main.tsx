@@ -7,6 +7,12 @@ import App from './App.tsx'
 import { ThemeProvider } from './lib/ThemeProvider'
 import { ErrorBoundary } from './components/shared/ErrorBoundary'
 
+try {
+  if (localStorage.getItem('agencybd.density') === 'compact') {
+    document.documentElement.classList.add('density-compact')
+  }
+} catch { /* ignore */ }
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary fallbackTitle="AgencyBD Application Fatal Guard">

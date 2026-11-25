@@ -5,6 +5,7 @@ import { Button, Card, Badge, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { send } from '../../lib/hooks';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
+import { ScheduledAutopilot } from './ScheduledAutopilot';
 
 interface Skipped { name: string; reason: string }
 interface RunLead { lead_id: number; company_name: string; domain: string; outcome: string; band?: string; priority?: number; reason?: string }
@@ -147,6 +148,7 @@ export const DiscoveryPanel: FC<{ onDone: () => void; onOpenClient: (leadId: num
           )}
         </div>
       )}
+      <ScheduledAutopilot />
     </Card>
   );
 };

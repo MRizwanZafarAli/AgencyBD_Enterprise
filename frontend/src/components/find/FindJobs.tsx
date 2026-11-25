@@ -626,10 +626,11 @@ export const FindJobs: FC<{
                       </td>
                       <td className="py-2.5 pr-3 hidden md:table-cell text-xs text-slate-400">{o.source}</td>
                       <td className="py-2.5 pr-3 hidden md:table-cell text-xs text-slate-300 tabular">{money(o)}</td>
-                      <td className="py-2.5 pr-3 text-right">
+                      <td className="py-2.5 pr-3 text-right whitespace-nowrap">
                         <Button
                           small
                           variant="primary"
+                          className="whitespace-nowrap"
                           onClick={(e) => {
                             e.stopPropagation();
                             openRow(o);

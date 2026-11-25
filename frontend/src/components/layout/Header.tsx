@@ -40,13 +40,13 @@ export const Header: FC<HeaderProps> = ({ halted, onToggleHalt, setMobileMenuOpe
           {crumbs.map((c, i) => (
             <span key={c} className="flex items-center gap-1.5 min-w-0">
               {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-slate-600 shrink-0" />}
-              <span className={`truncate ${i === crumbs.length - 1 ? 'text-slate-100 font-medium' : 'text-slate-500 hidden sm:inline'}`}>{c}</span>
+              <span className={`${i === crumbs.length - 1 ? 'text-slate-100 font-medium truncate' : 'text-slate-500 hidden sm:inline shrink-0 whitespace-nowrap'}`}>{c}</span>
             </span>))}
         </nav>
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-        <button onClick={onPalette} className="hidden md:flex items-center gap-2 w-56 px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900/60 text-xs text-slate-500 hover:border-slate-600" aria-label="Search or jump to">
+        <button onClick={onPalette} className="hidden md:flex items-center gap-2 w-44 xl:w-56 px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900/60 text-xs text-slate-500 hover:border-slate-600" aria-label="Search or jump to">
           <Search className="h-3.5 w-3.5" />Search or jump to…<kbd className="ml-auto font-mono border border-slate-700 rounded px-1">⌘K</kbd>
         </button>
         <button onClick={onPalette} className="md:hidden p-2 rounded-lg text-slate-400 hover:text-white" aria-label="Search or jump to"><Search className="h-4 w-4" /></button>

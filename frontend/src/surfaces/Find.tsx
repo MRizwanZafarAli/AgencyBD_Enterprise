@@ -34,7 +34,7 @@ export const Find: FC<{
   identity?: Me | null;
   onOpenScraper?: (url: string, mode?: 'general' | 'client_audit' | 'job_spec' | 'local_audit', title?: string) => void;
 }> = ({ onOpenClient, onAddGoogleKey, seed, onSendEmail, identity, onOpenScraper }) => {
-  const [tab, setTab] = useState('local');
+  const [tab, setTab] = useState(() => (identity?.role === 'sdr_rep' ? 'jobs' : 'local'));
   const [local, setLocal] = useState<LocalPreset | null>(null);
   const [jobs, setJobs] = useState<JobsPreset | null>(null);
   const [tenders, setTenders] = useState<JobsPreset | null>(null);
