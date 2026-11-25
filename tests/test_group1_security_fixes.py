@@ -144,6 +144,8 @@ _NETWORK_ALLOWLIST = {
     "intel/places.py": "fixed vendor host: places.googleapis.com",
     "intel/search.py": "fixed vendor host: api.search.brave.com",
     "engines/native_smtp_verifier.py": "raw socket, but the MX address is validated first (see test above)",
+    "engines/interactive_browser_session.py": "inspects local Chrome CDP endpoint on 127.0.0.1 only (SafeFetcher blocks loopback)",
+    "routers/email_hub.py": "TCP reachability check on configured SMTP relay host/port",
 }
 _NETWORK_PATTERNS = re.compile(
     r"\brequests\.(get|post|put|delete|head|request|Session)\b|urllib\.request|\burlopen\(|\bhttpx\.|"

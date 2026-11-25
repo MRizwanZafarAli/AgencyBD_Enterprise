@@ -60,6 +60,8 @@ def execute_universal_scrape(
             "ok": True,
             "result": res.model_dump(),
         }
+    except SSRFSecurityError as exc:
+        raise HTTPException(status_code=400, detail=f"Blocked target: {exc}")
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Scraper error: {exc}")
 
@@ -102,6 +104,8 @@ def navigate_browser_sidepanel(
             "ok": True,
             "navigation": nav_res,
         }
+    except SSRFSecurityError as exc:
+        raise HTTPException(status_code=400, detail=f"Blocked target: {exc}")
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Navigation failed: {exc}")
 

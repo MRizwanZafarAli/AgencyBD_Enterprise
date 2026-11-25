@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { FC } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Globe, 
   ExternalLink, 
@@ -263,10 +264,27 @@ export const InteractiveBrowserSidepanel: FC<InteractiveBrowserSidepanelProps> =
     setTimeout(() => setCopied(false), 2000);
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopImmediatePropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[560px] lg:w-[680px] bg-slate-950/95 border-l border-amber-500/30 backdrop-blur-2xl shadow-2xl flex flex-col font-sans transition-all duration-300">
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={contextTitle ? `${contextTitle} Universal Scraper` : 'Universal Scraper Sidepanel'}
+      className="fixed inset-y-0 right-0 z-[60] w-full sm:w-[560px] lg:w-[680px] bg-slate-950/95 border-l border-amber-500/30 backdrop-blur-2xl shadow-2xl flex flex-col font-sans transition-all duration-300"
+    >
       {/* Header Bar */}
       <div className="p-4 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
@@ -311,7 +329,9 @@ export const InteractiveBrowserSidepanel: FC<InteractiveBrowserSidepanelProps> =
 
           {/* Close drawer button */}
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Close scraper sidepanel"
             className="p-1.5 rounded-lg border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
           >
             <X className="w-4 h-4" />
@@ -739,6 +759,7 @@ export const InteractiveBrowserSidepanel: FC<InteractiveBrowserSidepanelProps> =
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

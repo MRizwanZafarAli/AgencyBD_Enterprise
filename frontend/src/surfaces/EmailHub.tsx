@@ -801,7 +801,7 @@ export const EmailHub: FC<{
             }`}
           >
             <Clock className="h-3.5 w-3.5" />
-            <span>Approval Desk ({drafts.length})</span>
+            <span>Approval Desk ({drafts.filter((d) => d.status === 'pending_approval').length})</span>
           </button>
 
           <button
@@ -1717,8 +1717,8 @@ export const EmailHub: FC<{
                   <div
                     className={`p-4 rounded-xl border flex items-start space-x-3 ${
                       inspectResult.is_deliverable
-                        ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200'
-                        : 'bg-rose-950/40 border-rose-500/40 text-rose-200'
+                        ? 'bg-emerald-500/15 border-emerald-500/40 text-slate-100'
+                        : 'bg-rose-500/15 border-rose-500/40 text-slate-100'
                     }`}
                   >
                     {inspectResult.is_deliverable ? (

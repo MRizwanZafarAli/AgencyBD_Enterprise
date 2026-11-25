@@ -84,10 +84,10 @@ def test_a_business_day_from_prospect_to_won_client(client, day, web):
     assert audit.status_code == 200 and audit.json()["status"] == "completed" and audit.json()["findings_count"] > 0
     assert {f["check_id"] for f in audit.json()["findings"]} >= {"missing_meta_description"}                      # a real, checkable finding
 
-    # ---- Sales rep may not send mail, nor approve; the Auditor may not draft
+    # ---- Sales rep may draft for approval, may not approve; the Auditor may not draft
     first = {"recipient_email": "dana@acme-dental.example", "country_code": "US", "subject": "A quick note about your website", "step_number": 1, "lead_id": lead_id,
              "body": "Hi Dana, I checked acme-dental.example and the page has no meta description, which search engines show under the title. Happy to send a one-page note."}
-    assert client.post("/api/outbound/sequence/step", headers=rep, json=first).status_code == 403
+    assert client.post("/api/outbound/sequence/step", headers=rep, json=first).status_code == 200
     assert client.post("/api/outbound/sequence/step", headers=auditor, json=first).status_code == 403
 
     # ---- Growth lead: draft, approve, send. Nothing leaves before approval.

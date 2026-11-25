@@ -159,7 +159,7 @@ export const AdminDashboard: FC<{
           <div className="space-y-2 text-xs">
             <div className="p-2.5 rounded-lg border border-slate-800 bg-slate-900/40 flex items-center justify-between">
               <div>
-                <span className="font-semibold text-white">Super Admin (`admin`)</span>
+                <span className="font-semibold text-white">Super Admin (admin)</span>
                 <div className="text-[11px] text-slate-400">Wildcard full system permissions</div>
               </div>
               <Badge tone="accent">super_admin</Badge>

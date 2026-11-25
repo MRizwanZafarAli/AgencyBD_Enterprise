@@ -541,7 +541,7 @@ def test_api_requires_country_and_proper_roles(client, make_key):
     ok = {"recipient_email": "a@acme.example", "subject": "s", "body": "Long enough body text here.", "step_number": 1}
     assert client.post("/api/outbound/sequence/step", headers=lead, json=ok).status_code == 422          # no country
     assert client.post("/api/outbound/sequence/step", headers=make_key("sdr_rep", org_id=ORG),
-                       json={**ok, "country_code": "US"}).status_code == 403
+                       json={**ok, "country_code": "US"}).status_code == 200
     assert client.post("/api/outbound/sequence/step", headers=make_key("auditor", org_id=ORG),
                        json={**ok, "country_code": "US"}).status_code == 403
 

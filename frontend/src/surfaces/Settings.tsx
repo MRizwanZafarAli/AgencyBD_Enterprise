@@ -30,7 +30,7 @@ export const Settings: FC<{ me: Me; section: string; setSection: (s: string) => 
   const tokens = find.toLowerCase().split(/\s+/).filter(Boolean);
   const matches = tokens.length ? SETTINGS_SECTIONS.filter((s) => tokens.every((t) => `${s.label} ${s.hint} ${s.keywords}`.toLowerCase().includes(t))) : SETTINGS_SECTIONS;
   const groups = Array.from(new Set(matches.map((s) => s.group)));
-  const pick = (id: string) => { setSection(id); setFind(''); };
+  const pick = (id: string) => { setSection(id); setFind(''); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const s = status.data;
   const done = s ? s.checks.filter((c) => c.status === 'ok').length : 0;
 

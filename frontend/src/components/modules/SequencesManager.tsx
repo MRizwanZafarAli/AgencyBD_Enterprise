@@ -77,7 +77,7 @@ export const SequencesManager: FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-white flex items-center space-x-2"><Mail className="h-6 w-6 text-indigo-400" /><span>Sequences</span></h1>
+        <h2 className="text-2xl font-bold tracking-tight text-white flex items-center space-x-2"><Mail className="h-6 w-6 text-indigo-400" /><span>Sequences</span></h2>
         <p className="text-sm text-slate-400 mt-1">
           Multi-day email cadences. Each send re-checks jurisdiction, suppression, replies, email verification and your autonomy policy. Use {'{first_name}'} and {'{company}'} in templates.
           Sends only happen on weekdays inside the send window.

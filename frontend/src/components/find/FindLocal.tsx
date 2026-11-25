@@ -102,7 +102,15 @@ export const FindLocal: FC<{
             <SuggestInput kinds={['city']} required minLength={2} placeholder="Leeds, UK" value={city} onChange={setCity} /></label>
           <label className="text-xs text-slate-400 space-y-1">Source
             <select className={field} value={provider} onChange={(e) => setProvider(e.target.value)}>
-              <option value="">{google ? 'Google Maps (default)' : 'OpenStreetMap (free)'}</option>{google && <option value="google">Google Maps</option>}<option value="osm">OpenStreetMap (free)</option>
+              {google ? (
+                <>
+                  <option value="">Google Maps (default)</option>
+                  <option value="google">Google Maps</option>
+                  <option value="osm">OpenStreetMap (free)</option>
+                </>
+              ) : (
+                <option value="">OpenStreetMap (free)</option>
+              )}
             </select></label>
           <label className="flex items-center gap-2 text-xs text-slate-300 pb-2"><input type="checkbox" checked={onlyGaps} onChange={(e) => { setOnlyGaps(e.target.checked); setPage(0); }} />Hide businesses with a working site</label>
           <Button variant="primary" disabled={busy}><Search className="h-4 w-4" />{busy ? 'Searching…' : 'Search'}</Button>
@@ -122,7 +130,7 @@ export const FindLocal: FC<{
             <div className="flex gap-2">
               <Button small variant={view === 'list' ? 'primary' : 'secondary'} onClick={() => setView('list')}>List</Button>
               <Button small variant={view === 'map' ? 'primary' : 'secondary'} onClick={() => setView('map')}>Map ({points.length})</Button>
-            <Button small variant="primary" disabled={picked.size === 0} onClick={() => save(rows.filter((r) => picked.has(r.place_id)))}>Save {picked.size || ''} selected</Button>
+            <Button small variant="primary" disabled={picked.size === 0} onClick={() => save(rows.filter((r) => picked.has(r.place_id)))}>Save {picked.size > 0 ? `${picked.size} ` : ''}selected</Button>
             </div>
           </div>
           {view === 'map' && (points.length ? <div className="mb-3"><ResultsMap points={points} onPick={pick} /><p className="text-[11px] text-slate-500 mt-1">{rows.length - points.length} result(s) have no exact coordinates and are not pinned.</p></div> : <p className="text-xs text-slate-400 mb-3">None of these results has exact coordinates, so there is nothing to pin.</p>)}

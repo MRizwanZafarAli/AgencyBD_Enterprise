@@ -58,12 +58,12 @@ export const MultimodalStudio: FC = () => {
       <ErrorBanner message={error} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center space-x-2">
+          <h2 className="text-2xl font-bold tracking-tight text-white flex items-center space-x-2">
             <span>Multimodal Video Storyboard Studio</span>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/20">
               TAVUS / LOOM REPLACEMENT
             </span>
-          </h1>
+          </h2>
           <p className="text-sm text-slate-400 mt-0.5">
             Generates personalized, high-converting video pitch scripts and visual action storyboards mapped to prospect websites.
           </p>

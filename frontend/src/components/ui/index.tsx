@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { FC, ReactNode, ButtonHTMLAttributes } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, X } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 
@@ -144,7 +145,7 @@ export const Drawer: FC<{ open: boolean; title: string; onClose: () => void; chi
     };
   }, [open, onClose]);
   if (!open) return null;
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={title}>
       <div className="absolute inset-0 scrim" onClick={onClose} />
       <div ref={panel} tabIndex={-1} className={`relative h-full w-full ${wide ? 'max-w-3xl' : 'max-w-xl'} glass-sheet border-l border-slate-800 overflow-y-auto animate-fade-up focus:outline-none`}>
@@ -154,7 +155,8 @@ export const Drawer: FC<{ open: boolean; title: string; onClose: () => void; chi
         </div>
         <div className="p-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

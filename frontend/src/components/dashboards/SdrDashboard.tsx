@@ -119,7 +119,7 @@ export const SdrDashboard: FC<{
 
         <div className="bento-tile rounded-2xl p-4 border border-slate-800 bg-slate-900/60">
           <div className="text-xs text-slate-400">Hot Prospects (≥70%)</div>
-          <div className="text-2xl font-semibold text-emerald-400 tabular mt-1">{d?.kpis.hot_leads ?? 0}</div>
+          <div className="text-2xl font-semibold text-emerald-400 tabular mt-1">{oppsList.filter((o) => (o.fit_score ?? 0) >= 0.7).length}</div>
           <div className="text-[11px] text-slate-400 mt-1">High qualification score</div>
           <div className="text-[11px] text-slate-500">Highest pitch conversion</div>
         </div>
