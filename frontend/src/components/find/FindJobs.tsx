@@ -17,7 +17,7 @@ import {
   UserPlus,
   Cpu,
 } from 'lucide-react';
-import { Badge, Button, Card, Drawer, EmptyState, Pager, ScoreBar, Skeletons, SuggestInput, field } from '../ui';
+import { Badge, Button, Card, Drawer, EmptyState, Pager, ScoreBar, Select, Skeletons, SuggestInput, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { send, useApi } from '../../lib/hooks';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
@@ -453,36 +453,27 @@ export const FindJobs: FC<{
           </label>
           <label className="text-xs text-slate-400 space-y-1">
             Source
-            <select
-              className={field}
+            <Select
+              aria-label="Source"
               value={source}
-              onChange={(e) => {
-                setSource(e.target.value);
+              onChange={(v) => {
+                setSource(v);
                 setPage(0);
               }}
-            >
-              <option value="">All</option>
-              {sourceNames.map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
+              options={[{ value: '', label: 'All' }, ...sourceNames.map((s) => ({ value: s, label: s }))]}
+            />
           </label>
           <label className="text-xs text-slate-400 space-y-1">
             Minimum fit
-            <select
-              className={field}
+            <Select
+              aria-label="Minimum fit"
               value={minFit}
-              onChange={(e) => {
-                setMinFit(Number(e.target.value));
+              onChange={(v) => {
+                setMinFit(Number(v));
                 setPage(0);
               }}
-            >
-              {[0, 30, 50, 70].map((n) => (
-                <option key={n} value={n}>
-                  {n ? `${n}%+` : 'Any'}
-                </option>
-              ))}
-            </select>
+              options={[0, 30, 50, 70].map((n) => ({ value: n, label: n ? `${n}%+` : 'Any' }))}
+            />
           </label>
           <label className="text-xs text-slate-400 space-y-1">
             Budget from

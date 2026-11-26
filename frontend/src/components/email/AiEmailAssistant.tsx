@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FC } from 'react';
 import { Check, ClipboardCopy, Cpu, Sparkles, Wand2 } from 'lucide-react';
-import { Badge, Button, field } from '../ui';
+import { Badge, Button, Select, field } from '../ui';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
 
 type Provider = 'auto' | 'ollama' | 'openai' | 'anthropic' | 'gemini' | 'openai_compatible' | 'manual';
@@ -158,20 +158,26 @@ export const AiEmailAssistant: FC<{
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="text-[11px] text-slate-400 space-y-1">
           AI Provider
-          <select className={field} value={provider} onChange={(e) => onProviderChange(e.target.value as Provider)}>
-            {PROVIDER_OPTIONS.map((p) => (
-              <option key={p.id} value={p.id}>{p.label}</option>
-            ))}
-          </select>
+          <Select
+            aria-label="AI Provider"
+            value={provider}
+            onChange={(v) => onProviderChange(v as Provider)}
+            options={PROVIDER_OPTIONS.map((p) => ({ value: p.id, label: p.label }))}
+          />
         </label>
         <label className="text-[11px] text-slate-400 space-y-1">
           Tone
-          <select className={field} value={tone} onChange={(e) => setTone(e.target.value)}>
-            <option value="consultative">Consultative & Direct</option>
-            <option value="executive">Executive Brief</option>
-            <option value="friendly">Warm & Conversational</option>
-            <option value="technical">Technical Teardown</option>
-          </select>
+          <Select
+            aria-label="Tone"
+            value={tone}
+            onChange={setTone}
+            options={[
+              { value: 'consultative', label: 'Consultative & Direct' },
+              { value: 'executive', label: 'Executive Brief' },
+              { value: 'friendly', label: 'Warm & Conversational' },
+              { value: 'technical', label: 'Technical Teardown' },
+            ]}
+          />
         </label>
       </div>
 

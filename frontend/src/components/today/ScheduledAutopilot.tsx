@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { CalendarClock, Play, Plus, Power } from 'lucide-react';
-import { Badge, Button, field } from '../ui';
+import { Badge, Button, Select, field } from '../ui';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
 
 interface Schedule {
@@ -105,12 +105,17 @@ export const ScheduledAutopilot: FC = () => {
                 <input className={field} required value={name} onChange={(e) => setName(e.target.value)} />
               </label>
               <label className="text-xs text-slate-400 space-y-1">Channel
-                <select className={field} value={channel} onChange={(e) => setChannel(e.target.value as typeof channel)}>
-                  <option value="hiring">Hiring</option>
-                  <option value="social">Social Intent</option>
-                  <option value="sec_edgar">SEC Filings</option>
-                  <option value="local">Local</option>
-                </select>
+                <Select
+                  aria-label="Channel"
+                  value={channel}
+                  onChange={(v) => setChannel(v as typeof channel)}
+                  options={[
+                    { value: 'hiring', label: 'Hiring' },
+                    { value: 'social', label: 'Social Intent' },
+                    { value: 'sec_edgar', label: 'SEC Filings' },
+                    { value: 'local', label: 'Local' },
+                  ]}
+                />
               </label>
               <label className="text-xs text-slate-400 space-y-1">Query / Every (hrs)
                 <div className="flex gap-1.5">

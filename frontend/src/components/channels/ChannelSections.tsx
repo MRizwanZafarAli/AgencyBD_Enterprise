@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { ArrowUpRight, Bell, Calculator, Check, Columns3, Copy, Download, ExternalLink, List, PanelRight, Pencil, Plus, Search, Trash2, Zap } from 'lucide-react';
-import { Badge, Button, EmptyState, SearchInput, SuggestInput, field } from '../ui';
+import { Badge, Button, EmptyState, SearchInput, Select, SuggestInput, field } from '../ui';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
 import { send } from '../../lib/hooks';
 import { openSide } from './browser';
@@ -196,7 +196,7 @@ export const Pipeline: FC<{
         <input className={`${field} lg:col-span-2`} aria-label="Title" placeholder="Project or person" value={f.title} onChange={set('title')} required />
         <input className={field} aria-label="Client" placeholder="Client" value={f.counterparty} onChange={set('counterparty')} />
         <input className={field} aria-label="Value in dollars" placeholder="Value $" inputMode="decimal" value={f.value} onChange={set('value')} />
-        <select className={field} aria-label="Status" value={f.status} onChange={set('status')}>{statuses.map((s) => <option key={s} value={s}>{STATUS_LABEL[s] ?? s}</option>)}</select>
+        <Select aria-label="Status" value={f.status} onChange={(v) => setF({ ...f, status: v })} options={statuses.map((s) => ({ value: s, label: STATUS_LABEL[s] ?? s }))} />
         <input className={field} type="date" aria-label="Follow up on" value={f.next_followup} onChange={set('next_followup')} />
         <input className={`${field} sm:col-span-2 ${showCost ? 'lg:col-span-2' : 'lg:col-span-3'}`} aria-label="Link" placeholder="Link to post or thread (optional)" value={f.url} onChange={set('url')} />
         <input className={`${field} ${showCost ? 'lg:col-span-2' : 'lg:col-span-2'}`} aria-label="Notes" placeholder="Notes / angle / loss reason" value={f.notes} onChange={set('notes')} />
@@ -240,9 +240,7 @@ export const Pipeline: FC<{
                       )}
                       {isDue(r) && <Badge tone="warn">Follow up due</Badge>}
                       <div className="flex items-center gap-1 pt-1">
-                        <select className={`${field} !py-1 !text-[11px]`} aria-label={`Move ${r.title}`} value={r.status} onChange={(e) => update(r.id, { status: e.target.value })}>
-                          {statuses.map((s) => <option key={s} value={s}>{STATUS_LABEL[s] ?? s}</option>)}
-                        </select>
+                        <Select small aria-label={`Move ${r.title}`} className="flex-1" value={r.status} onChange={(v) => update(r.id, { status: v })} options={statuses.map((s) => ({ value: s, label: STATUS_LABEL[s] ?? s }))} />
                         {promote && !r.crm_lead_id && (
                           <button type="button" title="Push to CRM Leads" onClick={() => promote(r.id)} className="px-1.5 py-1 rounded border border-indigo-500/40 text-[11px] text-indigo-300 hover:bg-indigo-500/15">CRM</button>
                         )}
@@ -277,7 +275,7 @@ export const Pipeline: FC<{
                       <Button small onClick={() => update(r.id, { next_followup: addDays(today, 2) })}>+2d</Button>
                     </>
                   )}
-                  <select className={`${field} !w-auto`} aria-label={`Status of ${r.title}`} value={r.status} onChange={(e) => update(r.id, { status: e.target.value })}>{statuses.map((s) => <option key={s} value={s}>{STATUS_LABEL[s] ?? s}</option>)}</select>
+                  <Select small aria-label={`Status of ${r.title}`} className="w-32" value={r.status} onChange={(v) => update(r.id, { status: v })} options={statuses.map((s) => ({ value: s, label: STATUS_LABEL[s] ?? s }))} />
                   <input className={`${field} !w-auto`} type="date" aria-label={`Follow up date for ${r.title}`} value={r.next_followup ?? ''} onChange={(e) => update(r.id, { next_followup: e.target.value || null })} />
                   {promote && !r.crm_lead_id && (
                     <Button small onClick={() => promote(r.id)}><ArrowUpRight className="h-3.5 w-3.5" />Push to CRM</Button>
@@ -454,7 +452,7 @@ export const Activity: FC<{ platformId?: string; kinds: string[]; s: Summary | n
       {Object.keys(week).length === 0 ? <p className="text-xs text-slate-500 mb-3">Nothing logged since Monday.</p> : (
         <div className="flex flex-wrap gap-2 mb-3">{Object.entries(week).map(([k, v]) => <Badge key={k} tone="accent">{KIND_LABEL[k] ?? k}: {v}</Badge>)}</div>)}
       <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); run(() => post('activity', { kind, qty: Number(qty), day: today })); }}>
-        <select className={`${field} !w-auto flex-1`} aria-label="Activity" value={kind} onChange={(e) => setKind(e.target.value)}>{activeKinds.map((k) => <option key={k} value={k}>{KIND_LABEL[k] ?? k}</option>)}</select>
+        <Select small aria-label="Activity" className="flex-1 min-w-[10rem]" value={kind} onChange={setKind} options={activeKinds.map((k) => ({ value: k, label: KIND_LABEL[k] ?? k }))} />
         <input className={`${field} !w-24`} type="number" min={0} aria-label="How many" value={qty} onChange={(e) => setQty(e.target.value)} />
         <Button small type="submit"><Plus className="h-3.5 w-3.5" />Add for today</Button>
       </form>
@@ -497,8 +495,7 @@ export const Availability: FC<{ platform: Platform; setting: Summary['setting'];
       <div className="flex flex-wrap items-center gap-2 mb-3 text-xs text-slate-400">
         <label>From <input className={`${field} !w-auto`} type="time" value={cfg.start} onChange={(e) => e.target.value && save({ start: e.target.value })} /></label>
         <label>To <input className={`${field} !w-auto`} type="time" value={cfg.end} onChange={(e) => e.target.value && save({ end: e.target.value })} /></label>
-        <label>Remind <select className={`${field} !w-auto`} value={cfg.remind_minutes} onChange={(e) => save({ remind_minutes: Number(e.target.value) })}>
-          <option value={0}>at start only</option><option value={30}>every 30 min</option><option value={60}>every hour</option><option value={120}>every 2 hours</option></select></label>
+        <label className="inline-flex items-center gap-1.5">Remind <Select small aria-label="Remind interval" className="w-36" value={cfg.remind_minutes} onChange={(v) => save({ remind_minutes: Number(v) })} options={[{ value: 0, label: 'at start only' }, { value: 30, label: 'every 30 min' }, { value: 60, label: 'every hour' }, { value: 120, label: 'every 2 hours' }]} /></label>
       </div>
       {platform.id === 'linkedin' && (
         <label className="flex flex-wrap items-center gap-2 mb-3 text-xs text-slate-400">Weekly invite limit

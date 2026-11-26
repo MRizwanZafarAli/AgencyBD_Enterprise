@@ -11,6 +11,7 @@ import type { Me } from '../lib/api';
 import { ErrorBoundary } from '../components/shared/ErrorBoundary';
 import { MasterInbox } from '../components/email/MasterInbox';
 import { AiEmailAssistant } from '../components/email/AiEmailAssistant';
+import { Select } from '../components/ui';
 
 export interface EmailSeed {
   recipient?: string;
@@ -1027,21 +1028,20 @@ export const EmailHub: FC<{
 
               {/* Mailbox Selector */}
               <div>
-                <label className="text-[11px] text-slate-400 font-medium">From (Sending Mailbox)</label>
-                <select
+                <label className="text-[11px] text-slate-400 font-medium block mb-1">From (Sending Mailbox)</label>
+                <Select
+                  aria-label="From (Sending Mailbox)"
                   value={selectedMailboxId || ''}
-                  onChange={(e) => setSelectedMailboxId(Number(e.target.value))}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none mt-1"
-                >
-                  {mailboxes.map((mb) => (
-                    <option key={mb.id} value={mb.id}>
-                      {mb.display_name ? `${mb.display_name} <${mb.email}>` : mb.email} — ({mb.sent_today}/{mb.daily_cap} sent today)
-                    </option>
-                  ))}
-                  {mailboxes.length === 0 && (
-                    <option value="">Default Auto-Rotated Relay</option>
-                  )}
-                </select>
+                  onChange={(v) => setSelectedMailboxId(Number(v))}
+                  options={
+                    mailboxes.length > 0
+                      ? mailboxes.map((mb) => ({
+                          value: mb.id,
+                          label: `${mb.display_name ? `${mb.display_name} <${mb.email}>` : mb.email} — (${mb.sent_today}/${mb.daily_cap} sent today)`,
+                        }))
+                      : [{ value: '', label: 'Default Auto-Rotated Relay' }]
+                  }
+                />
               </div>
 
               {/* Subject Line */}
@@ -2478,19 +2478,22 @@ export const EmailHub: FC<{
                   </div>
 
                   <div>
-                    <label className="text-[11px] text-slate-300 font-medium">Sending State</label>
-                    <select
+                    <label className="text-[11px] text-slate-300 font-medium block mb-1">Sending State</label>
+                    <Select
+                      aria-label="Sending State"
                       value={editMailboxForm.reputation_status}
-                      onChange={(e) => setEditMailboxForm({
-                        ...editMailboxForm,
-                        reputation_status: e.target.value,
-                        is_active: e.target.value === 'paused' ? 0 : 1
-                      })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none mt-1"
-                    >
-                      <option value="healthy">Active / Healthy</option>
-                      <option value="paused">Paused (Exclude from rotation)</option>
-                    </select>
+                      onChange={(v) =>
+                        setEditMailboxForm({
+                          ...editMailboxForm,
+                          reputation_status: v,
+                          is_active: v === 'paused' ? 0 : 1,
+                        })
+                      }
+                      options={[
+                        { value: 'healthy', label: 'Active / Healthy' },
+                        { value: 'paused', label: 'Paused (Exclude from rotation)' },
+                      ]}
+                    />
                   </div>
                 </div>
 

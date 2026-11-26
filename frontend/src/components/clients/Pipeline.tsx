@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { FollowupsPanel } from './FollowupsPanel';
 import { ChasePanel } from './ChasePanel';
-import { Button, Card, EmptyState, Skeletons, Stat, SuggestInput, field } from '../ui';
+import { Button, Card, EmptyState, Select, Skeletons, Stat, SuggestInput, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { send, useApi } from '../../lib/hooks';
 
@@ -207,16 +207,18 @@ export const PipelineBoard: FC<{ onOpen: (leadId: number) => void }> = ({ onOpen
             onChange={setFind} 
             options={names} 
           />
-          <select 
-            className={`${field} !w-auto text-xs`} 
-            aria-label="Sort cards" 
-            value={sort} 
-            onChange={(e) => setSort(e.target.value as typeof sort)}
-          >
-            <option value="recent">Newest first</option>
-            <option value="value">Highest value</option>
-            <option value="name">Company Name</option>
-          </select>
+          <Select
+            small
+            aria-label="Sort cards"
+            className="w-36"
+            value={sort}
+            onChange={(v) => setSort(v as typeof sort)}
+            options={[
+              { value: 'recent', label: 'Newest first' },
+              { value: 'value', label: 'Highest value' },
+              { value: 'name', label: 'Company Name' },
+            ]}
+          />
           <Button small onClick={exportCsv} disabled={!d}>
             <Download className="h-3.5 w-3.5" />CSV
           </Button>
@@ -342,16 +344,14 @@ export const PipelineBoard: FC<{ onOpen: (leadId: number) => void }> = ({ onOpen
 
                             <div className="flex items-center gap-1">
                               {/* Stage Selector */}
-                              <select 
-                                aria-label={`Move ${l.company_name}`} 
-                                className="bg-slate-900 border border-slate-700/80 rounded-lg text-[11px] text-slate-200 px-2 py-1 font-medium focus:border-indigo-500 focus:outline-none" 
-                                value={s.id} 
-                                onChange={(e) => move(l.id, e.target.value)}
-                              >
-                                {STAGES.map((o) => (
-                                  <option key={o.id} value={o.id}>{o.label}</option>
-                                ))}
-                              </select>
+                              <Select
+                                small
+                                aria-label={`Move ${l.company_name}`}
+                                className="flex-1"
+                                value={s.id}
+                                onChange={(v) => move(l.id, v)}
+                                options={STAGES.map((o) => ({ value: o.id, label: o.label }))}
+                              />
 
                               {/* Advance shortcut */}
                               {s.id !== 'won' && s.id !== 'lost' && (
@@ -411,15 +411,14 @@ export const PipelineBoard: FC<{ onOpen: (leadId: number) => void }> = ({ onOpen
                         </button>
                       </td>
                       <td className="py-3 px-4">
-                        <select 
-                          value={l.stage_id} 
-                          onChange={(e) => move(l.id, e.target.value)}
-                          className="bg-slate-950 border border-slate-800 text-slate-200 rounded-lg px-2 py-1 text-xs font-medium focus:border-indigo-500 focus:outline-none"
-                        >
-                          {STAGES.map((s) => (
-                            <option key={s.id} value={s.id}>{s.label}</option>
-                          ))}
-                        </select>
+                        <Select
+                          small
+                          aria-label={`Stage of ${l.company_name}`}
+                          className="w-36"
+                          value={l.stage_id}
+                          onChange={(v) => move(l.id, v)}
+                          options={STAGES.map((s) => ({ value: s.id, label: s.label }))}
+                        />
                       </td>
                       <td className="py-3 px-4 font-mono font-medium">
                         {l.deal_value ? (

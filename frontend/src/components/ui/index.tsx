@@ -6,6 +6,9 @@ import { apiFetch } from '../../lib/api';
 
 /* Small design-system layer. Semantic slate classes flip automatically between the dark and light themes (see index.css). */
 
+export { Select } from './Select';
+export type { SelectOption } from './Select';
+
 export const field =
   'w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500';
 

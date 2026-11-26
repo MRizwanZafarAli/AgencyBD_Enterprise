@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FC } from 'react';
 import { Archive, Check, Inbox, Mail, RefreshCw, Send, Sparkles } from 'lucide-react';
-import { Badge, Button, Card, field } from '../ui';
+import { Badge, Button, Card, Select, field } from '../ui';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
 
 export interface InboxMessage {
@@ -132,17 +132,20 @@ export const MasterInbox: FC<{
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <select
-              className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200"
+            <Select
+              small
+              aria-label="Filter messages"
+              className="w-36"
               value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            >
-              <option value="all">All Messages</option>
-              <option value="unread">Unread</option>
-              <option value="read">Read</option>
-              <option value="replied">Replied</option>
-              <option value="archived">Archived</option>
-            </select>
+              onChange={setFilter}
+              options={[
+                { value: 'all', label: 'All Messages' },
+                { value: 'unread', label: 'Unread' },
+                { value: 'read', label: 'Read' },
+                { value: 'replied', label: 'Replied' },
+                { value: 'archived', label: 'Archived' },
+              ]}
+            />
             <Button small onClick={() => setSyncOpen((v) => !v)}>
               <Mail className="h-3.5 w-3.5" />
               IMAP Sync

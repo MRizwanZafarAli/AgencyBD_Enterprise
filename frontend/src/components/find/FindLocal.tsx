@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { MapPin, Star, ExternalLink, Search, ShieldAlert, Copy, Mail, Cpu } from 'lucide-react';
-import { Badge, Button, Card, Drawer, EmptyState, Pager, ScoreBar, Skeletons, SuggestInput, field } from '../ui';
+import { Badge, Button, Card, Drawer, EmptyState, Pager, ScoreBar, Select, Skeletons, SuggestInput } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { CopyablePhone } from '../shared/ClickableContact';
 import { send, useApi } from '../../lib/hooks';
@@ -104,17 +104,20 @@ export const FindLocal: FC<{
           <label className="text-xs text-slate-400 space-y-1">City
             <SuggestInput kinds={['city']} required minLength={2} placeholder="Leeds, UK" value={city} onChange={setCity} /></label>
           <label className="text-xs text-slate-400 space-y-1">Source
-            <select className={field} value={provider} onChange={(e) => setProvider(e.target.value)}>
-              {google ? (
-                <>
-                  <option value="">Google Maps (default)</option>
-                  <option value="google">Google Maps</option>
-                  <option value="osm">OpenStreetMap (free)</option>
-                </>
-              ) : (
-                <option value="">OpenStreetMap (free)</option>
-              )}
-            </select></label>
+            <Select
+              aria-label="Source"
+              value={provider}
+              onChange={setProvider}
+              options={
+                google
+                  ? [
+                      { value: '', label: 'Google Maps (default)' },
+                      { value: 'google', label: 'Google Maps' },
+                      { value: 'osm', label: 'OpenStreetMap (free)' },
+                    ]
+                  : [{ value: '', label: 'OpenStreetMap (free)' }]
+              }
+            /></label>
           <label className="flex items-center gap-2 text-xs text-slate-300 pb-2"><input type="checkbox" checked={onlyGaps} onChange={(e) => { setOnlyGaps(e.target.checked); setPage(0); }} />Hide businesses with a working site</label>
           <Button variant="primary" disabled={busy}><Search className="h-4 w-4" />{busy ? 'Searching…' : 'Search'}</Button>
         </form>
