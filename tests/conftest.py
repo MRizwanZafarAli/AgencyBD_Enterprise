@@ -59,12 +59,16 @@ def web(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def clean_test_database():
-    """Ensures each test has an isolated, clean database state."""
+    """Ensures each test has an isolated, clean database state and event bus."""
+    from core.hooks import event_bus
+    event_bus.clear()
     init_db()
     with get_db() as conn:
         for table in TABLES_TO_CLEAR:
             conn.execute(f"DELETE FROM {table}")
         conn.commit()
+    yield
+    event_bus.clear()
 
 
 @pytest.fixture

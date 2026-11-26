@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import type { Surface } from './types';
 import { Header } from './components/layout/Header';
 import { Sidebar, MobileTabBar } from './components/layout/Sidebar';
@@ -6,14 +6,16 @@ import { ShortcutsHelp } from './components/layout/ShortcutsHelp';
 import { AuthGate } from './components/layout/AuthGate';
 import { CommandPalette } from './components/layout/CommandPalette';
 import type { Command } from './components/layout/commands';
-import { Today } from './surfaces/Today';
-import { Find } from './surfaces/Find';
-import { Clients } from './surfaces/Clients';
-import { Settings } from './surfaces/Settings';
-import { Tools } from './surfaces/Tools';
-import { Channels } from './surfaces/Channels';
-import { EmailHub } from './surfaces/EmailHub';
 import type { EmailSeed } from './surfaces/EmailHub';
+import { Skeletons } from './components/ui';
+
+const Today = lazy(() => import('./surfaces/Today').then((m) => ({ default: m.Today })));
+const Find = lazy(() => import('./surfaces/Find').then((m) => ({ default: m.Find })));
+const Clients = lazy(() => import('./surfaces/Clients').then((m) => ({ default: m.Clients })));
+const Settings = lazy(() => import('./surfaces/Settings').then((m) => ({ default: m.Settings })));
+const Tools = lazy(() => import('./surfaces/Tools').then((m) => ({ default: m.Tools })));
+const Channels = lazy(() => import('./surfaces/Channels').then((m) => ({ default: m.Channels })));
+const EmailHub = lazy(() => import('./surfaces/EmailHub').then((m) => ({ default: m.EmailHub })));
 import { SECTION_LABEL } from './components/settings/sections';
 import { BrowserDock } from './components/channels/BrowserDock';
 import { InteractiveBrowserSidepanel } from './components/browser/InteractiveBrowserSidepanel';
@@ -271,6 +273,7 @@ export function App() {
         />
         <main id="main" className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-[1400px] w-full mx-auto">
           <ErrorBoundary fallbackTitle="Application Workspace Encountered an Issue" onReset={() => setSurface('today')}>
+            <Suspense fallback={<Skeletons rows={4} />}>
             <div key={surface} className="page-enter">
               {surface === 'today' && (
                 <Today
@@ -333,6 +336,7 @@ export function App() {
                 />
               )}
             </div>
+            </Suspense>
           </ErrorBoundary>
         </main>
       </div>
