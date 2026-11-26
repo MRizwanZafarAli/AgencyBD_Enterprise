@@ -169,3 +169,56 @@ def test_sales_nav_companion_capture():
     )
     assert res.status_code == 200
     assert res.json()["captured_count"] == 1
+
+
+def test_email_hub_ai_writer_templates_crud_and_bulk_send():
+    client = TestClient(app)
+    org = "org_ent_email_ai"
+    sdr_headers = _headers("sdr_rep", org)
+
+    # 1. AI Writer offline structured fallback works without paid keys
+    ai_res = client.post(
+        "/api/email/ai-draft",
+        headers=sdr_headers,
+        json={
+            "provider": "auto",
+            "recipient_name": "Sarah Jenkins",
+            "company_name": "Acme Health",
+            "goal": "15-min performance teardown",
+            "tone": "consultative",
+        },
+    )
+    assert ai_res.status_code == 200
+    assert "Sarah" in ai_res.json()["body"]
+    assert ai_res.json()["provider_used"] == "structured_fallback"
+
+    # 2. Custom Templates CRUD
+    c_res = client.post(
+        "/api/email/templates",
+        headers=sdr_headers,
+        json={"name": "Custom Pitch", "subject": "Hello {{company}}", "body": "Hi {{first_name}}, quick note."},
+    )
+    assert c_res.status_code == 200
+    db_id = c_res.json()["db_id"]
+    list_res = client.get("/api/email/templates", headers=sdr_headers)
+    assert any(t["name"] == "Custom Pitch" for t in list_res.json())
+    d_res = client.delete(f"/api/email/templates/{db_id}", headers=sdr_headers)
+    assert d_res.status_code == 200
+
+    # 3. Bulk send queues drafts with merge tags & spintax
+    b_res = client.post(
+        "/api/email/bulk-send",
+        headers=sdr_headers,
+        json={
+            "recipients": [
+                {"email": "a@example.com", "name": "Alice Smith", "company": "AlphaCo"},
+                {"email": "bad-email", "name": "Bad", "company": "None"},
+            ],
+            "subject": "{Hi|Hello} {{company}}",
+            "body": "Hey {{first_name}}, let's chat.",
+            "as_draft": True,
+        },
+    )
+    assert b_res.status_code == 200
+    assert b_res.json()["processed"] == 1
+    assert len(b_res.json()["skipped"]) == 1

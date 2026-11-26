@@ -924,41 +924,226 @@ def delete_draft_from_hub(
     return {"ok": True, "deleted": draft_id}
 
 
+class EmailTemplateBody(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    subject: str = Field(..., min_length=1, max_length=240)
+    body: str = Field(..., min_length=1, max_length=8000)
+    description: str = Field(default="", max_length=300)
+
+
+class AiDraftRequest(BaseModel):
+    provider: str = "auto"
+    model: Optional[str] = None
+    base_url: Optional[str] = None
+    api_key: Optional[str] = None
+    recipient_name: str = ""
+    company_name: str = ""
+    goal: str = ""
+    tone: str = "consultative"
+    context: str = ""
+    reply_to_subject: str = ""
+    reply_to_body: str = ""
+
+
+class BulkRecipient(BaseModel):
+    email: str
+    name: str = ""
+    company: str = ""
+
+
+class BulkSendRequest(BaseModel):
+    recipients: List[BulkRecipient] = Field(..., min_length=1, max_length=100)
+    subject: str = Field(..., min_length=1, max_length=240)
+    body: str = Field(..., min_length=1, max_length=8000)
+    mailbox_id: Optional[int] = None
+    country_code: str = "US"
+    as_draft: bool = True
+
+
+def _resolve_spintax(text: str) -> str:
+    import random
+    import re
+    pattern = re.compile(r"\{([^{}|]+(?:\|[^{}|]+)+)\}")
+    out = text
+    for _ in range(5):
+        if not pattern.search(out):
+            break
+        out = pattern.sub(lambda m: random.choice(m.group(1).split("|")), out)
+    return out
+
+
+def _apply_merge_tags(text: str, name: str, company: str) -> str:
+    first = (name or "").strip().split()[0] if name and name.strip() else "there"
+    comp = (company or "").strip() or "your team"
+    return (
+        text.replace("{{first_name}}", first)
+        .replace("{{name}}", (name or "").strip() or first)
+        .replace("{{company}}", comp)
+    )
+
+
 @router.get("/templates")
 def list_email_templates(
     principal: Principal = Depends(require_permission("leads:read"))
 ):
-    """Returns proven B2B cold email templates with merge tag descriptions."""
-    return [
+    """Returns custom workspace templates + built-in B2B cold email starter templates."""
+    with get_db() as conn:
+        custom_rows = conn.execute(
+            "SELECT id, name, subject, body, description FROM email_templates WHERE org_id = ? ORDER BY id DESC",
+            (principal.org_id,),
+        ).fetchall()
+    custom = [{**dict(r), "id": f"custom_{r['id']}", "db_id": r["id"], "is_custom": True} for r in custom_rows]
+    starters = [
         {
             "id": "audit_teardown",
             "name": "Technical Audit & Performance Teardown",
             "subject": "Quick question about {{company}}'s web performance & SEO",
             "body": "Hi {{first_name}},\n\nI was reviewing {{company}}'s recent digital touchpoints and ran a quick architectural scan on your site. We noticed a couple of actionable optimization spots (specifically page load bottlenecks and missing DNS records) that might be impacting conversions.\n\nWe put together a brief teardown with the exact findings. Would you be open to taking a quick look this week?\n\nBest,\nAlex",
-            "description": "High-converting diagnostic first touch. Best for inbound or scanned leads."
+            "description": "High-converting diagnostic first touch. Best for inbound or scanned leads.",
+            "is_custom": False,
         },
         {
             "id": "proposal_dispatch",
             "name": "Commercial Proposal & Scope Dispatch",
-            "subject": "Proposal & Technical Scope: {{project_title}}",
-            "body": "Hi {{first_name}},\n\nFollowing our review of your requirements for {{company}}, please find our formal scope proposal attached below.\n\nOur team has successfully delivered similar implementations, achieving up to a 40% reduction in latency and improved conversion rates. Let us know if you'd like to schedule a 15-minute alignment call to walk through the deliverables.\n\nLooking forward to your thoughts,\nAlex",
-            "description": "Formal proposal dispatch following discovery or opportunity triage."
+            "subject": "Proposal & Technical Scope: {{company}}",
+            "body": "Hi {{first_name}},\n\nFollowing our review of your requirements for {{company}}, please find our formal scope proposal attached below.\n\nOur team has successfully delivered similar implementations with measurable latency and conversion gains. Let us know if you'd like to schedule a 15-minute alignment call to walk through the deliverables.\n\nLooking forward to your thoughts,\nAlex",
+            "description": "Formal proposal dispatch following discovery or opportunity triage.",
+            "is_custom": False,
         },
         {
             "id": "quick_bump",
             "name": "Polite Follow-up Bump (Step 2)",
             "subject": "Re: Quick question about {{company}}'s web performance & SEO",
-            "body": "Hi {{first_name}},\n\nJust bumping this in case it got buried under your inbox. We recently resolved a similar infrastructure bottleneck for an enterprise client in your space that increased organic search visibility by 28%.\n\nDo you have 5 minutes later this week for a quick chat?\n\nBest,\nAlex",
-            "description": "Short, unobtrusive 3-day follow-up."
+            "body": "Hi {{first_name}},\n\nJust bumping this in case it got buried under your inbox. Would you have 5 minutes later this week for a quick chat?\n\nBest,\nAlex",
+            "description": "Short, unobtrusive 3-day follow-up.",
+            "is_custom": False,
         },
         {
             "id": "partnership_pitch",
             "name": "Agency Partnership Collaboration",
             "subject": "Potential partnership collaboration with {{company}}",
-            "body": "Hi {{first_name}},\n\nI've been following {{company}}'s impressive growth and work in the industry. Our agency specializes in specialized technical engineering, and we often collaborate with leading teams on overflow capacity and specialized delivery.\n\nWould you be open to an introductory connection to see if there's mutual synergy?\n\nWarm regards,\nAlex",
-            "description": "Strategic B2B agency partnership outreach."
-        }
+            "body": "Hi {{first_name}},\n\nI've been following {{company}}'s work in the industry. Our agency specializes in technical engineering and overflow delivery.\n\nWould you be open to an introductory connection to see if there's mutual synergy?\n\nWarm regards,\nAlex",
+            "description": "Strategic B2B agency partnership outreach.",
+            "is_custom": False,
+        },
     ]
+    return custom + starters
+
+
+@router.post("/templates")
+def create_email_template(
+    req: EmailTemplateBody,
+    principal: Principal = Depends(require_permission("outreach:draft")),
+):
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO email_templates (org_id, name, subject, body, description) VALUES (?, ?, ?, ?, ?)",
+            (principal.org_id, req.name.strip(), req.subject.strip(), req.body.strip(), req.description.strip()),
+        )
+        conn.commit()
+        row = conn.execute("SELECT id, name, subject, body, description FROM email_templates WHERE id = ?", (cur.lastrowid,)).fetchone()
+    return {**dict(row), "id": f"custom_{row['id']}", "db_id": row["id"], "is_custom": True}
+
+
+@router.put("/templates/{template_id}")
+def update_email_template(
+    template_id: int,
+    req: EmailTemplateBody,
+    principal: Principal = Depends(require_permission("outreach:draft")),
+):
+    with get_db() as conn:
+        n = conn.execute(
+            "UPDATE email_templates SET name = ?, subject = ?, body = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND org_id = ?",
+            (req.name.strip(), req.subject.strip(), req.body.strip(), req.description.strip(), template_id, principal.org_id),
+        ).rowcount
+        conn.commit()
+        if not n:
+            raise HTTPException(status_code=404, detail="Template not found")
+        row = conn.execute("SELECT id, name, subject, body, description FROM email_templates WHERE id = ?", (template_id,)).fetchone()
+    return {**dict(row), "id": f"custom_{row['id']}", "db_id": row["id"], "is_custom": True}
+
+
+@router.delete("/templates/{template_id}")
+def delete_email_template(
+    template_id: int,
+    principal: Principal = Depends(require_permission("outreach:draft")),
+):
+    with get_db() as conn:
+        n = conn.execute("DELETE FROM email_templates WHERE id = ? AND org_id = ?", (template_id, principal.org_id)).rowcount
+        conn.commit()
+    if not n:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return {"deleted": template_id}
+
+
+@router.post("/ai-draft")
+def ai_draft_email(
+    req: AiDraftRequest,
+    principal: Principal = Depends(require_permission("outreach:draft")),
+):
+    """Generates an email draft using local AI (Ollama/LM Studio), paid AI (OpenAI/Claude/Gemini), or structured fallback."""
+    from engines.ai_writer import generate_email_draft
+    try:
+        return generate_email_draft(
+            provider=req.provider,
+            model=req.model,
+            base_url=req.base_url,
+            api_key=req.api_key,
+            recipient_name=req.recipient_name,
+            company_name=req.company_name,
+            goal=req.goal,
+            tone=req.tone,
+            context=req.context,
+            reply_to_subject=req.reply_to_subject,
+            reply_to_body=req.reply_to_body,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"AI provider error: {exc}")
+
+
+@router.post("/bulk-send")
+def bulk_send_emails(
+    req: BulkSendRequest,
+    principal: Principal = Depends(require_permission("outreach:draft")),
+):
+    """Queues or dispatches personalized emails with merge tags + spintax across multiple recipients."""
+    org_id = principal.org_id
+    if controls.is_halted(org_id):
+        raise HTTPException(status_code=403, detail="Outbound email sending is halted workspace-wide.")
+
+    created = 0
+    skipped = []
+    for item in req.recipients:
+        clean = item.email.strip().lower()
+        if not clean or "@" not in clean:
+            skipped.append({"email": item.email, "reason": "invalid syntax"})
+            continue
+        v = evaluate_email_correctness(clean, org_id)
+        if not v["syntax_valid"] or v["is_disposable"] or v["is_spamtrap"] or v["is_suppressed"]:
+            skipped.append({"email": clean, "reason": v.get("reason") or "blocked"})
+            continue
+        subj = _resolve_spintax(_apply_merge_tags(req.subject, item.name, item.company))
+        bdy = _resolve_spintax(_apply_merge_tags(req.body, item.name, item.company))
+        bad = check_outreach_text(subj, bdy)
+        if bad:
+            skipped.append({"email": clean, "reason": bad})
+            continue
+        sub_req = DirectEmailSendRequest(
+            to_email=clean,
+            recipient_name=item.name or None,
+            company_name=item.company or None,
+            subject=subj,
+            body=bdy,
+            mailbox_id=req.mailbox_id,
+            country_code=req.country_code,
+            as_draft=req.as_draft,
+        )
+        direct_send_email(sub_req, principal)
+        created += 1
+
+    return {"ok": True, "processed": created, "skipped": skipped, "as_draft": req.as_draft}
 
 
 class ImapSyncRequest(BaseModel):
@@ -1018,7 +1203,7 @@ def list_master_inbox(
 @router.post("/inbox/sync")
 def sync_master_inbox(
     req: ImapSyncRequest,
-    principal: Principal = Depends(require_permission("outbound:write")),
+    principal: Principal = Depends(require_permission("outreach:dispatch")),
 ):
     """Polls an IMAP/TLS mailbox and ingests unread prospect replies into Master Inbox."""
     from engines.native_imap_sync import imap_sync_engine

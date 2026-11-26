@@ -10,6 +10,7 @@ import { apiFetch, apiErrorMessage } from '../lib/api';
 import type { Me } from '../lib/api';
 import { ErrorBoundary } from '../components/shared/ErrorBoundary';
 import { MasterInbox } from '../components/email/MasterInbox';
+import { AiEmailAssistant } from '../components/email/AiEmailAssistant';
 
 export interface EmailSeed {
   recipient?: string;
@@ -76,6 +77,8 @@ interface OutboundDraft {
 
 interface EmailTemplate {
   id: string;
+  db_id?: number;
+  is_custom?: boolean;
   name: string;
   subject: string;
   body: string;
@@ -116,6 +119,12 @@ export const EmailHub: FC<{
   const [events, setEvents] = useState<OutboundEvent[]>([]);
   const [drafts, setDrafts] = useState<OutboundDraft[]>([]);
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [inboxUnread, setInboxUnread] = useState<number>(0);
+  const [showAiWriter, setShowAiWriter] = useState<boolean>(false);
+  const [bulkMode, setBulkMode] = useState<boolean>(false);
+  const [bulkInput, setBulkInput] = useState<string>('');
+  const [savingTemplate, setSavingTemplate] = useState<boolean>(false);
+  const [templateNameInput, setTemplateNameInput] = useState<string>('');
   
   // Compose form state
   const [toEmail, setToEmail] = useState(seed?.recipient || '');
@@ -239,7 +248,9 @@ export const EmailHub: FC<{
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 30000); // 30s auto-refresh
+    const interval = setInterval(() => {
+      if (typeof document === 'undefined' || !document.hidden) loadData();
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -792,7 +803,7 @@ export const EmailHub: FC<{
             }`}
           >
             <Inbox className="h-3.5 w-3.5" />
-            <span>Master Inbox</span>
+            <span>Master Inbox{inboxUnread > 0 ? ` (${inboxUnread})` : ''}</span>
           </button>
 
           <button
@@ -838,6 +849,7 @@ export const EmailHub: FC<{
 
         {tab === 'inbox' && (
           <MasterInbox
+            onUnreadChange={setInboxUnread}
             onLoadDraftToComposer={(params) => {
               setToEmail(params.to);
               setSubject(params.subject);
@@ -855,12 +867,31 @@ export const EmailHub: FC<{
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left 2 Cols: Main Compose Form */}
             <div className="lg:col-span-2 space-y-4 bento-tile specular-border rounded-2xl p-5 sm:p-6 border border-slate-800 bg-slate-900/60">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800">
                 <div className="flex items-center space-x-2">
                   <Mail className="h-4 w-4 text-indigo-400" />
                   <h2 className="text-sm font-semibold text-white">Outbound Composer</h2>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAiWriter((v) => !v)}
+                    className={`flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
+                      showAiWriter ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'border-slate-700 text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>AI Writer (Local / Paid / Copy-Paste)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBulkMode((v) => !v)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
+                      bulkMode ? 'bg-cyan-600/20 border-cyan-500 text-cyan-300' : 'border-slate-700 text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    {bulkMode ? 'Bulk CSV Mode' : 'Single Mode'}
+                  </button>
                   <button
                     type="button"
                     onClick={() => setPreviewHtml(!previewHtml)}
@@ -871,6 +902,35 @@ export const EmailHub: FC<{
                   </button>
                 </div>
               </div>
+
+              {showAiWriter && (
+                <AiEmailAssistant
+                  recipientName={recipientName}
+                  companyName={companyName}
+                  onApply={({ subject: s, body: b }) => {
+                    setSubject(s);
+                    setBody(b);
+                  }}
+                />
+              )}
+
+              {bulkMode && (
+                <div className="space-y-1.5 rounded-xl border border-cyan-500/30 bg-slate-950/60 p-3">
+                  <label className="text-xs text-cyan-300 font-medium block">
+                    Bulk Recipients (one per line: <code className="text-slate-300">email, name, company</code>)
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={bulkInput}
+                    onChange={(e) => setBulkInput(e.target.value)}
+                    placeholder={'sarah@acme.com, Sarah Jenkins, Acme Health\njohn@globex.io, John Doe, Globex'}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-mono"
+                  />
+                  <p className="text-[11px] text-slate-400">
+                    Supports <code className="text-slate-300">{'{{first_name}}'}</code>, <code className="text-slate-300">{'{{company}}'}</code>, and Spintax like <code className="text-slate-300">{'{Hi|Hello|Hey}'}</code>.
+                  </p>
+                </div>
+              )}
 
               {/* Recipient Input with Live Deliverability Badge */}
               <div className="space-y-1.5">
@@ -1051,35 +1111,119 @@ export const EmailHub: FC<{
 
               {/* Send Buttons Row */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => handleSend(true)}
-                  disabled={sending || !toEmail || !subject || !body}
-                  className="px-4 py-2.5 rounded-xl border border-slate-700 hover:border-slate-600 bg-slate-900 text-slate-300 hover:text-white text-xs font-medium transition disabled:opacity-50"
-                >
-                  Save as Draft for Approval
-                </button>
+                {bulkMode ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={sending || !bulkInput.trim() || !subject || !body}
+                      onClick={async () => {
+                        setSending(true);
+                        setFeedback(null);
+                        try {
+                          const recipients = bulkInput
+                            .split(/\r?\n/)
+                            .map((line) => line.split(',').map((s) => s.trim()))
+                            .filter((parts) => parts[0] && parts[0].includes('@'))
+                            .map(([email, name = '', company = '']) => ({ email, name, company }));
+                          const res = await apiFetch('/api/email/bulk-send', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              recipients,
+                              subject,
+                              body,
+                              mailbox_id: selectedMailboxId,
+                              country_code: countryCode,
+                              as_draft: true,
+                            }),
+                          });
+                          const data = await res.json().catch(() => ({}));
+                          if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
+                          setFeedback({ type: 'success', message: `Queued ${data.processed} bulk draft(s) (${data.skipped?.length ?? 0} skipped).` });
+                          loadData();
+                        } catch (e) {
+                          setFeedback({ type: 'error', message: (e as Error).message });
+                        } finally {
+                          setSending(false);
+                        }
+                      }}
+                      className="px-4 py-2.5 rounded-xl border border-slate-700 hover:border-slate-600 bg-slate-900 text-slate-300 hover:text-white text-xs font-medium transition disabled:opacity-50"
+                    >
+                      Queue Bulk Drafts for Approval
+                    </button>
+                    <button
+                      type="button"
+                      disabled={sending || !bulkInput.trim() || !subject || !body}
+                      onClick={async () => {
+                        setSending(true);
+                        setFeedback(null);
+                        try {
+                          const recipients = bulkInput
+                            .split(/\r?\n/)
+                            .map((line) => line.split(',').map((s) => s.trim()))
+                            .filter((parts) => parts[0] && parts[0].includes('@'))
+                            .map(([email, name = '', company = '']) => ({ email, name, company }));
+                          const res = await apiFetch('/api/email/bulk-send', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              recipients,
+                              subject,
+                              body,
+                              mailbox_id: selectedMailboxId,
+                              country_code: countryCode,
+                              as_draft: false,
+                            }),
+                          });
+                          const data = await res.json().catch(() => ({}));
+                          if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
+                          setFeedback({ type: 'success', message: `Dispatched ${data.processed} bulk email(s) (${data.skipped?.length ?? 0} skipped).` });
+                          loadData();
+                        } catch (e) {
+                          setFeedback({ type: 'error', message: (e as Error).message });
+                        } finally {
+                          setSending(false);
+                        }
+                      }}
+                      className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition disabled:opacity-50"
+                    >
+                      <Send className="h-4 w-4" />
+                      <span>{sending ? 'Sending Bulk…' : 'Send Bulk Campaign'}</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleSend(true)}
+                      disabled={sending || !toEmail || !subject || !body}
+                      className="px-4 py-2.5 rounded-xl border border-slate-700 hover:border-slate-600 bg-slate-900 text-slate-300 hover:text-white text-xs font-medium transition disabled:opacity-50"
+                    >
+                      Save as Draft for Approval
+                    </button>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleSend(false)}
-                    disabled={sending || !toEmail || !subject || !body}
-                    className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition disabled:opacity-50"
-                  >
-                    {sending ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                        <span>Dispatching Outbound…</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send className="h-4 w-4" />
-                        <span>Send Outbound Email Now</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSend(false)}
+                        disabled={sending || !toEmail || !subject || !body}
+                        className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition disabled:opacity-50"
+                      >
+                        {sending ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                            <span>Dispatching Outbound…</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4" />
+                            <span>Send Outbound Email Now</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -1096,20 +1240,69 @@ export const EmailHub: FC<{
 
                 <div className="space-y-2">
                   {templates.map((t) => (
-                    <button
+                    <div
                       key={t.id}
-                      onClick={() => applyTemplate(t)}
                       className="w-full text-left p-3 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-indigo-500/50 hover:bg-slate-900 transition group"
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-white group-hover:text-indigo-300 transition">
-                          {t.name}
-                        </span>
-                        <ChevronRight className="h-3 w-3 text-slate-500 group-hover:text-indigo-400 transition" />
+                      <div className="flex items-center justify-between gap-2">
+                        <button type="button" onClick={() => applyTemplate(t)} className="flex-1 text-left flex items-center justify-between">
+                          <span className="text-xs font-medium text-white group-hover:text-indigo-300 transition">
+                            {t.name}
+                          </span>
+                          <ChevronRight className="h-3 w-3 text-slate-500 group-hover:text-indigo-400 transition" />
+                        </button>
+                        {t.is_custom && t.db_id && (
+                          <button
+                            type="button"
+                            aria-label={`Delete ${t.name}`}
+                            onClick={async () => {
+                              const res = await apiFetch(`/api/email/templates/${t.db_id}`, { method: 'DELETE' });
+                              if (res.ok) loadData();
+                            }}
+                            className="text-slate-500 hover:text-rose-400"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
-                      <p className="text-[10px] text-slate-400 mt-1 line-clamp-2">{t.description}</p>
-                    </button>
+                      <p className="text-[10px] text-slate-400 mt-1 line-clamp-2">{t.description || t.subject}</p>
+                    </div>
                   ))}
+                </div>
+
+                <div className="pt-2 border-t border-slate-800 space-y-2">
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="Save current draft as template…"
+                      value={templateNameInput}
+                      onChange={(e) => setTemplateNameInput(e.target.value)}
+                      className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      disabled={savingTemplate || !templateNameInput.trim() || !subject.trim() || !body.trim()}
+                      onClick={async () => {
+                        setSavingTemplate(true);
+                        try {
+                          const res = await apiFetch('/api/email/templates', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name: templateNameInput.trim(), subject, body, description: 'Saved from Email Hub' }),
+                          });
+                          if (res.ok) {
+                            setTemplateNameInput('');
+                            await loadData();
+                          }
+                        } finally {
+                          setSavingTemplate(false);
+                        }
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium disabled:opacity-40"
+                    >
+                      Save
+                    </button>
+                  </div>
                 </div>
               </div>
 

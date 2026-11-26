@@ -23,15 +23,34 @@ export interface InboxMessage {
 
 export const MasterInbox: FC<{
   onLoadDraftToComposer?: (params: { to: string; subject: string; body: string; leadId?: number }) => void;
-}> = ({ onLoadDraftToComposer }) => {
+  onUnreadChange?: (count: number) => void;
+}> = ({ onLoadDraftToComposer, onUnreadChange }) => {
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [selected, setSelected] = useState<InboxMessage | null>(null);
   const [filter, setFilter] = useState<string>('all');
   const [loading, setLoading] = useState(false);
   const [syncOpen, setSyncOpen] = useState(false);
-  const [imapForm, setImapForm] = useState({ imap_host: '', imap_port: '993', username: '', password: '' });
+  const [imapForm, setImapForm] = useState(() => {
+    try {
+      return {
+        imap_host: localStorage.getItem('agencybd.imap.host') || '',
+        imap_port: localStorage.getItem('agencybd.imap.port') || '993',
+        username: localStorage.getItem('agencybd.imap.user') || '',
+        password: '',
+      };
+    } catch {
+      return { imap_host: '', imap_port: '993', username: '', password: '' };
+    }
+  });
+  const [replyText, setReplyText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
   const [error, setError] = useState('');
+
+  const selectMessage = (m: InboxMessage) => {
+    setSelected(m);
+    setReplyText(m.auto_reply_draft || '');
+  };
 
   const loadInbox = useCallback(async () => {
     setLoading(true);
@@ -42,13 +61,17 @@ export const MasterInbox: FC<{
       if (!res.ok) throw new Error(apiErrorMessage(res.status, body));
       const list: InboxMessage[] = body.messages || [];
       setMessages(list);
-      if (list.length > 0 && !selected) setSelected(list[0]);
+      if (typeof body.unread_count === 'number') onUnreadChange?.(body.unread_count);
+      if (list.length > 0 && !selected) {
+        setSelected(list[0]);
+        setReplyText(list[0].auto_reply_draft || '');
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [filter, selected]);
+  }, [filter, selected, onUnreadChange]);
 
   useEffect(() => {
     loadInbox();
@@ -80,6 +103,11 @@ export const MasterInbox: FC<{
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(apiErrorMessage(res.status, body));
+      try {
+        localStorage.setItem('agencybd.imap.host', imapForm.imap_host.trim());
+        localStorage.setItem('agencybd.imap.port', imapForm.imap_port.trim() || '993');
+        localStorage.setItem('agencybd.imap.user', imapForm.username.trim());
+      } catch { /* ignore storage errors */ }
       setStatusMsg(`Synced ${body.synced_count ?? 0} unread email(s) from IMAP.`);
       setSyncOpen(false);
       await loadInbox();
@@ -156,7 +184,7 @@ export const MasterInbox: FC<{
                   key={m.id}
                   type="button"
                   onClick={() => {
-                    setSelected(m);
+                    selectMessage(m);
                     if (m.status === 'unread') updateStatus(m.id, 'read');
                   }}
                   className={`w-full text-left p-3 rounded-xl border transition ${
@@ -207,36 +235,73 @@ export const MasterInbox: FC<{
                   {selected.body}
                 </div>
 
-                {selected.auto_reply_draft && (
-                  <div className="p-4 rounded-xl bg-indigo-950/30 border border-indigo-500/40 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                        <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
-                        AI Reply Agent Suggested Draft
-                      </span>
+                <div className="p-4 rounded-xl bg-indigo-950/30 border border-indigo-500/40 space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
+                      Quick Inline Reply
+                    </span>
+                    <div className="flex items-center gap-2">
                       {onLoadDraftToComposer && (
                         <Button
                           small
-                          variant="primary"
                           onClick={() =>
                             onLoadDraftToComposer({
                               to: selected.sender_email,
                               subject: selected.subject.startsWith('Re:') ? selected.subject : `Re: ${selected.subject}`,
-                              body: selected.auto_reply_draft,
+                              body: replyText,
                               leadId: selected.lead_id ?? undefined,
                             })
                           }
                         >
-                          <Send className="h-3.5 w-3.5" />
-                          Load into Composer
+                          Open in Composer
                         </Button>
                       )}
+                      <Button
+                        small
+                        variant="primary"
+                        disabled={sendingReply || !replyText.trim()}
+                        onClick={async () => {
+                          setSendingReply(true);
+                          setError('');
+                          setStatusMsg('');
+                          try {
+                            const subj = selected.subject.startsWith('Re:') ? selected.subject : `Re: ${selected.subject}`;
+                            const res = await apiFetch('/api/email/send', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                to_email: selected.sender_email,
+                                subject: subj,
+                                body: replyText,
+                                lead_id: selected.lead_id ?? undefined,
+                                as_draft: false,
+                              }),
+                            });
+                            const data = await res.json().catch(() => ({}));
+                            if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
+                            await updateStatus(selected.id, 'replied');
+                            setStatusMsg(`Reply sent to ${selected.sender_email}.`);
+                          } catch (e) {
+                            setError((e as Error).message);
+                          } finally {
+                            setSendingReply(false);
+                          }
+                        }}
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        {sendingReply ? 'Sending…' : 'Send Reply'}
+                      </Button>
                     </div>
-                    <p className="text-xs text-slate-300 whitespace-pre-wrap font-mono leading-relaxed">
-                      {selected.auto_reply_draft}
-                    </p>
                   </div>
-                )}
+                  <textarea
+                    className={field}
+                    rows={5}
+                    placeholder="Write or refine your reply here..."
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                  />
+                </div>
               </div>
             ) : (
               <p className="text-xs text-slate-400">Select a reply on the left to inspect and respond.</p>
