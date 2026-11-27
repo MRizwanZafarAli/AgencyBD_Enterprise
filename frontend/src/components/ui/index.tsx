@@ -12,14 +12,15 @@ export type { SelectOption } from './Select';
 export const field =
   'w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500';
 
-type Tone = 'neutral' | 'good' | 'warn' | 'bad' | 'info' | 'accent';
+type Tone = 'neutral' | 'good' | 'warn' | 'bad' | 'info' | 'accent' | 'ai';
 const TONES: Record<Tone, string> = {
   neutral: 'bg-slate-800/70 text-slate-300 border-slate-700',
-  good: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-  warn: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  bad: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
-  info: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
-  accent: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
+  good: 'bg-emerald-500/12 text-emerald-300 border-emerald-500/30',
+  warn: 'bg-amber-500/12 text-amber-300 border-amber-500/30',
+  bad: 'bg-rose-500/12 text-rose-300 border-rose-500/30',
+  info: 'bg-cyan-500/12 text-cyan-300 border-cyan-500/30',
+  accent: 'bg-indigo-500/12 text-indigo-300 border-indigo-500/30',
+  ai: 'bg-purple-500/12 text-purple-300 border-purple-500/30',
 };
 
 export const Badge: FC<{ tone?: Tone; children: ReactNode; title?: string }> = ({ tone = 'neutral', children, title }) => (

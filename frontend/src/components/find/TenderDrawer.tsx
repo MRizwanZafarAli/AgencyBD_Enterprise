@@ -339,11 +339,11 @@ export const TenderDrawer: FC<{
         )}
 
         {/* AI Go / No-Go Bid Scorecard */}
-        <Card className="!bg-slate-900/60 space-y-3">
+        <Card className="ai-surface space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-semibold text-white flex items-center gap-1.5">
-              <ShieldCheck className="h-4 w-4 text-emerald-400" />
-              Go / No-Go Bid Scorecard
+              <ShieldCheck className="h-4 w-4 text-purple-400" />
+              AI Go / No-Go Bid Scorecard
             </h3>
             {scorecard && (
               <Badge tone={scorecard.verdict === 'GO' ? 'good' : scorecard.verdict === 'CONDITIONAL' ? 'warn' : 'bad'}>

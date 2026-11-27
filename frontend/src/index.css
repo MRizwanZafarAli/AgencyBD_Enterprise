@@ -60,19 +60,19 @@
 :root {
   color-scheme: dark;
 
-  /* neutral scale (text -> surfaces) */
-  --color-white: #fafafa;
-  --color-slate-50: #fafafa;
-  --color-slate-100: #f4f4f5;
-  --color-slate-200: #e4e4e7;
-  --color-slate-300: #d4d4d8;
-  --color-slate-400: #a1a1aa;
-  --color-slate-500: #9a9aa5;
-  --color-slate-600: rgba(255, 255, 255, 0.22);
-  --color-slate-700: rgba(255, 255, 255, 0.15);
-  --color-slate-800: rgba(255, 255, 255, 0.09);
-  --color-slate-900: rgba(24, 24, 27, 0.72);
-  --color-slate-950: rgba(12, 12, 14, 0.72);
+  /* neutral scale (Obsidian Dark Mode — Linear / Raycast slate) */
+  --color-white: #f8fafc;
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: rgba(248, 250, 252, 0.22);
+  --color-slate-700: rgba(248, 250, 252, 0.14);
+  --color-slate-800: rgba(248, 250, 252, 0.09);
+  --color-slate-900: rgba(15, 23, 42, 0.82);
+  --color-slate-950: rgba(11, 14, 20, 0.88);
 
   /* accent: teal */
   --color-indigo-300: #99f6e4;
@@ -113,11 +113,11 @@
   --hero-bg: linear-gradient(145deg, #14b8a6 -40%, #0b3b37 38%, #09090b 100%);
   --hero-ink: #f4f4f5;
 
-  --app-bg: #09090b;
+  --app-bg: #0b0e14;
   --app-canvas:
-    radial-gradient(900px 540px at 6% -8%, rgba(45, 212, 191, 0.16), transparent 62%),
+    radial-gradient(900px 540px at 6% -8%, rgba(45, 212, 191, 0.14), transparent 62%),
     radial-gradient(760px 480px at 100% 0%, rgba(99, 102, 241, 0.08), transparent 58%),
-    linear-gradient(180deg, #0c0c0f 0%, #09090b 100%);
+    linear-gradient(180deg, #0d1117 0%, #0b0e14 100%);
   --scroll-thumb: rgba(255, 255, 255, 0.2);
   --scroll-thumb-hover: rgba(255, 255, 255, 0.34);
   --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235eead4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
@@ -130,18 +130,18 @@
 html.light {
   color-scheme: light;
 
-  --color-white: #09090b;                 /* "white" text means "strongest text", so it is ink in the light theme */
-  --color-slate-50: #09090b;
-  --color-slate-100: #18181b;
-  --color-slate-200: #27272a;
-  --color-slate-300: #3f3f46;
-  --color-slate-400: #52525b;             /* 7.6:1 on white */
-  --color-slate-500: #5f5f69;             /* 6.3:1 on white, 5.6:1 on the canvas */
-  --color-slate-600: rgba(9, 9, 11, 0.24);
-  --color-slate-700: rgba(9, 9, 11, 0.15);
-  --color-slate-800: rgba(9, 9, 11, 0.09);
-  --color-slate-900: rgba(255, 255, 255, 0.88);
-  --color-slate-950: rgba(255, 255, 255, 0.7);
+  --color-white: #0f172a;                 /* deep charcoal ink in light mode */
+  --color-slate-50: #0f172a;
+  --color-slate-100: #1e293b;
+  --color-slate-200: #334155;
+  --color-slate-300: #334155;
+  --color-slate-400: #475569;             /* boosted contrast for helper/guide text */
+  --color-slate-500: #526071;
+  --color-slate-600: rgba(15, 23, 42, 0.24);
+  --color-slate-700: rgba(15, 23, 42, 0.14);
+  --color-slate-800: rgba(15, 23, 42, 0.09);
+  --color-slate-900: rgba(255, 255, 255, 0.96);
+  --color-slate-950: rgba(248, 250, 252, 0.9);
 
   /* accent: deep teal reads as text on white (5.5:1) and as a fill under white ink */
   --color-indigo-300: #0b5f58;
@@ -401,6 +401,12 @@ table tbody tr:hover {
 .bento-tile, .interactive-card {
   transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
+/* AI Intelligence Exclusive Surface (Indigo / Soft Violet) */
+.ai-surface {
+  border-color: rgba(99, 102, 241, 0.28) !important;
+  background-image: linear-gradient(135deg, rgba(99, 102, 241, 0.07), rgba(139, 92, 246, 0.03)) !important;
+}
+
 .bento-tile:hover, .interactive-card:hover {
   border-color: rgba(45, 212, 191, 0.35);
 }

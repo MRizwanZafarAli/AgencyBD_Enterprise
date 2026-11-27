@@ -188,12 +188,12 @@ export const TodayCommandCenter: FC<{
       )}
 
       {/* AI Morning Briefing (3-Bullet Executive Pulse) */}
-      <Card className="!p-5">
+      <Card className="!p-5 ai-surface">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-indigo-400" />
+            <Sparkles className="h-4 w-4 text-purple-400" />
             <h1 className="text-base font-semibold text-white">Executive Morning Briefing</h1>
-            <Badge tone="accent">{roleLabel}</Badge>
+            <Badge tone="ai">{roleLabel}</Badge>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-28">
