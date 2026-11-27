@@ -283,7 +283,7 @@ export const TenderDrawer: FC<{
                     companyName: buyerName,
                     subject: `Clarification / Early Engagement: ${tender.title.slice(0, 70)}`,
                   })}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-200 border border-indigo-500/30"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30"
                 >
                   <Mail className="h-3.5 w-3.5" />
                   {meta.buyer_email}
@@ -312,7 +312,7 @@ export const TenderDrawer: FC<{
 
         {/* Enterprise Strategic Banners */}
         {scorecard?.mega_tender_teaming?.is_mega && (
-          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 flex items-start gap-2">
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 flex items-start gap-2">
             <Users className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
             <div>
               <strong>Mega-Tender Subcontractor / Teaming Angle:</strong> {scorecard.mega_tender_teaming.strategy}
@@ -320,7 +320,7 @@ export const TenderDrawer: FC<{
           </div>
         )}
         {scorecard?.pin_early_access?.is_pin && (
-          <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-200 flex items-start gap-2">
+          <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300 flex items-start gap-2">
             <Zap className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
             <div>
               <strong>Early Access (PIN):</strong> {scorecard.pin_early_access.tip}
@@ -328,7 +328,7 @@ export const TenderDrawer: FC<{
           </div>
         )}
         {scorecard?.renewal_tracker?.is_award && (
-          <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-xs text-indigo-200 flex items-start gap-2">
+          <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-xs text-indigo-300 flex items-start gap-2">
             <Sparkles className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" />
             <div>
               <strong>Incumbent &amp; Renewal Tracker:</strong>{' '}

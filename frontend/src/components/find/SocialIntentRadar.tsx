@@ -114,7 +114,7 @@ function renderHighlightedDescription(text: string, triggerSentence?: string) {
   return (
     <>
       {text.slice(0, idx)}
-      <mark className="bg-amber-500/25 text-amber-200 px-1 rounded font-medium">{text.slice(idx, end)}</mark>
+      <mark className="bg-amber-500/20 text-amber-300 px-1 rounded font-semibold">{text.slice(idx, end)}</mark>
       {text.slice(end)}
     </>
   );
@@ -497,7 +497,7 @@ export const SocialIntentRadar: FC<{
                 scan(oq.boolean_query);
               }}
               title={oq.boolean_query}
-              className="px-2.5 py-0.5 rounded-full text-[11px] bg-indigo-500/15 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 transition"
+              className="px-2.5 py-0.5 rounded-full text-[11px] bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 transition"
             >
               {oq.label}
             </button>
@@ -674,7 +674,7 @@ export const SocialIntentRadar: FC<{
                       </div>
                       <div className="text-xs font-semibold line-clamp-2 text-white">{sig.title}</div>
                       {sig.trigger_sentence && (
-                        <div className="text-[11px] text-amber-200/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2 py-1 mt-1.5 line-clamp-2">
+                        <div className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded-lg px-2 py-1 mt-1.5 line-clamp-2 font-medium">
                           &ldquo;{sig.trigger_sentence}&rdquo;
                         </div>
                       )}
@@ -695,7 +695,7 @@ export const SocialIntentRadar: FC<{
           </Card>
 
           {/* Right Buyer Intelligence & Reply Studio */}
-          <Card className="lg:sticky lg:top-4">
+          <Card className="lg:sticky lg:top-4 min-w-0 overflow-hidden">
             {selected ? (
               <div className="space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -738,7 +738,7 @@ export const SocialIntentRadar: FC<{
                 })()}
 
                 {/* Post Body with Trigger Highlighting */}
-                <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 whitespace-pre-wrap leading-relaxed max-h-56 overflow-y-auto">
+                <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 whitespace-pre-wrap break-words leading-relaxed max-h-56 overflow-y-auto">
                   {renderHighlightedDescription(selected.description, selected.trigger_sentence)}
                 </div>
 
@@ -817,7 +817,7 @@ export const SocialIntentRadar: FC<{
                           onClick={() => setReplyTone(t)}
                           className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition ${
                             replyTone === t
-                              ? 'bg-emerald-600/30 border-emerald-500 text-emerald-200'
+                              ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
                               : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
                           }`}
                         >
@@ -828,7 +828,7 @@ export const SocialIntentRadar: FC<{
                   </div>
 
                   {guardrail && (
-                    <div className="flex items-start gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-200">
+                    <div className="flex items-start gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300 font-medium">
                       <ShieldAlert className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-400" />
                       <span>{guardrail}</span>
                     </div>
