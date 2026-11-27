@@ -74,7 +74,7 @@ interface ProbeOut {
   domain?: string | null;
   verified?: boolean;
   checks_performed?: string[];
-  domain_suggestions?: Array<{ domain: string; likely_available: boolean }>;
+  domain_suggestions?: Array<{ domain: string; status?: 'available' | 'taken' | 'unknown'; likely_available: boolean }>;
 }
 
 const STATUS: Record<string, { text: string; tone: 'bad' | 'warn' | 'neutral' }> = {
@@ -138,6 +138,7 @@ export const LocalBusinessDrawer: FC<{
     target: string;
     label: string;
   } | null>(null);
+  const [emailHealth, setEmailHealth] = useState<Record<string, { deliverable: boolean; role: boolean; label: string }>>({});
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -147,12 +148,36 @@ export const LocalBusinessDrawer: FC<{
     setProbe(null);
     setDemoUrl(null);
     setConfirmAction(null);
+    setEmailHealth({});
     if (!openItem?.domain && !openItem?.website) return;
     const target = openItem.domain || openItem.website || '';
     apiFetch(`/api/v1/browser/scraped?domain=${encodeURIComponent(target)}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data?.found && data.scrape) setScrape(data.scrape);
+      .then(async (data) => {
+        if (data?.found && data.scrape) {
+          setScrape(data.scrape);
+          const foundEmails: string[] = Array.isArray(data.scrape.extracted_data?.emails) ? data.scrape.extracted_data.emails.slice(0, 5) : [];
+          for (const em of foundEmails) {
+            try {
+              const vRes = await apiFetch('/api/email/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: em }),
+              });
+              if (vRes.ok) {
+                const v = await vRes.json();
+                setEmailHealth((prev) => ({
+                  ...prev,
+                  [em]: {
+                    deliverable: Boolean(v.is_deliverable),
+                    role: Boolean(v.is_role_account),
+                    label: !v.is_deliverable ? 'Invalid / Risky' : v.is_role_account ? 'Role Inbox' : 'MX Valid',
+                  },
+                }));
+              }
+            } catch { /* non-blocking */ }
+          }
+        }
       })
       .catch(() => {});
   }, [openItem]);
@@ -376,16 +401,24 @@ export const LocalBusinessDrawer: FC<{
               <div className="space-y-1">
                 <div className="text-[11px] font-medium text-slate-400">Discovered Emails (click to prepare outreach):</div>
                 <div className="flex flex-wrap gap-1.5">
-                  {emails.map((em) => (
-                    <button
-                      key={em}
-                      type="button"
-                      onClick={() => setConfirmAction({ kind: 'email', target: em, label: 'Email' })}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/25 cursor-pointer"
-                    >
-                      <Mail className="h-3 w-3" /> {em}
-                    </button>
-                  ))}
+                  {emails.map((em) => {
+                    const eh = emailHealth[em];
+                    return (
+                      <button
+                        key={em}
+                        type="button"
+                        onClick={() => setConfirmAction({ kind: 'email', target: em, label: 'Email' })}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/25 cursor-pointer"
+                      >
+                        <Mail className="h-3 w-3" /> {em}
+                        {eh && (
+                          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${eh.deliverable ? (eh.role ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300') : 'bg-rose-500/20 text-rose-300'}`}>
+                            {eh.label}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -425,8 +458,8 @@ export const LocalBusinessDrawer: FC<{
             {probe?.domain_suggestions && (
               <div className="flex flex-wrap gap-1.5">
                 {probe.domain_suggestions.map((d) => (
-                  <Badge key={d.domain} tone={d.likely_available ? 'good' : 'neutral'}>
-                    {d.domain} · {d.likely_available ? 'Likely Available' : 'Taken'}
+                  <Badge key={d.domain} tone={d.status === 'available' || d.likely_available ? 'good' : d.status === 'unknown' ? 'warn' : 'neutral'}>
+                    {d.domain} · {d.status === 'available' || d.likely_available ? 'Available' : d.status === 'unknown' ? 'Check Manually' : 'Taken'}
                   </Badge>
                 ))}
               </div>

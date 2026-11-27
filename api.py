@@ -914,7 +914,8 @@ def local_hunt_probe_presence(req: LocalHuntProbeRequest, principal: Principal =
     return local_hunt.probe_presence_live(req.name, req.city, req.website, org_id=principal.org_id)
 
 
-_DEMO_SITES: Dict[str, str] = {}
+_DEMO_SITES: Dict[str, Dict[str, Any]] = {}
+DEMO_TTL_SECONDS = 14 * 24 * 3600
 
 
 class DemoSiteRequest(BaseModel):
@@ -928,10 +929,11 @@ class DemoSiteRequest(BaseModel):
 
 @app.post("/api/hunt/local/demo_site")
 def create_local_demo_site(req: DemoSiteRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
-    """Generates a live 1-page interactive mockup URL for a local business in 1 click."""
+    """Generates a live 1-page interactive mockup URL with noindex guardrails and 14-day TTL."""
     import html as _html
     import re as _re
     import secrets as _sec
+    import time as _time
     slug = f"{_re.sub(r'[^a-z0-9]+', '-', req.name.lower()).strip('-')[:32] or 'demo'}-{_sec.token_hex(3)}"
     n = _html.escape(req.name)
     cat = _html.escape(req.category or "Local Specialist")
@@ -939,12 +941,15 @@ def create_local_demo_site(req: DemoSiteRequest, principal: Principal = Depends(
     addr = _html.escape(req.address or cty)
     ph = _html.escape(req.phone or "(Call for appointment)")
     tel_href = _re.sub(r"[^\d+]", "", req.phone or "")
-    _DEMO_SITES[slug] = f"""<!doctype html>
+    _DEMO_SITES[slug] = {
+        "expires_at": _time.time() + DEMO_TTL_SECONDS,
+        "html": f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="robots" content="noindex, nofollow"/>
 <title>{n} — Preview Mockup</title>
 <style>
 body{{margin:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;background:#0f172a;color:#f8fafc;line-height:1.5}}
-.bar{{background:#0f766e;color:#fff;padding:10px 20px;font-size:13px;text-align:center;font-weight:600}}
+.bar{{position:sticky;top:0;z-index:20;background:rgba(15,118,110,.95);backdrop-filter:blur(8px);color:#fff;padding:10px 20px;font-size:13px;text-align:center;font-weight:600;border-bottom:1px solid rgba(255,255,255,.15)}}
 .hero{{max-width:920px;margin:48px auto;padding:0 24px}}
 .pill{{display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(45,212,191,.15);color:#5eead4;font-size:12px;font-weight:600}}
 h1{{font-size:clamp(2rem,4vw,3.1rem);margin:14px 0 12px;line-height:1.1}}
@@ -955,7 +960,7 @@ p{{color:#cbd5e1;max-width:620px;font-size:16px}}
 .grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:40px}}
 .card{{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:18px}}
 </style></head><body>
-<div class="bar">Interactive 1-Page Preview Concept prepared for {n}</div>
+<div class="bar">Concept preview prepared for {n} — Book a 5-min walkthrough</div>
 <section class="hero">
 <span class="pill">{cat} · {cty}</span>
 <h1>{n}</h1>
@@ -968,18 +973,23 @@ p{{color:#cbd5e1;max-width:620px;font-size:16px}}
 <div class="card"><strong>Fast Mobile Booking</strong><p style="font-size:13px;margin:6px 0 0">Turn local map searches into confirmed appointments in under 30 seconds.</p></div>
 <div class="card"><strong>Verified Local Trust</strong><p style="font-size:13px;margin:6px 0 0">Showcase reviews, services, and clear pricing right above the fold.</p></div>
 <div class="card"><strong>Visit Us</strong><p style="font-size:13px;margin:6px 0 0">{addr}<br/>{ph}</p></div>
-</div></section></body></html>"""
-    return {"slug": slug, "demo_url": f"/api/demo/{slug}"}
+</div></section></body></html>""",
+    }
+    return {"slug": slug, "demo_url": f"/api/demo/{slug}", "expires_in_days": 14}
 
 
 @app.get("/api/demo/{slug}")
 def view_local_demo_site(slug: str):
-    """Serves a generated local business preview mockup."""
+    """Serves a generated local business preview mockup with X-Robots-Tag noindex and TTL check."""
+    import time as _time
     from fastapi.responses import HTMLResponse
-    html_doc = _DEMO_SITES.get(slug)
-    if not html_doc:
+    entry = _DEMO_SITES.get(slug)
+    if not entry:
         raise HTTPException(status_code=404, detail="Demo mockup not found or expired")
-    return HTMLResponse(content=html_doc)
+    if _time.time() > entry["expires_at"]:
+        _DEMO_SITES.pop(slug, None)
+        raise HTTPException(status_code=410, detail="Demo mockup has expired")
+    return HTMLResponse(content=entry["html"], headers={"X-Robots-Tag": "noindex, nofollow"})
 
 
 @app.get("/api/pipeline/deals")

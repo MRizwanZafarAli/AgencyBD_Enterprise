@@ -88,6 +88,73 @@ def get_fit_markdown(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+_BULK_SCRAPE_JOBS: Dict[str, Dict[str, Any]] = {}
+
+
+class BulkScrapeItem(BaseModel):
+    id: str
+    url: str
+    name: Optional[str] = None
+
+
+class BulkScrapeRequest(BaseModel):
+    items: List[BulkScrapeItem] = Field(..., min_length=1, max_length=50)
+    mode: str = "local_audit"
+
+
+@router.post("/bulk-scrape")
+def start_bulk_scrape(
+    req: BulkScrapeRequest,
+    principal: Principal = Depends(get_current_principal),
+) -> Dict[str, Any]:
+    """Queues an async background bulk-scrape job and returns job_id immediately."""
+    import secrets as _sec
+    import threading as _th
+
+    job_id = _sec.token_hex(6)
+    items_state: Dict[str, Dict[str, Any]] = {
+        it.id: {"status": "queued", "url": it.url, "name": it.name} for it in req.items
+    }
+    _BULK_SCRAPE_JOBS[job_id] = {
+        "job_id": job_id,
+        "org_id": principal.org_id,
+        "total": len(req.items),
+        "completed": 0,
+        "done": False,
+        "items": items_state,
+    }
+
+    def _worker() -> None:
+        job = _BULK_SCRAPE_JOBS[job_id]
+        for it in req.items:
+            job["items"][it.id]["status"] = "running"
+            try:
+                res = universal_scraper.scrape_url(
+                    target=it.url, mode=req.mode, org_id=principal.org_id
+                )
+                job["items"][it.id]["status"] = "done"
+                job["items"][it.id]["title"] = res.title
+            except Exception as exc:
+                job["items"][it.id]["status"] = "error"
+                job["items"][it.id]["error"] = str(exc)[:120]
+            job["completed"] += 1
+        job["done"] = True
+
+    _th.Thread(target=_worker, daemon=True).start()
+    return {"job_id": job_id, "total": len(req.items)}
+
+
+@router.get("/bulk-scrape/{job_id}")
+def get_bulk_scrape_status(
+    job_id: str,
+    principal: Principal = Depends(get_current_principal),
+) -> Dict[str, Any]:
+    job = _BULK_SCRAPE_JOBS.get(job_id)
+    if not job or job.get("org_id") != principal.org_id:
+        raise HTTPException(status_code=404, detail="Bulk scrape job not found")
+    return job
+
+
 @router.get("/scraped")
 def get_saved_scrape(
     domain: str = Query(..., description="Domain or URL to look up saved scrape"),

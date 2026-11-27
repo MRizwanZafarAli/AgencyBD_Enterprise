@@ -309,17 +309,52 @@ def probe_presence_live(name: str, city: str, website: Optional[str] = None, org
 
     import re
     import socket
+    import requests as _req
+
+    def _rdap_or_whois(cand: str) -> str:
+        """Returns 'taken', 'available', or 'unknown' via RDAP (gTLDs/.uk) or WHOIS (.io)."""
+        try:
+            rdap_url = f"https://rdap.verisign.com/com/v1/domain/{cand}" if cand.endswith(".com") else (
+                f"https://rdap.nominet.uk/uk/domain/{cand}" if cand.endswith(".co.uk") else f"https://rdap.org/domain/{cand}"
+            )
+            r = _req.get(rdap_url, timeout=3)
+            if r.status_code == 200:
+                return "taken"
+            if r.status_code == 404:
+                return "available"
+        except Exception:
+            pass
+        if cand.endswith(".io"):
+            try:
+                with socket.create_connection(("whois.nic.io", 43), timeout=3) as sock:
+                    sock.sendall(f"{cand}\r\n".encode())
+                    out = b""
+                    while True:
+                        chunk = sock.recv(4096)
+                        if not chunk:
+                            break
+                        out += chunk
+                txt = out.decode("utf-8", errors="ignore").lower()
+                if "not found" in txt or "no match" in txt:
+                    return "available"
+                if "domain name:" in txt or "registrar:" in txt:
+                    return "taken"
+            except Exception:
+                pass
+        return "unknown"
+
     slug = re.sub(r"[^a-z0-9]", "", name.lower())[:28] or "business"
     domain_checks = []
     for tld in (".com", ".co.uk", ".io"):
         cand = f"{slug}{tld}"
         try:
             socket.getaddrinfo(cand, None)
-            domain_checks.append({"domain": cand, "likely_available": False})
+            domain_checks.append({"domain": cand, "status": "taken", "likely_available": False})
         except socket.gaierror:
-            domain_checks.append({"domain": cand, "likely_available": True})
+            st = _rdap_or_whois(cand)
+            domain_checks.append({"domain": cand, "status": st, "likely_available": st == "available"})
         except Exception:
-            domain_checks.append({"domain": cand, "likely_available": False})
+            domain_checks.append({"domain": cand, "status": "unknown", "likely_available": False})
 
     return {"name": name, "city": city, "website": res.get("domain"), "domain": res.get("domain"), "classification": res["classification"],
             "verified": res["verified"], "checks_performed": res["checks_performed"], "limitations": res["limitations"], "issues": [],

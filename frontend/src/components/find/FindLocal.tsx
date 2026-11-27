@@ -61,9 +61,10 @@ export const FindLocal: FC<{
   const [onlyHighPitch, setOnlyHighPitch] = useState(false);
   const [lowRatingOnly, setLowRatingOnly] = useState(false);
 
-  // Territory watch + bulk audit feedback
+  // Territory watch + async bulk audit queue
   const [watchNotice, setWatchNotice] = useState('');
   const [bulkStatus, setBulkStatus] = useState('');
+  const [auditProgress, setAuditProgress] = useState<Record<string, 'queued' | 'running' | 'done' | 'error'>>({});
   const [savedNotice, setSavedNotice] = useState<{ count: number; lastId: number | null } | null>(null);
 
   const rows = useMemo(() => {
@@ -145,19 +146,34 @@ export const FindLocal: FC<{
       setBulkStatus('None of the selected businesses have a website to audit.');
       return;
     }
-    setBulkStatus(`Auditing ${targets.length} website(s)…`);
-    let okCount = 0;
-    for (const t of targets) {
-      try {
-        const res = await apiFetch('/api/v1/browser/scrape', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ target: t.website, mode: 'local_audit', context_title: t.name }),
-        });
-        if (res.ok) okCount += 1;
-      } catch { /* continue batch */ }
+    setBulkStatus(`Queued ${targets.length} website(s) in background worker…`);
+    try {
+      const startRes = await apiFetch('/api/v1/browser/bulk-scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: targets.map((t) => ({ id: t.place_id, url: t.website!, name: t.name })),
+          mode: 'local_audit',
+        }),
+      });
+      if (!startRes.ok) throw new Error('Could not start bulk audit');
+      const { job_id } = await startRes.json();
+      const poll = async () => {
+        const stRes = await apiFetch(`/api/v1/browser/bulk-scrape/${job_id}`);
+        if (!stRes.ok) return;
+        const job = await stRes.json();
+        const prog: Record<string, 'queued' | 'running' | 'done' | 'error'> = {};
+        for (const [id, info] of Object.entries(job.items as Record<string, { status: 'queued' | 'running' | 'done' | 'error' }>)) {
+          prog[id] = info.status;
+        }
+        setAuditProgress(prog);
+        setBulkStatus(`Bulk audit: ${job.completed}/${job.total} completed${job.done ? ' — click any business to view its matrix.' : '…'}`);
+        if (!job.done) window.setTimeout(poll, 1200);
+      };
+      window.setTimeout(poll, 700);
+    } catch (err) {
+      setBulkStatus(err instanceof Error ? err.message : 'Bulk audit failed');
     }
-    setBulkStatus(`Audited and saved ${okCount}/${targets.length} site(s). Click any business to inspect its matrix.`);
   };
 
   const exportCsv = () => {
@@ -335,6 +351,10 @@ export const FindLocal: FC<{
                           <div className="flex flex-wrap items-center gap-1.5">
                             <button className="text-left text-slate-100 hover:text-white font-medium" onClick={() => setOpen(r)}>{r.name}</button>
                             {crm && <Badge tone="good">In CRM ({crm.deal_stage})</Badge>}
+                            {auditProgress[r.place_id] === 'queued' && <Badge tone="neutral">Queued</Badge>}
+                            {auditProgress[r.place_id] === 'running' && <Badge tone="info">Auditing…</Badge>}
+                            {auditProgress[r.place_id] === 'done' && <Badge tone="good">Audited ✓</Badge>}
+                            {auditProgress[r.place_id] === 'error' && <Badge tone="bad">Audit failed</Badge>}
                             {r.pitchability === 'Low' && <Badge tone="warn">{r.entity_type === 'public_sector' ? 'Public Sector' : 'Chain'}</Badge>}
                             {r.budget_tier === 'High' && <Badge tone="info">High Budget</Badge>}
                           </div>

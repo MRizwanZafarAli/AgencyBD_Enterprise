@@ -222,3 +222,33 @@ def test_email_hub_ai_writer_templates_crud_and_bulk_send():
     assert b_res.status_code == 200
     assert b_res.json()["processed"] == 1
     assert len(b_res.json()["skipped"]) == 1
+
+
+def test_local_demo_site_guardrails_and_bulk_scrape_queue():
+    client = TestClient(app)
+    hdrs = _headers("growth_lead", "org_ent_local_qa")
+
+    # 1. Demo site has noindex meta, X-Robots-Tag, sticky bar, and 14-day TTL
+    d_res = client.post(
+        "/api/hunt/local/demo_site",
+        headers=hdrs,
+        json={"name": "Yorkshire Smiles", "category": "Dentist", "city": "Leeds, UK", "phone": "+44 113 000 0000"},
+    )
+    assert d_res.status_code == 200
+    assert d_res.json()["expires_in_days"] == 14
+    view = client.get(d_res.json()["demo_url"])
+    assert view.status_code == 200
+    assert 'content="noindex, nofollow"' in view.text
+    assert view.headers.get("x-robots-tag") == "noindex, nofollow"
+    assert "Concept preview prepared for Yorkshire Smiles" in view.text
+
+    # 2. Bulk scrape queue returns job_id immediately and exposes status endpoint
+    b_res = client.post(
+        "/api/v1/browser/bulk-scrape",
+        headers=hdrs,
+        json={"items": [{"id": "p1", "url": "https://example.invalid", "name": "Example"}]},
+    )
+    assert b_res.status_code == 200
+    job_id = b_res.json()["job_id"]
+    s_res = client.get(f"/api/v1/browser/bulk-scrape/{job_id}", headers=hdrs)
+    assert s_res.status_code == 200 and s_res.json()["total"] == 1
