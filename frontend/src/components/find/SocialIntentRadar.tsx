@@ -126,9 +126,11 @@ export const SocialIntentRadar: FC<{
   const [query, setQuery] = useState('');
   const [timeWindow, setTimeWindow] = useState<'24h' | '7d' | '30d' | 'all'>('7d');
   const [sortBy, setSortBy] = useState<'score' | 'newest'>('score');
+  const [platformFilter, setPlatformFilter] = useState<string>('all');
   const [intentFilter, setIntentFilter] = useState<'all' | IntentType>('all');
   const [includeComments, setIncludeComments] = useState(true);
   const [showTrackers, setShowTrackers] = useState(false);
+  const [showGuide, setShowGuide] = useState(() => localStorage.getItem('social_hide_guide') !== '1');
   const [showConnectAccounts, setShowConnectAccounts] = useState(false);
   const [bskyHandle, setBskyHandle] = useState('');
   const [bskyPass, setBskyPass] = useState('');
@@ -434,6 +436,7 @@ export const SocialIntentRadar: FC<{
   const visibleSignals = useMemo(() => {
     const active = signals.filter((s) => {
       if (dismissedIds[sigKey(s)]) return false;
+      if (platformFilter !== 'all' && s.platform !== platformFilter) return false;
       if (intentFilter !== 'all' && (s.intent_type || 'buying_request') !== intentFilter) return false;
       return true;
     });
@@ -443,13 +446,53 @@ export const SocialIntentRadar: FC<{
       }
       return (b.intent_score || 0) - (a.intent_score || 0);
     });
-  }, [signals, dismissedIds, intentFilter, sortBy]);
+  }, [signals, dismissedIds, platformFilter, intentFilter, sortBy]);
 
   const checkedCount = Object.values(checkedKeys).filter(Boolean).length;
   const discoveredWebsite = resolvedAuthor?.website_url || selected?.external_urls?.[0] || '';
 
+  const openGatedPlatform = (target: string) => {
+    const term = encodeURIComponent(query.trim() || 'looking for agency');
+    const urls: Record<string, string> = {
+      x: `https://x.com/search?q=${term}&f=live`,
+      linkedin: `https://www.linkedin.com/search/results/content/?keywords=${term}`,
+      facebook: `https://www.facebook.com/search/posts/?q=${term}`,
+      discord: 'https://discord.com/app',
+    };
+    const u = urls[target];
+    if (u) window.open(u, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <div className="space-y-4">
+      {showGuide && (
+        <Card className="!p-4 border-indigo-500/30 bg-indigo-500/5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1.5 text-xs text-slate-300">
+              <div className="font-semibold text-white flex items-center gap-1.5">
+                <Sparkles className="h-4 w-4 text-indigo-400" />
+                How Social Intent Works &amp; What Needs Your Attention
+              </div>
+              <ul className="list-disc pl-4 space-y-1 text-[11px] text-slate-300">
+                <li><strong>Auto-Scan (Free, Zero Login):</strong> Hacker News (Posts &amp; Comments), Product Hunt, WordPress.org Forums, Dev.to, Lobsters, GitHub, Shopify Community, IndieHackers &amp; Public X-Ray scan automatically.</li>
+                <li><strong>Account Sign-In (More Results):</strong> Click <strong>Connect Social Accounts</strong> to save your Bluesky App Password, Reddit OAuth keys, or GitHub Token so rate-limited feeds unlock.</li>
+                <li><strong>Login / CAPTCHA-Gated Platforms (X, Facebook Groups, LinkedIn, Discord):</strong> Use <strong>Open Gated Platform</strong> below to open live buyer searches in your own browser session—sign in &amp; complete any human check yourself, then capture leads with the Browser Sidepanel.</li>
+              </ul>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowGuide(false);
+                localStorage.setItem('social_hide_guide', '1');
+              }}
+              className="text-[11px] text-slate-400 hover:text-white shrink-0"
+            >
+              Got it
+            </button>
+          </div>
+        </Card>
+      )}
+
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div>
@@ -462,6 +505,25 @@ export const SocialIntentRadar: FC<{
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {!showGuide && (
+              <Button small variant="ghost" onClick={() => setShowGuide(true)}>
+                How to Use
+              </Button>
+            )}
+            <Select
+              className="w-48"
+              small
+              value=""
+              onChange={openGatedPlatform}
+              aria-label="Open gated platform in browser"
+              placeholder="Open Gated (Login)…"
+              options={[
+                { value: 'x', label: 'X (Twitter) Live Search' },
+                { value: 'linkedin', label: 'LinkedIn Posts Search' },
+                { value: 'facebook', label: 'Facebook Groups Search' },
+                { value: 'discord', label: 'Discord App (Manual)' },
+              ]}
+            />
             <Button small variant="secondary" onClick={() => setShowConnectAccounts((v) => !v)}>
               <UserCheck className="h-3.5 w-3.5 text-emerald-400" />
               Connect Social Accounts
@@ -494,6 +556,26 @@ export const SocialIntentRadar: FC<{
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
+          <Select
+            className="w-44"
+            value={platformFilter}
+            onChange={setPlatformFilter}
+            aria-label="Filter by platform"
+            options={[
+              { value: 'all', label: 'All Platforms' },
+              { value: 'Hacker News', label: 'Hacker News' },
+              { value: 'Product Hunt', label: 'Product Hunt' },
+              { value: 'WordPress.org', label: 'WordPress.org' },
+              { value: 'Shopify Community', label: 'Shopify Community' },
+              { value: 'IndieHackers', label: 'IndieHackers' },
+              { value: 'Bluesky', label: 'Bluesky' },
+              { value: 'Reddit', label: 'Reddit' },
+              { value: 'GitHub', label: 'GitHub' },
+              { value: 'Dev.to', label: 'Dev.to' },
+              { value: 'Lobsters', label: 'Lobsters' },
+              { value: 'X / LinkedIn', label: 'X / LinkedIn X-Ray' },
+            ]}
+          />
           <Select
             className="w-36"
             value={timeWindow}

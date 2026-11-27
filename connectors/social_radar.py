@@ -911,6 +911,173 @@ class SocialIntentRadarConnector(BaseConnector):
             logger.debug(f"Lobsters skipped: {exc}")
             return items, {"id": "lobsters", "label": "Lobsters", "status": "error", "hits": 0, "detail": str(exc)[:60]}
 
+    def fetch_producthunt(
+        self, query: Optional[str] = None, competitors: Optional[List[str]] = None, limit: int = 10
+    ) -> Tuple[List[OpportunityItem], Dict[str, Any]]:
+        items: List[OpportunityItem] = []
+        try:
+            url = "https://www.producthunt.com/feed"
+            status, text, _ = SafeFetcher.safe_get(url, timeout=8, headers=UA)
+            if status != 200 or not text:
+                return items, {"id": "producthunt", "label": "Product Hunt", "status": "error", "hits": 0, "detail": f"HTTP {status}"}
+            root = ET.fromstring(text)
+            for e in root.findall("a:entry", NS):
+                title = _strip_html_entities(e.findtext("a:title", "", NS) or "").strip()
+                body = _strip_html_entities(e.findtext("a:content", "", NS) or "")
+                posted_at = e.findtext("a:published", None, NS) or e.findtext("a:updated", None, NS)
+                if query and query.strip() and not _matches_query(f"{title} {body}", query):
+                    continue
+                intent = classify_intent(
+                    f"Show HN: {title}. {body[:500]}",
+                    query=query,
+                    competitors=competitors,
+                    posted_at=posted_at,
+                    reply_count=3,
+                    is_comment=False,
+                ) or {
+                    "intent_type": "launch_trigger",
+                    "intent_phrase": "new product launch",
+                    "trigger_sentence": title,
+                    "intent_score": 62,
+                }
+                link_el = e.find("a:link", NS)
+                link = link_el.get("href") if link_el is not None else ""
+                author = (e.findtext("a:author/a:name", "", NS) or "").strip()
+                items.append(
+                    self._build_item(
+                        source="producthunt",
+                        external_id=(e.findtext("a:id", "", NS) or link).rsplit("/", 1)[-1],
+                        title=title,
+                        description=body or title,
+                        url=link,
+                        posted_at=posted_at,
+                        platform="Product Hunt",
+                        author=author,
+                        community="producthunt.com",
+                        reply_count=3,
+                        upvotes=10,
+                        is_comment=False,
+                        intent=intent,
+                    )
+                )
+                if len(items) >= limit:
+                    break
+            return items, {"id": "producthunt", "label": "Product Hunt", "status": "ok", "hits": len(items), "detail": "Launches Feed"}
+        except Exception as exc:
+            logger.debug(f"Product Hunt skipped: {exc}")
+            return items, {"id": "producthunt", "label": "Product Hunt", "status": "error", "hits": 0, "detail": str(exc)[:60]}
+
+    def fetch_wordpress(
+        self, query: Optional[str] = None, competitors: Optional[List[str]] = None, limit: int = 10
+    ) -> Tuple[List[OpportunityItem], Dict[str, Any]]:
+        items: List[OpportunityItem] = []
+        try:
+            url = "https://wordpress.org/support/feed/"
+            status, text, _ = SafeFetcher.safe_get(url, timeout=8, headers=UA)
+            if status != 200 or not text:
+                return items, {"id": "wordpress", "label": "WordPress.org", "status": "error", "hits": 0, "detail": f"HTTP {status}"}
+            root = ET.fromstring(text)
+            for item_el in root.findall("./channel/item"):
+                title = _strip_html_entities(item_el.findtext("title", "") or "").strip()
+                body = _strip_html_entities(item_el.findtext("description", "") or "")
+                posted_at = item_el.findtext("pubDate", None)
+                if query and query.strip() and not _matches_query(f"{title} {body}", query):
+                    continue
+                intent = classify_intent(
+                    f"{title}. {body[:600]}",
+                    query=query,
+                    competitors=competitors,
+                    posted_at=None,
+                    reply_count=1,
+                    is_comment=False,
+                ) or {
+                    "intent_type": "pain_point",
+                    "intent_phrase": "wordpress support",
+                    "trigger_sentence": title,
+                    "intent_score": 54,
+                }
+                link = (item_el.findtext("link", "") or "").strip()
+                items.append(
+                    self._build_item(
+                        source="wordpress",
+                        external_id=link.rsplit("/", 2)[-2] if "/" in link else title[:32],
+                        title=title,
+                        description=body or title,
+                        url=link,
+                        posted_at=None,
+                        platform="WordPress.org",
+                        author="",
+                        community="WP Support Forums",
+                        reply_count=1,
+                        upvotes=1,
+                        is_comment=False,
+                        intent=intent,
+                    )
+                )
+                if len(items) >= limit:
+                    break
+            return items, {"id": "wordpress", "label": "WordPress.org", "status": "ok", "hits": len(items), "detail": "Support RSS"}
+        except Exception as exc:
+            logger.debug(f"WordPress skipped: {exc}")
+            return items, {"id": "wordpress", "label": "WordPress.org", "status": "error", "hits": 0, "detail": str(exc)[:60]}
+
+    def _ddg_serp_feed(
+        self,
+        *,
+        source_id: str,
+        label: str,
+        site_filter: str,
+        platform: str,
+        community: str,
+        default_type: str,
+        query: Optional[str],
+        competitors: Optional[List[str]],
+        limit: int = 8,
+    ) -> Tuple[List[OpportunityItem], Dict[str, Any]]:
+        items: List[OpportunityItem] = []
+        try:
+            term = _primary_search_term(query) if (query and query.strip()) else '"looking for" OR "recommend" OR "agency"'
+            ddg_url = f"https://html.duckduckgo.com/html/?q={quote_plus(f'{site_filter} {term}')}"
+            status, html_text, _ = SafeFetcher.safe_get(ddg_url, timeout=8, headers=UA)
+            if status in (403, 429):
+                return items, {"id": source_id, "label": label, "status": "rate_limited", "hits": 0, "detail": f"SERP HTTP {status}"}
+            if status != 200 or not html_text:
+                return items, {"id": source_id, "label": label, "status": "error", "hits": 0, "detail": f"HTTP {status}"}
+            for m in re.finditer(r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>', html_text, re.S):
+                href = _strip_html_entities(m.group(1))
+                title = _strip_html_entities(m.group(2))
+                if not href.startswith("http"):
+                    continue
+                intent = classify_intent(title, query=query, competitors=competitors, is_comment=False) or {
+                    "intent_type": default_type,
+                    "intent_phrase": term[:32],
+                    "trigger_sentence": title,
+                    "intent_score": 56,
+                }
+                items.append(
+                    self._build_item(
+                        source=source_id,
+                        external_id=hashlib.sha256(href.encode("utf-8")).hexdigest()[:16],
+                        title=title,
+                        description=title,
+                        url=href,
+                        posted_at=None,
+                        platform=platform,
+                        author="",
+                        community=community,
+                        reply_count=0,
+                        upvotes=1,
+                        is_comment=False,
+                        intent=intent,
+                    )
+                )
+                if len(items) >= limit:
+                    break
+            return items, {"id": source_id, "label": label, "status": "ok", "hits": len(items), "detail": "Public SERP"}
+        except Exception as exc:
+            logger.debug(f"SERP feed {source_id} skipped: {exc}")
+            return items, {"id": source_id, "label": label, "status": "error", "hits": 0, "detail": str(exc)[:60]}
+
     def fetch_all_with_health(
         self,
         query: Optional[str] = None,
@@ -927,6 +1094,41 @@ class SocialIntentRadarConnector(BaseConnector):
             lambda: self.fetch_github(query=query, competitors=competitors, limit=12),
             lambda: self.fetch_devto(query=query, competitors=competitors, limit=10),
             lambda: self.fetch_lobsters(query=query, competitors=competitors, limit=10),
+            lambda: self.fetch_producthunt(query=query, competitors=competitors, limit=10),
+            lambda: self.fetch_wordpress(query=query, competitors=competitors, limit=10),
+            lambda: self._ddg_serp_feed(
+                source_id="shopify_community",
+                label="Shopify Community",
+                site_filter="site:community.shopify.com",
+                platform="Shopify Community",
+                community="community.shopify.com",
+                default_type="pain_point",
+                query=query,
+                competitors=competitors,
+                limit=8,
+            ),
+            lambda: self._ddg_serp_feed(
+                source_id="indiehackers",
+                label="IndieHackers",
+                site_filter="site:indiehackers.com/post",
+                platform="IndieHackers",
+                community="indiehackers.com",
+                default_type="launch_trigger",
+                query=query,
+                competitors=competitors,
+                limit=8,
+            ),
+            lambda: self._ddg_serp_feed(
+                source_id="xray_posts",
+                label="X / LinkedIn X-Ray",
+                site_filter="(site:x.com OR site:linkedin.com/posts)",
+                platform="X / LinkedIn",
+                community="Public Posts X-Ray",
+                default_type="buying_request",
+                query=query,
+                competitors=competitors,
+                limit=8,
+            ),
         ]
         if include_comments:
             tasks.append(lambda: self.fetch_hn_comments(query=query, competitors=competitors, time_window=time_window, limit=12))
