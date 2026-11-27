@@ -539,3 +539,19 @@ def test_watching_command_center_stacking_autoplay_and_bulk():
     assert lf_engine._infer_domain("https://jobs.acme-dental.io/role", {}) == "acme-dental.io"
     assert lf_engine._normalize_company_name("Acme Dental Ltd.") == lf_engine._normalize_company_name("Acme Dental, Inc")
     assert lf_engine.MAX_AUTO_PLAY_PER_RUN == 10
+
+
+def test_today_command_center_briefing_kpis_and_attribution():
+    from api import app
+
+    client = TestClient(app)
+    res = client.get("/api/today/command-center?days=14", headers=_headers("super_admin", "org_default"))
+    assert res.status_code == 200
+    data = res.json()
+    assert len(data["briefing_bullets"]) == 3
+    assert "weighted_forecast" in data["kpis"]
+    assert "delivered_pct" in data["kpis"]
+    assert len(data["attribution_matrix"]) == 5
+    assert len(data["velocity_series"]) == 14
+    assert "replies_followups" in data["action_queue"]
+    assert "bottlenecks" in data["action_queue"]
