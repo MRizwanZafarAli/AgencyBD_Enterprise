@@ -125,15 +125,15 @@ export const OpenInBrowser: FC<{
 };
 
 const PLATFORM_ACTIVITY: Record<string, string[]> = {
-  linkedin: ['invite_sent', 'message_sent', 'reply_received', 'profile_view', 'post_published', 'call_booked'],
-  fiverr: ['gig_impression', 'gig_click', 'gig_order', 'message_sent', 'reply_received', 'call_booked'],
-  upwork: ['proposal_sent', 'connects_spent', 'message_sent', 'reply_received', 'call_booked'],
-  freelancer: ['proposal_sent', 'connects_spent', 'message_sent', 'reply_received', 'call_booked'],
-  peopleperhour: ['proposal_sent', 'connects_spent', 'message_sent', 'reply_received', 'call_booked'],
-  guru: ['proposal_sent', 'connects_spent', 'message_sent', 'reply_received', 'call_booked'],
-  clutch: ['message_sent', 'reply_received', 'profile_view', 'call_booked'],
-  contra: ['proposal_sent', 'message_sent', 'reply_received', 'call_booked'],
-  toptal: ['proposal_sent', 'message_sent', 'reply_received', 'call_booked'],
+  linkedin: ['invite_sent', 'invite_accepted', 'comment_left', 'message_sent', 'reply_received', 'call_booked'],
+  fiverr: ['gig_impressions', 'gig_clicks', 'inquiry_received', 'gig_orders', 'message_sent', 'reply_received'],
+  upwork: ['proposal_sent', 'proposal_viewed', 'connects_spent', 'reply_received', 'call_booked'],
+  freelancer: ['proposal_sent', 'proposal_viewed', 'bids_spent', 'reply_received', 'call_booked'],
+  peopleperhour: ['proposal_sent', 'proposal_viewed', 'credits_spent', 'reply_received', 'call_booked'],
+  guru: ['proposal_sent', 'proposal_viewed', 'quotes_spent', 'reply_received', 'call_booked'],
+  clutch: ['review_invited', 'review_published', 'inquiry_received', 'profile_view', 'call_booked'],
+  contra: ['gig_impressions', 'gig_clicks', 'inquiry_received', 'gig_orders'],
+  toptal: ['match_received', 'call_booked', 'trial_started', 'hire_confirmed'],
 };
 const BID_COST_PLATFORMS = new Set(['upwork', 'freelancer', 'peopleperhour', 'guru']);
 
@@ -550,16 +550,18 @@ export const QuickPages: FC<{
 };
 
 export const QuickActivityBar: FC<{ platform: Platform; s: Summary | null; today: string; run: Run; post: Post }> = ({ platform, s, today, run, post }) => {
-  const quickKinds = (PLATFORM_ACTIVITY[platform.id] ?? ['proposal_sent', 'message_sent', 'reply_received']).slice(0, 4);
+  const actions = platform.quick_actions?.length
+    ? platform.quick_actions
+    : (PLATFORM_ACTIVITY[platform.id] ?? ['proposal_sent', 'message_sent', 'reply_received']).map((k) => ({ kind: k, label: KIND_LABEL[k] ?? k }));
   const week = s?.activity_this_week ?? {};
   return (
-    <Section title="Quick +1 activity" hint="One-click log as you work in the Side Panel or browser — updates your weekly funnel automatically.">
+    <Section title="Manual activity fallback" hint="Fallback quick-log when working outside the Side Panel — uses native platform actions & currencies.">
       <div className="flex flex-wrap gap-2">
-        {quickKinds.map((k) => (
-          <Button key={k} small onClick={() => run(() => post('activity', { kind: k, qty: 1, day: today }))}>
+        {actions.slice(0, 5).map((act) => (
+          <Button key={act.kind} small onClick={() => run(() => post('activity', { kind: act.kind, qty: 1, day: today }))}>
             <Zap className="h-3.5 w-3.5 text-amber-400" />
-            +1 {KIND_LABEL[k] ?? k}
-            <Badge tone="neutral">{week[k] ?? 0}</Badge>
+            +1 {act.label}
+            <Badge tone="neutral">{week[act.kind] ?? 0}</Badge>
           </Button>
         ))}
       </div>

@@ -675,3 +675,70 @@ def test_clients_pipeline_qa_merge_rotting_reset_and_lost_reason():
     lost_leads = [x for x in p3["stages"]["lost"]["leads"] if x["id"] == keep["id"]]
     assert len(lost_leads) == 1
     assert lost_leads[0]["lost_reason"] == "No Budget"
+
+
+def test_channels_archetype_registry_capture_gigs_reviews_and_overview():
+    from database.models import LeadRepository
+    from api import app
+
+    org = "org_channels_archetype_qa"
+    client = TestClient(app)
+    hdrs = _headers("growth_lead", org)
+
+    # 1. Registry returns archetype + native currency per platform
+    plat_res = client.get("/api/channels/platforms", headers=hdrs)
+    assert plat_res.status_code == 200
+    plats = {p["id"]: p for p in plat_res.json()["platforms"]}
+    assert plats["upwork"]["archetype"] == "bidding_marketplace"
+    assert plats["upwork"]["native_currency"]["name"] == "Connects"
+    assert plats["freelancer"]["native_currency"]["name"] == "Bids"
+    assert plats["peopleperhour"]["native_currency"]["name"] == "Proposal Credits"
+    assert plats["guru"]["native_currency"]["name"] == "Quotes"
+    assert plats["clutch"]["archetype"] == "review_directory"
+    assert plats["fiverr"]["archetype"] == "inbound_storefront"
+
+    # 2. Side-panel capture logs into channel_bids AND creates CRM lead
+    cap = client.post(
+        "/api/channels/upwork/capture",
+        headers=hdrs,
+        json={
+            "title": "Next.js SaaS Redesign",
+            "client_name": "NovaHealth",
+            "url": "https://upwork.com/jobs/novahealth",
+            "budget": 8500,
+            "currency_spent": 16,
+            "boosted": True,
+            "hook_template_id": "Audit-L1",
+            "client_payment_verified": True,
+            "status": "replied",
+        },
+    )
+    assert cap.status_code == 200
+    assert cap.json()["bid"]["crm_lead_id"] == cap.json()["lead"]["id"]
+
+    # 3. Fiverr gig SKU & storefront KPIs
+    g_res = client.post(
+        "/api/channels/fiverr/gigs",
+        headers=hdrs,
+        json={"title": "Next.js Audit", "impressions": 1000, "clicks": 50, "orders": 5, "revenue": 2500},
+    )
+    assert g_res.status_code == 200
+    f_sum = client.get("/api/channels/fiverr/summary", headers=hdrs).json()
+    assert [k["id"] for k in f_sum["kpis"]] == ["active_gigs", "ctr_pct", "cvr_pct", "avg_response_sla", "monthly_revenue"]
+    assert f_sum["native"]["gigs"][0]["title"] == "Next.js Audit"
+
+    # 4. Won CRM client surfaces in Clutch Review Engine
+    won = LeadRepository.create_or_get_lead(company_name="WonClient Co", domain="wonclient.io", source_channel="linkedin", org_id=org)
+    LeadRepository.update_deal_stage(won["id"], "won", org_id=org)
+    c_sum = client.get("/api/channels/clutch/summary", headers=hdrs).json()
+    assert any(w["id"] == won["id"] for w in c_sum["native"]["won_clients"])
+    assert [k["id"] for k in c_sum["kpis"]] == ["verified_reviews", "avg_rating", "directory_rank", "inbound_inquiries", "utm_traffic"]
+
+    # 5. Overview returns ROI matrix + alerts, and preferences hide/show channels
+    ov = client.get("/api/channels/overview", headers=hdrs).json()
+    assert len(ov["platforms"]) >= 9
+    assert isinstance(ov["alerts"], list)
+    pref = client.post("/api/channels/preferences", headers=hdrs, json={"hidden_platforms": ["guru"]})
+    assert pref.status_code == 200 and "guru" in pref.json()["hidden_platforms"]
+    ov2 = client.get("/api/channels/overview", headers=hdrs).json()
+    assert not any(r["platform"] == "guru" for r in ov2["platforms"])

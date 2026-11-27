@@ -82,7 +82,7 @@ export function App() {
       title,
     });
   };
-  const [channel, setChannel] = useState('linkedin');
+  const [channel, setChannel] = useState('all');
   const [seed, setSeed] = useState<{ find?: string; quicklog?: string; n: number }>({ n: 0 });
   const [emailSeed, setEmailSeed] = useState<EmailSeed | null>(null);
   const inbox = useApi<{ count: number }>(me ? '/api/inbox' : null);
