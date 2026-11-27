@@ -23,7 +23,7 @@ import {
   UserPlus,
   XCircle,
 } from 'lucide-react';
-import { Badge, Button, Card, field } from '../ui';
+import { Badge, Button, Card, Select, field } from '../ui';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
 
 export type IntentType = 'buying_request' | 'competitor_complaint' | 'pain_point' | 'launch_trigger';
@@ -445,26 +445,28 @@ export const SocialIntentRadar: FC<{
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
-          <select
-            className={`${field} !w-auto text-xs`}
+          <Select
+            className="w-36"
             value={timeWindow}
-            onChange={(e) => setTimeWindow(e.target.value as '24h' | '7d' | '30d' | 'all')}
+            onChange={(v) => setTimeWindow(v as '24h' | '7d' | '30d' | 'all')}
             aria-label="Time window"
-          >
-            <option value="24h">Last 24h</option>
-            <option value="7d">Last 7d</option>
-            <option value="30d">Last 30d</option>
-            <option value="all">All time</option>
-          </select>
-          <select
-            className={`${field} !w-auto text-xs`}
+            options={[
+              { value: '24h', label: 'Last 24h' },
+              { value: '7d', label: 'Last 7d' },
+              { value: '30d', label: 'Last 30d' },
+              { value: 'all', label: 'All time' },
+            ]}
+          />
+          <Select
+            className="w-44"
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as 'score' | 'newest')}
+            onChange={(v) => setSortBy(v as 'score' | 'newest')}
             aria-label="Sort order"
-          >
-            <option value="score">Sort: Intent Score</option>
-            <option value="newest">Sort: Newest First</option>
-          </select>
+            options={[
+              { value: 'score', label: 'Sort: Intent Score' },
+              { value: 'newest', label: 'Sort: Newest First' },
+            ]}
+          />
           <label className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 cursor-pointer">
             <input
               type="checkbox"
@@ -626,7 +628,7 @@ export const SocialIntentRadar: FC<{
       )}
 
       {visibleSignals.length > 0 && (
-        <div className="grid gap-4 lg:grid-cols-[430px_1fr]">
+        <div className="grid gap-4 lg:grid-cols-[430px_1fr] items-start">
           {/* Left Split-Pane Queue */}
           <Card className="!p-2 max-h-[680px] overflow-y-auto space-y-1.5">
             {visibleSignals.map((sig) => {
@@ -693,7 +695,7 @@ export const SocialIntentRadar: FC<{
           </Card>
 
           {/* Right Buyer Intelligence & Reply Studio */}
-          <Card>
+          <Card className="lg:sticky lg:top-4">
             {selected ? (
               <div className="space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">

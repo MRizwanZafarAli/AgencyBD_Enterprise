@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FC } from 'react';
 import { BellPlus, Languages, RefreshCw, Search, ShieldCheck, Sparkles, Zap } from 'lucide-react';
-import { Badge, Button, Card, field } from '../ui';
+import { Badge, Button, Card, Select, field } from '../ui';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
 import { TENDER_SOURCE_LABELS, TenderDrawer } from './TenderDrawer';
 import type { TenderOpportunity } from './TenderDrawer';
@@ -248,32 +248,52 @@ export const FindTenders: FC<{
               onChange={(e) => setQ(e.target.value)}
             />
           </div>
-          <select className={field} value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} aria-label="Procurement portal">
-            <option value="all">All Portals</option>
-            <option value="ted">TED (EU)</option>
-            <option value="uk_fts">UK Find a Tender</option>
-            <option value="uk_cf">UK Contracts Finder</option>
-            <option value="sam_gov">SAM.gov (US)</option>
-          </select>
-          <select className={field} value={cpvFilter} onChange={(e) => setCpvFilter(e.target.value)} aria-label="CPV or NAICS code">
-            <option value="all">All CPV / NAICS</option>
-            <option value="72000000">CPV 72000000 (IT Services)</option>
-            <option value="72200000">CPV 72200000 (Software Dev)</option>
-            <option value="72400000">CPV 72400000 (Web / Internet)</option>
-            <option value="79340000">CPV 79340000 (Marketing)</option>
-            <option value="541511">NAICS 541511 (US Programming)</option>
-            <option value="541512">NAICS 541512 (US Systems)</option>
-          </select>
-          <select className={field} value={valueTier} onChange={(e) => setValueTier(e.target.value as 'all' | 'sme' | 'mid' | 'enterprise')} aria-label="Value tier">
-            <option value="all">All Value Tiers</option>
-            <option value="sme">Micro / SME (&lt; £100k)</option>
-            <option value="mid">Mid-Market (£100k–£1M)</option>
-            <option value="enterprise">Enterprise / Framework (£1M+)</option>
-          </select>
-          <select className={field} value={countryFilter} onChange={(e) => setCountryFilter(e.target.value)} aria-label="Country">
-            <option value="all">All Countries</option>
-            {countries.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
+          <Select
+            value={sourceFilter}
+            onChange={setSourceFilter}
+            aria-label="Procurement portal"
+            options={[
+              { value: 'all', label: 'All Portals' },
+              { value: 'ted', label: 'TED (EU)' },
+              { value: 'uk_fts', label: 'UK Find a Tender' },
+              { value: 'uk_cf', label: 'UK Contracts Finder' },
+              { value: 'sam_gov', label: 'SAM.gov (US)' },
+            ]}
+          />
+          <Select
+            value={cpvFilter}
+            onChange={setCpvFilter}
+            aria-label="CPV or NAICS code"
+            options={[
+              { value: 'all', label: 'All CPV / NAICS' },
+              { value: '72000000', label: 'CPV 72000000 (IT Services)' },
+              { value: '72200000', label: 'CPV 72200000 (Software Dev)' },
+              { value: '72400000', label: 'CPV 72400000 (Web / Internet)' },
+              { value: '79340000', label: 'CPV 79340000 (Marketing)' },
+              { value: '541511', label: 'NAICS 541511 (US Programming)' },
+              { value: '541512', label: 'NAICS 541512 (US Systems)' },
+            ]}
+          />
+          <Select
+            value={valueTier}
+            onChange={(v) => setValueTier(v as 'all' | 'sme' | 'mid' | 'enterprise')}
+            aria-label="Value tier"
+            options={[
+              { value: 'all', label: 'All Value Tiers' },
+              { value: 'sme', label: 'Micro / SME (< £100k)' },
+              { value: 'mid', label: 'Mid-Market (£100k–£1M)' },
+              { value: 'enterprise', label: 'Enterprise / Framework (£1M+)' },
+            ]}
+          />
+          <Select
+            value={countryFilter}
+            onChange={setCountryFilter}
+            aria-label="Country"
+            options={[
+              { value: 'all', label: 'All Countries' },
+              ...countries.map((c) => ({ value: c, label: c })),
+            ]}
+          />
         </div>
 
         {/* Notice Stage Filter Pills & Auto-Translate */}
@@ -403,7 +423,7 @@ export const FindTenders: FC<{
                         </div>
                       </td>
                       <td className="py-3 px-3 align-top max-w-md">
-                        <div className="font-semibold text-white">{displayTitle}</div>
+                        <div className="font-semibold text-white line-clamp-2">{displayTitle}</div>
                         <div className="text-[11px] text-slate-400 mt-0.5">
                           {t.company_name || 'Contracting Authority'}
                           {t.metadata?.country ? ` · ${t.metadata.country}` : ''}
