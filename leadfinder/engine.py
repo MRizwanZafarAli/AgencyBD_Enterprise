@@ -14,6 +14,7 @@ from leadfinder import sources
 logger = logging.getLogger("AgencyBD.leadfinder")
 MAX_SEARCHES = 30
 MAX_NOTIFY_LINES = 5
+MAX_AUTO_PLAY_PER_RUN = 10
 
 
 def _now() -> datetime:
@@ -120,18 +121,30 @@ def run_search(org_id: str, search_id: int) -> Dict[str, Any]:
     min_score = int(s["params"].get("min_score_alert") or 80)
     with get_db() as db:
         first_run = s["last_run_at"] is None
+        existing_urls = {
+            _canonical_url(row[0])
+            for row in db.execute("SELECT url FROM lead_hits WHERE search_id = ? AND url IS NOT NULL", (search_id,)).fetchall()
+            if _canonical_url(row[0])
+        }
         for h in found:
+            canon_u = _canonical_url(h.get("url"))
+            if canon_u and canon_u in existing_urls:
+                continue
             cur = db.execute("INSERT OR IGNORE INTO lead_hits (org_id, search_id, key, title, detail, url, data_json, first_seen_at, notified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                              (org_id, search_id, h["key"], h["title"][:200], (h.get("detail") or "")[:300], h.get("url"), json.dumps(h.get("data") or {}), now, 0))
-            new += cur.rowcount
-            if cur.rowcount and auto_play:
-                sc = _infer_score(s["source"], h.get("data") or {})
-                if sc >= min_score and cur.lastrowid:
-                    try:
-                        save_to_clients(org_id, cur.lastrowid)
-                        auto_played += 1
-                    except Exception:
-                        pass
+            if cur.rowcount:
+                new += 1
+                if canon_u:
+                    existing_urls.add(canon_u)
+                if auto_play and auto_played < MAX_AUTO_PLAY_PER_RUN:
+                    sc = _infer_score(s["source"], h.get("data") or {})
+                    if sc >= min_score and cur.lastrowid:
+                        try:
+                            res = save_to_clients(org_id, cur.lastrowid, source_stamp=f"Auto-saved by {s['name']}")
+                            if res.get("lead_id"):
+                                auto_played += 1
+                        except Exception:
+                            pass
         db.execute("UPDATE lead_searches SET last_run_at = ?, last_status = ?, last_detail = ? WHERE id = ?",
                    (now, status, detail or f"{len(found)} found, {new} new" + (f", {auto_played} auto-played." if auto_played else "."), search_id))
         db.commit()
@@ -151,10 +164,29 @@ def due(now: Optional[datetime] = None) -> List[Dict[str, Any]]:
 
 # ------------------------------------------------------------------ hits
 
+def _canonical_url(url: Optional[str]) -> str:
+    if not url:
+        return ""
+    base = url.strip().split("#")[0].split("?")[0].rstrip("/").lower()
+    return base.replace("https://www.", "https://").replace("http://www.", "http://")
+
+
 def _domain(url: Optional[str]) -> str:
     if not url:
         return ""
-    return url.lower().strip().replace("https://", "").replace("http://", "").split("/")[0].split("?")[0].removeprefix("www.")
+    host = url.lower().strip().replace("https://", "").replace("http://", "").split("/")[0].split("?")[0].removeprefix("www.")
+    parts = host.split(".")
+    if len(parts) >= 3 and parts[-2] not in ("co", "com", "org", "net", "gov", "ac"):
+        return ".".join(parts[-2:])
+    return host
+
+
+_CORP_SUFFIX_RE = re.compile(r"\b(inc|incorporated|ltd|limited|llc|llp|plc|corp|corporation|gmbh|co|company|group|holdings)\b\.?", re.I)
+
+
+def _normalize_company_name(name: str) -> str:
+    cleaned = _CORP_SUFFIX_RE.sub("", (name or "").lower())
+    return re.sub(r"[^a-z0-9]+", "", cleaned)
 
 
 def _infer_score(source: str, data: Dict[str, Any]) -> int:
@@ -215,7 +247,7 @@ def list_hits(org_id: str, status: Optional[str] = None, search_id: Optional[int
         d["auto_domain"] = _infer_domain(d.get("url"), data)
         d["company_name"] = (data.get("company_name") or d.get("title") or "").strip()[:80]
         d["action_window"] = _action_window(src, data)
-        stack_key = (d["auto_domain"] or d["company_name"]).lower().strip()
+        stack_key = d["auto_domain"] or _normalize_company_name(d["company_name"])
         if stack_key:
             company_counts[stack_key] = company_counts.get(stack_key, 0) + 1
         d["_stack_key"] = stack_key
@@ -236,7 +268,7 @@ def dismiss(org_id: str, hit_id: int) -> bool:
 _DOMAIN = re.compile(r"^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$")
 
 
-def save_to_clients(org_id: str, hit_id: int, website: Optional[str] = None) -> Dict[str, Any]:
+def save_to_clients(org_id: str, hit_id: int, website: Optional[str] = None, source_stamp: Optional[str] = None) -> Dict[str, Any]:
     """Keeps a hit. When there is a website (given by you, or already known from your own check) it also becomes a client you can
     work on. A website is never guessed: without one the hit is kept and no client is created."""
     with get_db() as db:
@@ -250,7 +282,13 @@ def save_to_clients(org_id: str, hit_id: int, website: Optional[str] = None) -> 
         raise ValueError("That does not look like a website address. Use something like example.com.")
     lead_id = None
     if domain and _DOMAIN.match(domain):
-        lead = LeadRepository.create_or_get_lead(company_name=(data.get("company") or r["title"]), domain=domain, source_channel="lead_finder", source_query=r["search_name"], org_id=org_id)
+        lead = LeadRepository.create_or_get_lead(
+            company_name=(data.get("company_name") or data.get("company") or r["title"]),
+            domain=domain,
+            source_channel="lead_finder",
+            source_query=source_stamp or r["search_name"],
+            org_id=org_id,
+        )
         lead_id = lead["id"]
     with get_db() as db:
         db.execute("UPDATE lead_hits SET status = 'saved', lead_id = COALESCE(?, lead_id) WHERE id = ?", (lead_id, hit_id))

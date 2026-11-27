@@ -536,3 +536,6 @@ def test_watching_command_center_stacking_autoplay_and_bulk():
     assert bs.status_code == 200 and bs.json()["saved"] == 0
     assert bd.status_code == 200 and bd.json()["dismissed"] == 0
     assert lf_engine._infer_domain("https://acme-dental.io/careers", {}) == "acme-dental.io"
+    assert lf_engine._infer_domain("https://jobs.acme-dental.io/role", {}) == "acme-dental.io"
+    assert lf_engine._normalize_company_name("Acme Dental Ltd.") == lf_engine._normalize_company_name("Acme Dental, Inc")
+    assert lf_engine.MAX_AUTO_PLAY_PER_RUN == 10
