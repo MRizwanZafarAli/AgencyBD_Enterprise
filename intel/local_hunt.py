@@ -140,6 +140,64 @@ def generate_pitch_strategy(r: Dict[str, Any], category: str, city: str, org_id:
     }
 
 
+PUBLIC_SECTOR_HINTS = (
+    "nhs", "urgent care", "hospital", "council", "municipality", "police",
+    "fire station", "library", "post office", "public school", "university",
+    "ministry", "government", "town hall", "ambulance",
+)
+HIGH_BUDGET_CATEGORIES = (
+    "dentist", "dental", "medspa", "cosmetic", "plastic", "lawyer", "attorney",
+    "law firm", "roofer", "roofing", "hvac", "plumber", "plumbing", "clinic",
+    "orthodont", "chiropract", "real estate", "solar", "software", "agency",
+)
+
+
+def classify_entity_and_budget(r: Dict[str, Any], category: str) -> Dict[str, str]:
+    name_l = (r.get("name") or "").lower()
+    cat_l = (category or "").lower()
+    is_public = any(k in name_l for k in PUBLIC_SECTOR_HINTS)
+    if is_public:
+        entity_type, pitchability = "public_sector", "Low"
+    elif r.get("chain"):
+        entity_type, pitchability = "chain_franchise", "Low"
+    else:
+        entity_type, pitchability = "independent_smb", "High"
+
+    reviews = r.get("reviews") or 0
+    if any(k in cat_l or k in name_l for k in HIGH_BUDGET_CATEGORIES) and (reviews >= 15 or r.get("website")):
+        budget = "High"
+    elif reviews >= 10 or r.get("website"):
+        budget = "Medium"
+    else:
+        budget = "Low"
+    return {"entity_type": entity_type, "pitchability": pitchability, "budget_tier": budget}
+
+
+def _attach_crm_status(results: List[Dict[str, Any]], org_id: str) -> None:
+    try:
+        from database.db import get_db
+        with get_db() as conn:
+            rows = conn.execute(
+                "SELECT id, company_name, domain, status, deal_stage FROM leads WHERE org_id = ?",
+                (org_id,),
+            ).fetchall()
+        by_domain = {}
+        by_name = {}
+        for row in rows:
+            info = {"lead_id": row["id"], "status": row["status"], "deal_stage": row["deal_stage"] or row["status"]}
+            if row["domain"]:
+                by_domain[row["domain"].lower().removeprefix("www.")] = info
+            if row["company_name"]:
+                by_name[row["company_name"].strip().lower()] = info
+        for r in results:
+            d = (r.get("domain") or "").lower().removeprefix("www.")
+            n = (r.get("name") or "").strip().lower()
+            r["crm_status"] = by_domain.get(d) or by_name.get(n)
+    except Exception:
+        for r in results:
+            r.setdefault("crm_status", None)
+
+
 def hunt(category: str, city: str, limit: int = 20, provider: Optional[str] = None, org_id: str = "org_default") -> Dict[str, Any]:
     category, city = (category or "").strip(), (city or "").strip()
     if len(category) < 2 or len(city) < 2:
@@ -183,6 +241,7 @@ def hunt(category: str, city: str, limit: int = 20, provider: Optional[str] = No
             r["coords_approx"] = True
 
         # Autonomous BD Pitch Strategy & Teardown
+        r.update(classify_entity_and_budget(r, category))
         r["pitch_strategy"] = generate_pitch_strategy(r, category, city, org_id)
         return score_candidate(r)
 
@@ -207,6 +266,9 @@ def hunt(category: str, city: str, limit: int = 20, provider: Optional[str] = No
             r["score"] = min(r["score"], 15)                              # a national chain's head office is not a small-business client
             r["issues"] = list(r.get("issues", [])) + [f"matched {r['branches']} branches: likely a chain or franchise"]
     results = unique
+    for r in results:
+        r.update(classify_entity_and_budget(r, category))
+    _attach_crm_status(results, org_id)
     results.sort(key=lambda r: (bool(r.get("chain")), -r["score"]))             # independents first by score, then the chains
     notes = ([f"{chains} chain or franchise result(s) matched several branches and were merged into one row each and ranked low."] if chains else []) + (["OpenStreetMap is community-mapped: 'no website' here means none is recorded, not proven. Check the business before pitching."]
              if provider == "osm" else [])
@@ -244,7 +306,23 @@ def probe_presence_live(name: str, city: str, website: Optional[str] = None, org
                 "pitch_strategy": generate_pitch_strategy(record, "", city, org_id), "status": "probed"}
     res = PresenceRescueEngine.evaluate_presence(name, city, None, org_id=org_id)
     record = {"name": name, "classification": res["classification"], "domain": res.get("domain"), "website": res.get("domain"), "issues": []}
+
+    import re
+    import socket
+    slug = re.sub(r"[^a-z0-9]", "", name.lower())[:28] or "business"
+    domain_checks = []
+    for tld in (".com", ".co.uk", ".io"):
+        cand = f"{slug}{tld}"
+        try:
+            socket.getaddrinfo(cand, None)
+            domain_checks.append({"domain": cand, "likely_available": False})
+        except socket.gaierror:
+            domain_checks.append({"domain": cand, "likely_available": True})
+        except Exception:
+            domain_checks.append({"domain": cand, "likely_available": False})
+
     return {"name": name, "city": city, "website": res.get("domain"), "domain": res.get("domain"), "classification": res["classification"],
             "verified": res["verified"], "checks_performed": res["checks_performed"], "limitations": res["limitations"], "issues": [],
+            "domain_suggestions": domain_checks,
             "pitch_strategy": generate_pitch_strategy(record, "", city, org_id) if res["classification"] in HOOKS or res["classification"] == "has_site" else None,
             "status": "probed"}

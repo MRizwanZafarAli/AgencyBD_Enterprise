@@ -21,7 +21,7 @@ ORDER = {"super_admin": 3, "growth_lead": 2, "sdr_rep": 1, "auditor": 1}        
 PUBLIC = {                                                                         # reachable without signing in, on purpose
     ("GET", "/healthz/live"), ("GET", "/healthz/ready"), ("GET", "/api/health"), ("GET", "/api/auth/tiers"), ("POST", "/api/auth/login"),
 }
-SIGNED_BY_SECRET = ("/api/webhooks/inbound", "/api/integrations/crm/hubspot", "/api/compliance/unsubscribe", "/api/connectors/upwork/callback", "/p/{token}")     # protected by a signature or a one-time token instead of a session
+SIGNED_BY_SECRET = ("/api/webhooks/inbound", "/api/integrations/crm/hubspot", "/api/compliance/unsubscribe", "/api/connectors/upwork/callback", "/p/{token}", "/api/demo/{slug}")     # protected by a signature or a one-time token instead of a session
 SKIP = ("/api/outbound/drafts/{draft_id}/send", "/api/dispatch/send", "/api/controls/outbound")        # would send real mail or flip the global stop switch
 SLOW = ("/api/clients/{lead_id}/prepare", "/api/sourcing/hiring/signals", "/api/clients/{lead_id}/find_contacts", "/api/sourcing/venture/sec_edgar", "/api/radar/scan")
 # network-bound: they wait on outside sites (13 to 24 seconds when the network is down). Here they only prove "sign in required" and "auditor refused";

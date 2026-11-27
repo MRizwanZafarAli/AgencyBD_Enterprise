@@ -88,6 +88,52 @@ def get_fit_markdown(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@router.get("/scraped")
+def get_saved_scrape(
+    domain: str = Query(..., description="Domain or URL to look up saved scrape"),
+    principal: Principal = Depends(get_current_principal),
+) -> Dict[str, Any]:
+    """Returns the latest persisted site scrape for a specific domain/site."""
+    import json
+    from urllib.parse import urlparse
+
+    raw = domain.strip().lower()
+    if "://" in raw:
+        raw = urlparse(raw).hostname or raw
+    clean = raw.split(":")[0].removeprefix("www.")
+    with get_db() as conn:
+        row = conn.execute(
+            """
+            SELECT id, url, domain, title, fit_markdown, extracted_json, status, created_at
+            FROM scraped_pages
+            WHERE org_id = ? AND (LOWER(domain) = ? OR LOWER(domain) = ?)
+            ORDER BY created_at DESC, id DESC LIMIT 1
+            """,
+            (principal.org_id, clean, f"www.{clean}"),
+        ).fetchone()
+    if not row:
+        return {"found": False, "scrape": None}
+    extracted = {}
+    try:
+        extracted = json.loads(row["extracted_json"] or "{}")
+    except Exception:
+        extracted = {}
+    return {
+        "found": True,
+        "scrape": {
+            "id": row["id"],
+            "url": row["url"],
+            "domain": row["domain"],
+            "title": row["title"],
+            "fit_markdown": row["fit_markdown"] or "",
+            "extracted_data": extracted,
+            "developer_audit": extracted.get("developer_audit", {}),
+            "status": row["status"],
+            "created_at": row["created_at"],
+        },
+    }
+
+
 @router.post("/session/navigate")
 def navigate_browser_sidepanel(
     req: BrowserNavigateRequest,

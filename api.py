@@ -914,6 +914,74 @@ def local_hunt_probe_presence(req: LocalHuntProbeRequest, principal: Principal =
     return local_hunt.probe_presence_live(req.name, req.city, req.website, org_id=principal.org_id)
 
 
+_DEMO_SITES: Dict[str, str] = {}
+
+
+class DemoSiteRequest(BaseModel):
+    name: str
+    category: str = "Local Business"
+    city: str = ""
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    offer: str = "web_design"
+
+
+@app.post("/api/hunt/local/demo_site")
+def create_local_demo_site(req: DemoSiteRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
+    """Generates a live 1-page interactive mockup URL for a local business in 1 click."""
+    import html as _html
+    import re as _re
+    import secrets as _sec
+    slug = f"{_re.sub(r'[^a-z0-9]+', '-', req.name.lower()).strip('-')[:32] or 'demo'}-{_sec.token_hex(3)}"
+    n = _html.escape(req.name)
+    cat = _html.escape(req.category or "Local Specialist")
+    cty = _html.escape(req.city or "Your Area")
+    addr = _html.escape(req.address or cty)
+    ph = _html.escape(req.phone or "(Call for appointment)")
+    tel_href = _re.sub(r"[^\d+]", "", req.phone or "")
+    _DEMO_SITES[slug] = f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>{n} — Preview Mockup</title>
+<style>
+body{{margin:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;background:#0f172a;color:#f8fafc;line-height:1.5}}
+.bar{{background:#0f766e;color:#fff;padding:10px 20px;font-size:13px;text-align:center;font-weight:600}}
+.hero{{max-width:920px;margin:48px auto;padding:0 24px}}
+.pill{{display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(45,212,191,.15);color:#5eead4;font-size:12px;font-weight:600}}
+h1{{font-size:clamp(2rem,4vw,3.1rem);margin:14px 0 12px;line-height:1.1}}
+p{{color:#cbd5e1;max-width:620px;font-size:16px}}
+.cta{{display:flex;flex-wrap:wrap;gap:12px;margin-top:24px}}
+.btn{{padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:600;font-size:14px}}
+.btn-p{{background:#14b8a6;color:#04211f}}.btn-s{{border:1px solid #334155;color:#f8fafc}}
+.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:40px}}
+.card{{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:18px}}
+</style></head><body>
+<div class="bar">Interactive 1-Page Preview Concept prepared for {n}</div>
+<section class="hero">
+<span class="pill">{cat} · {cty}</span>
+<h1>{n}</h1>
+<p>Modern mobile-first website &amp; instant booking experience built for {n} in {cty}. Fast load speed, SSL secured, and click-to-book ready.</p>
+<div class="cta">
+{"<a class='btn btn-p' href='tel:" + tel_href + "'>Call " + ph + "</a>" if tel_href else "<span class='btn btn-p'>Book Online Now</span>"}
+<a class="btn btn-s" href="#details">Location &amp; Hours</a>
+</div>
+<div id="details" class="grid">
+<div class="card"><strong>Fast Mobile Booking</strong><p style="font-size:13px;margin:6px 0 0">Turn local map searches into confirmed appointments in under 30 seconds.</p></div>
+<div class="card"><strong>Verified Local Trust</strong><p style="font-size:13px;margin:6px 0 0">Showcase reviews, services, and clear pricing right above the fold.</p></div>
+<div class="card"><strong>Visit Us</strong><p style="font-size:13px;margin:6px 0 0">{addr}<br/>{ph}</p></div>
+</div></section></body></html>"""
+    return {"slug": slug, "demo_url": f"/api/demo/{slug}"}
+
+
+@app.get("/api/demo/{slug}")
+def view_local_demo_site(slug: str):
+    """Serves a generated local business preview mockup."""
+    from fastapi.responses import HTMLResponse
+    html_doc = _DEMO_SITES.get(slug)
+    if not html_doc:
+        raise HTTPException(status_code=404, detail="Demo mockup not found or expired")
+    return HTMLResponse(content=html_doc)
+
+
 @app.get("/api/pipeline/deals")
 def get_pipeline_deals(principal: Principal = Depends(require_permission("leads:read"))):
     """Returns structured CRM pipeline deals grouped by stage with live revenue forecasting."""
