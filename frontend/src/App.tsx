@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import type { Surface } from './types';
 import { Header } from './components/layout/Header';
 import { Sidebar, MobileTabBar } from './components/layout/Sidebar';
@@ -112,8 +112,9 @@ export function App() {
       .finally(() => setChecking(false));
 
     const onUnauthorized = () => {
+      clearToken();
       setMe(null);
-      setAuthNotice('Your session ended. This happens after 12 hours or when the password of your tier is changed. Please sign in again.');
+      setAuthNotice('Your session expired. Please sign in again.');
     };
     window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
     return () => {
@@ -121,6 +122,33 @@ export function App() {
       window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
     };
   }, []);
+
+  // Auto-expire session and return to Sign-In after 6 minutes of user inactivity
+  const lastActivityRef = useRef<number>(Date.now());
+  useEffect(() => {
+    if (!me) return;
+    const IDLE_TIMEOUT_MS = 6 * 60 * 1000; // 6 minutes
+    lastActivityRef.current = Date.now();
+
+    const bumpActivity = () => {
+      lastActivityRef.current = Date.now();
+    };
+    const events: Array<keyof WindowEventMap> = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    events.forEach((ev) => window.addEventListener(ev, bumpActivity, { passive: true }));
+
+    const interval = window.setInterval(() => {
+      if (Date.now() - lastActivityRef.current >= IDLE_TIMEOUT_MS) {
+        clearToken();
+        setMe(null);
+        setAuthNotice('Your session expired after 6 minutes of inactivity. Please sign in again.');
+      }
+    }, 10_000);
+
+    return () => {
+      window.clearInterval(interval);
+      events.forEach((ev) => window.removeEventListener(ev, bumpActivity));
+    };
+  }, [me]);
 
   // Enforce role-based allowed surfaces whenever identity or surface changes
   useEffect(() => {
