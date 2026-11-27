@@ -50,15 +50,27 @@ EU_GLOSSARY = {
 }
 
 
+FX_TO_GBP: Dict[str, float] = {"GBP": 1.0, "EUR": 0.85, "USD": 0.79}
+
+
+def normalize_to_gbp(amount: Optional[float], currency: Optional[str] = "GBP") -> float:
+    if amount is None:
+        return 0.0
+    rate = FX_TO_GBP.get((currency or "GBP").upper(), 1.0)
+    return float(amount) * rate
+
+
 def _days_until(iso_str: Optional[str]) -> Optional[int]:
     if not iso_str:
         return None
     try:
         clean = iso_str.strip().replace("Z", "+00:00")
-        dt = datetime.fromisoformat(clean[:19] if len(clean) >= 19 and "T" in clean else clean[:10])
+        if "T" not in clean and len(clean) == 10:
+            clean = f"{clean}T23:59:59+00:00"
+        dt = datetime.fromisoformat(clean)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
-        return int((dt - datetime.now(timezone.utc)).total_seconds() // 86400)
+        return int((dt.astimezone(timezone.utc) - datetime.now(timezone.utc)).total_seconds() // 86400)
     except Exception:
         return None
 
@@ -128,9 +140,10 @@ def evaluate_bid_scorecard(opp: Dict[str, Any], org_id: str) -> Dict[str, Any]:
         time_status = "pass"
         time_note = f"{days_left} days remaining — sufficient time for bid writing & QA."
 
-    # 4. SME Accessibility & Mega-Tender Teaming
+    # 4. SME Accessibility & Mega-Tender Teaming (normalized to GBP)
     lots_count = int(meta.get("lots_count") or 1)
-    is_mega = bool(budget and float(budget) >= 2_000_000)
+    gbp_val = normalize_to_gbp(budget, currency)
+    is_mega = gbp_val >= 2_000_000
     if is_mega and lots_count <= 1:
         sme_status = "warn"
         sme_note = f"Mega-tender ({currency} {int(budget):,}, 1 lot) — pitch as Specialist Subcontractor / Teaming Partner to Tier-1 primes."

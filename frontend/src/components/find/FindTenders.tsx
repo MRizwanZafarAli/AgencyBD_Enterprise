@@ -6,17 +6,41 @@ import { apiFetch, apiErrorMessage } from '../../lib/api';
 import { TENDER_SOURCE_LABELS, TenderDrawer } from './TenderDrawer';
 import type { TenderOpportunity } from './TenderDrawer';
 
-function deadlineCountdown(deadline?: string | null, stage?: string): { label: string; tone: 'good' | 'warn' | 'bad' | 'neutral' } {
-  if (stage === 'pin') return { label: 'Pre-Market PIN', tone: 'good' };
-  if (stage === 'award') return { label: 'Award / Renewal', tone: 'neutral' };
-  if (!deadline) return { label: 'Rolling / Portal', tone: 'neutral' };
-  const ms = Date.parse(deadline);
-  if (Number.isNaN(ms)) return { label: deadline.slice(0, 10), tone: 'neutral' };
+const FX_TO_GBP: Record<string, number> = { GBP: 1, EUR: 0.85, USD: 0.79 };
+
+export function toGbp(amount?: number | null, currency?: string): number | null {
+  if (amount == null || Number.isNaN(Number(amount))) return null;
+  const rate = FX_TO_GBP[(currency || 'GBP').toUpperCase()] ?? 1;
+  return Number(amount) * rate;
+}
+
+function parseUtcDeadlineMs(deadline?: string | null): number | null {
+  if (!deadline) return null;
+  const trimmed = deadline.trim();
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? `${trimmed}T23:59:59Z` : trimmed;
+  const ms = Date.parse(normalized);
+  return Number.isNaN(ms) ? null : ms;
+}
+
+function deadlineCountdown(deadline?: string | null, stage?: string): { label: string; tone: 'good' | 'warn' | 'bad' | 'neutral'; isExpired: boolean } {
+  if (stage === 'pin') return { label: 'Pre-Market PIN', tone: 'good', isExpired: false };
+  if (stage === 'award') return { label: 'Award / Renewal', tone: 'neutral', isExpired: false };
+  if (!deadline) return { label: 'Rolling / Portal', tone: 'neutral', isExpired: false };
+  const ms = parseUtcDeadlineMs(deadline);
+  if (ms === null) return { label: deadline.slice(0, 10), tone: 'neutral', isExpired: false };
   const days = Math.ceil((ms - Date.now()) / 86_400_000);
-  if (days < 0) return { label: 'Expired', tone: 'bad' };
-  if (days <= 5) return { label: `Closes in ${days}d`, tone: 'bad' };
-  if (days <= 14) return { label: `${days}d left`, tone: 'warn' };
-  return { label: `${days}d left`, tone: 'good' };
+  if (days < 0) return { label: 'Expired', tone: 'bad', isExpired: true };
+  if (days <= 5) return { label: `Closes in ${days}d`, tone: 'bad', isExpired: false };
+  if (days <= 14) return { label: `${days}d left`, tone: 'warn', isExpired: false };
+  return { label: `${days}d left`, tone: 'good', isExpired: false };
+}
+
+interface PortalHealth {
+  id: string;
+  label: string;
+  status: 'ok' | 'auth_required' | 'rate_limited' | 'error';
+  hits: number;
+  detail?: string;
 }
 
 export const FindTenders: FC<{
@@ -41,10 +65,19 @@ export const FindTenders: FC<{
   const [valueTier, setValueTier] = useState<'all' | 'sme' | 'mid' | 'enterprise'>('all');
   const [countryFilter, setCountryFilter] = useState('all');
   const [autoTranslate, setAutoTranslate] = useState(true);
+  const [hideExpired, setHideExpired] = useState(true);
+  const [portalHealth, setPortalHealth] = useState<PortalHealth[]>([]);
   const [translatedTitles, setTranslatedTitles] = useState<Record<number, string>>({});
   const [selected, setSelected] = useState<TenderOpportunity | null>(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+
+  const loadHealth = () => {
+    apiFetch('/api/tenders/source-health')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.sources) setPortalHealth(d.sources); })
+      .catch(() => {});
+  };
 
   const loadTenders = async () => {
     setLoading(true);
@@ -64,6 +97,7 @@ export const FindTenders: FC<{
 
   useEffect(() => {
     loadTenders();
+    loadHealth();
   }, []);
 
   useEffect(() => {
@@ -95,6 +129,7 @@ export const FindTenders: FC<{
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(apiErrorMessage(res.status, body));
       await loadTenders();
+      loadHealth();
       setNotice('Scanned TED (EU), UK Find a Tender, UK Contracts Finder & SAM.gov.');
     } catch (e) {
       setError((e as Error).message);
@@ -148,16 +183,21 @@ export const FindTenders: FC<{
       if (sourceFilter !== 'all' && r.source !== sourceFilter) return false;
       const stage = r.metadata?.notice_stage || 'rfp';
       if (stageFilter !== 'all' && stage !== stageFilter) return false;
+      if (hideExpired && stageFilter !== 'award' && stage !== 'award') {
+        const dl = deadlineCountdown(r.deadline, stage);
+        if (dl.isExpired) return false;
+      }
       if (countryFilter !== 'all' && (r.metadata?.country || '') !== countryFilter) return false;
       if (cpvFilter !== 'all') {
         const codes = (r.metadata?.cpv_codes || r.skills_required || []).join(' ');
         if (!codes.includes(cpvFilter)) return false;
       }
       if (valueTier !== 'all') {
-        const val = Number(r.budget_max || 0);
-        if (valueTier === 'sme' && (val <= 0 || val >= 100_000)) return false;
-        if (valueTier === 'mid' && (val < 100_000 || val > 1_000_000)) return false;
-        if (valueTier === 'enterprise' && val <= 1_000_000) return false;
+        const gbp = toGbp(r.budget_max, r.currency);
+        if (gbp === null || gbp <= 0) return false;
+        if (valueTier === 'sme' && gbp >= 100_000) return false;
+        if (valueTier === 'mid' && (gbp < 100_000 || gbp > 1_000_000)) return false;
+        if (valueTier === 'enterprise' && gbp <= 1_000_000) return false;
       }
       if (q.trim()) {
         const low = q.trim().toLowerCase();
@@ -166,7 +206,7 @@ export const FindTenders: FC<{
       }
       return true;
     });
-  }, [rows, sourceFilter, stageFilter, countryFilter, cpvFilter, valueTier, q, translatedTitles]);
+  }, [rows, sourceFilter, stageFilter, hideExpired, countryFilter, cpvFilter, valueTier, q, translatedTitles]);
 
   return (
     <div className="space-y-4">
@@ -263,17 +303,61 @@ export const FindTenders: FC<{
             ))}
           </div>
 
-          <label className="inline-flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={autoTranslate}
-              onChange={(e) => setAutoTranslate(e.target.checked)}
-              className="rounded border-slate-700"
-            />
-            <Languages className="h-3.5 w-3.5 text-indigo-400" />
-            Auto-Translate EU Titles
-          </label>
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="inline-flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={hideExpired}
+                onChange={(e) => setHideExpired(e.target.checked)}
+                className="rounded border-slate-700"
+              />
+              Hide Expired
+            </label>
+            <label className="inline-flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoTranslate}
+                onChange={(e) => setAutoTranslate(e.target.checked)}
+                className="rounded border-slate-700"
+              />
+              <Languages className="h-3.5 w-3.5 text-indigo-400" />
+              Auto-Translate EU Titles
+            </label>
+          </div>
         </div>
+
+        {portalHealth.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mt-2.5 pt-2.5 border-t border-slate-800/80">
+            <span className="text-[11px] text-slate-500 font-medium">Portal Health:</span>
+            {portalHealth.map((ph) => {
+              const dot =
+                ph.status === 'ok'
+                  ? 'bg-emerald-400'
+                  : ph.status === 'auth_required' || ph.status === 'rate_limited'
+                  ? 'bg-amber-400'
+                  : 'bg-rose-400';
+              return (
+                <span
+                  key={ph.id}
+                  title={ph.detail}
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] bg-slate-900 border border-slate-800 text-slate-300"
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+                  <span>{ph.label}:</span>
+                  <strong className="text-white">
+                    {ph.status === 'auth_required'
+                      ? 'Auth required'
+                      : ph.status === 'rate_limited'
+                      ? 'Rate-limited'
+                      : ph.status === 'error'
+                      ? 'Error'
+                      : `${ph.hits} hits`}
+                  </strong>
+                </span>
+              );
+            })}
+          </div>
+        )}
 
         {notice && <p className="text-xs text-emerald-400 mt-2">{notice}</p>}
         {error && <p className="text-xs text-rose-400 mt-2">{error}</p>}
@@ -304,7 +388,8 @@ export const FindTenders: FC<{
                 {filtered.map((t) => {
                   const stage = t.metadata?.notice_stage || 'rfp';
                   const dl = deadlineCountdown(t.deadline, stage);
-                  const isMega = Boolean(t.budget_max && Number(t.budget_max) >= 2_000_000);
+                  const gbpVal = toGbp(t.budget_max, t.currency);
+                  const isMega = gbpVal !== null && gbpVal >= 2_000_000;
                   const displayTitle = autoTranslate && translatedTitles[t.id] ? translatedTitles[t.id] : t.title;
                   return (
                     <tr key={t.id} className="hover:bg-slate-900/50 transition">

@@ -481,3 +481,25 @@ def test_tenders_enterprise_connectors_scorecard_and_bid_studio():
 
     rs = client.post("/api/tenders/rescore", headers=hdrs)
     assert rs.status_code == 200 and rs.json()["rescored"] >= 1
+
+
+def test_tenders_qa_fx_utc_deadline_and_sam_health(monkeypatch):
+    from intel.tender_intel import normalize_to_gbp, _days_until
+    from api import app
+
+    # 1. FX normalization to GBP
+    assert normalize_to_gbp(2_100_000, "EUR") < 2_000_000  # 2.1M EUR * 0.85 = 1.785M GBP
+    assert normalize_to_gbp(2_600_000, "USD") >= 2_000_000  # 2.6M USD * 0.79 = 2.054M GBP
+    assert normalize_to_gbp(None, "GBP") == 0.0
+
+    # 2. UTC deadline parsing (date-only treats end of UTC day)
+    assert _days_until("2020-01-01") < 0
+    assert _days_until(None) is None
+
+    # 3. SAM.gov source-health surfaces auth_required when key is missing
+    monkeypatch.delenv("SAM_GOV_API_KEY", raising=False)
+    client = TestClient(app)
+    res = client.get("/api/tenders/source-health", headers=_headers("growth_lead", "org_tenders_qa"))
+    assert res.status_code == 200
+    by_id = {s["id"]: s for s in res.json()["sources"]}
+    assert by_id["sam_gov"]["status"] == "auth_required"

@@ -75,6 +75,10 @@ class SamGovConnector(BaseConnector):
             params = {"api_key": key, "postedFrom": (now - timedelta(days=30)).strftime("%m/%d/%Y"), "postedTo": now.strftime("%m/%d/%Y"),
                       "ncode": code, "limit": min(limit, 100), "active": "Yes"}
             status, text, _ = SafeFetcher.safe_get(f"{URL}?{urlencode(params)}", timeout=30)
+            if status in (401, 403):
+                raise ConnectorNotConfigured(f"SAM.gov auth_required (HTTP {status}) — verify SAM_GOV_API_KEY.")
+            if status == 429:
+                raise RuntimeError("SAM.gov rate_limited (HTTP 429) — daily public API quota reached.")
             if status != 200:
                 raise RuntimeError(f"SAM.gov returned HTTP {status}: {text[:120]}")
             items += parse_notices(json.loads(text))
