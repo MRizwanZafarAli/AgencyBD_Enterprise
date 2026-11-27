@@ -124,12 +124,12 @@ export const Find: FC<{
       {tab === 'watch' && (
         <TabGuide
           id="watch"
-          title="Watching & X-Ray"
-          note="Automated background monitors + safe LinkedIn X-Ray links"
+          title="Automated signal monitors"
+          note="Unified Signal Monitoring, Alert Routing & Triage Inbox across all 4 Find tabs"
           steps={[
-            'Create a recurring Watch for new jobs, UK/IE companies, or site problems.',
-            'Triage paginated New leads below (Keep to Clients or Dismiss).',
-            'Use LinkedIn X-Ray & Official Portals for manual high-value research.',
+            'Start with a 1-click Monitor Template (Local Territory, Hiring-Spree, Competitor Radar, or Tender/CPV).',
+            'Enable Auto-Play or set Instant vs. Daily Digest alert thresholds to prevent notification fatigue.',
+            'Triage stacked multi-signal accounts in the Unified Inbox with Inspect, Keep to CRM, or Bulk actions.',
           ]}
         />
       )}

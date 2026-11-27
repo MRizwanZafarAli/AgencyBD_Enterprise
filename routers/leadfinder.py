@@ -92,11 +92,25 @@ def save(hit_id: int, body: Optional[SaveBody] = None, principal: Principal = De
     return _guard(engine.save_to_clients, principal.org_id, hit_id, body.website if body else None)
 
 
+class BulkHitsBody(BaseModel):
+    hit_ids: list[int] = Field(default_factory=list)
+
+
 @router.post("/hits/{hit_id}/dismiss")
 def dismiss(hit_id: int, principal: Principal = Depends(WRITE)):
     if not engine.dismiss(principal.org_id, hit_id):
         raise HTTPException(status_code=404, detail="Hit not found or already saved")
     return {"dismissed": hit_id}
+
+
+@router.post("/hits/bulk-save")
+def bulk_save_hits(body: BulkHitsBody, principal: Principal = Depends(WRITE)):
+    return engine.bulk_save(principal.org_id, body.hit_ids)
+
+
+@router.post("/hits/bulk-dismiss")
+def bulk_dismiss_hits(body: BulkHitsBody, principal: Principal = Depends(WRITE)):
+    return engine.bulk_dismiss(principal.org_id, body.hit_ids)
 
 
 @router.get("/places")

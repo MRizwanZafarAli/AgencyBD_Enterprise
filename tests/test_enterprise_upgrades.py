@@ -503,3 +503,36 @@ def test_tenders_qa_fx_utc_deadline_and_sam_health(monkeypatch):
     assert res.status_code == 200
     by_id = {s["id"]: s for s in res.json()["sources"]}
     assert by_id["sam_gov"]["status"] == "auth_required"
+
+
+def test_watching_command_center_stacking_autoplay_and_bulk():
+    from leadfinder import engine as lf_engine
+    from api import app
+
+    org = "org_watch_qa"
+    client = TestClient(app)
+    hdrs = _headers("growth_lead", org)
+
+    # 1. Create a tender_cpv monitor with auto_play=True and verify it runs cleanly
+    c_res = client.post(
+        "/api/leadfinder/searches",
+        headers=hdrs,
+        json={
+            "name": "NHS Tender Watch",
+            "source": "tender_cpv",
+            "params": {"q": "", "auto_play": True, "min_score_alert": 70, "alert_mode": "instant"},
+            "notify": True,
+            "every_hours": 6,
+        },
+    )
+    assert c_res.status_code == 200
+    s = c_res.json()
+    assert s["auto_play"] is True
+    assert s["alert_mode"] == "instant"
+
+    # 2. Verify bulk-save and bulk-dismiss endpoints accept hit_ids cleanly
+    bs = client.post("/api/leadfinder/hits/bulk-save", headers=hdrs, json={"hit_ids": []})
+    bd = client.post("/api/leadfinder/hits/bulk-dismiss", headers=hdrs, json={"hit_ids": []})
+    assert bs.status_code == 200 and bs.json()["saved"] == 0
+    assert bd.status_code == 200 and bd.json()["dismissed"] == 0
+    assert lf_engine._infer_domain("https://acme-dental.io/careers", {}) == "acme-dental.io"
