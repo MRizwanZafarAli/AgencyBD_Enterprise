@@ -786,15 +786,25 @@ def direct_send_email(
                     skip_warmup=True
                 )
 
-    # 7. Generate compliance footer & RFC headers
+    # 7. Resolve spintax + merge tags and block dispatch if any required {{tag}} has no value/fallback
+    resolved_subject = _resolve_spintax(_apply_merge_tags(req.subject, req.recipient_name or "", req.company_name or ""))
+    resolved_body = _resolve_spintax(_apply_merge_tags(req.body, req.recipient_name or "", req.company_name or ""))
+    unresolved = _find_unresolved_tags(resolved_subject) + _find_unresolved_tags(resolved_body)
+    if unresolved:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unresolved merge tag(s): {', '.join(sorted(set(unresolved)))}. Supply a value or add a fallback like {{{{first_name|there}}}} before sending.",
+        )
+
+    # 8. Generate compliance footer & RFC headers
     plain_footer, html_footer, headers = ComplianceFooterBuilder.build_footer(
         recipient_email=clean_recipient,
         org_id=org_id,
         include_lia=jurisdiction.requires_lia
     )
 
-    full_text = req.body + plain_footer
-    full_html = f"<div style='font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1e293b;'>{req.body.replace(chr(10), '<br/>')}</div>" + html_footer
+    full_text = resolved_body + plain_footer
+    full_html = f"<div style='font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1e293b;'>{resolved_body.replace(chr(10), '<br/>')}</div>" + html_footer
 
     message_id = f"<{uuid.uuid4().hex}@{mailbox['email'].split('@')[-1]}>"
     send_provider_used = "smtp"
@@ -812,7 +822,7 @@ def direct_send_email(
         outbound_msg = OutboundMessage(
             to_email=clean_recipient,
             from_email=mailbox["email"],
-            subject=req.subject,
+            subject=resolved_subject,
             body_text=full_text,
             body_html=full_html,
             headers=headers,
@@ -846,7 +856,7 @@ def direct_send_email(
         """, (
             org_id, mailbox["id"], req.lead_id, clean_recipient,
             message_id, json.dumps({
-                "subject": req.subject,
+                "subject": resolved_subject,
                 "body": req.body,
                 "recipient_name": req.recipient_name,
                 "company_name": req.company_name,
@@ -863,7 +873,7 @@ def direct_send_email(
                     VALUES (?, ?, ?, ?)
                 """, (
                     org_id, req.lead_id, user_id,
-                    f"Outbound email dispatched to {clean_recipient}\nSubject: {req.subject}\nVia: {mailbox['email']}"
+                    f"Outbound email dispatched to {clean_recipient}\nSubject: {resolved_subject}\nVia: {mailbox['email']}"
                 ))
             except Exception:
                 pass
@@ -1020,14 +1030,36 @@ def _resolve_spintax(text: str) -> str:
     return out
 
 
-def _apply_merge_tags(text: str, name: str, company: str) -> str:
-    first = (name or "").strip().split()[0] if name and name.strip() else "there"
-    comp = (company or "").strip() or "your team"
-    return (
-        text.replace("{{first_name}}", first)
-        .replace("{{name}}", (name or "").strip() or first)
-        .replace("{{company}}", comp)
-    )
+def _apply_merge_tags(text: str, name: str, company: str, extras: Optional[Dict[str, str]] = None) -> str:
+    first = (name or "").strip().split()[0] if name and name.strip() else ""
+    comp = (company or "").strip()
+    values: Dict[str, str] = {
+        "first_name": first,
+        "name": (name or "").strip() or first,
+        "company": comp,
+        **(extras or {}),
+    }
+
+    def _repl(match: re.Match) -> str:
+        expr = match.group(1).strip()
+        if "|" in expr:
+            key, fallback = expr.split("|", 1)
+            val = (values.get(key.strip()) or "").strip()
+            return val if val else fallback.strip()
+        val = (values.get(expr) or "").strip()
+        if val:
+            return val
+        if expr in ("first_name", "name"):
+            return "there"
+        if expr == "company":
+            return "your team"
+        return match.group(0)
+
+    return re.sub(r"\{\{([^}]+)\}\}", _repl, text or "")
+
+
+def _find_unresolved_tags(text: str) -> List[str]:
+    return [f"{{{{{m.group(1).strip()}}}}}" for m in re.finditer(r"\{\{([^}]+)\}\}", text or "")]
 
 
 @router.get("/templates")

@@ -166,7 +166,13 @@ button{{padding:10px 18px;border-radius:8px;border:0;background:#14b8a6;color:#0
 <h3>Included Deliverables</h3><ul>{scope_lis}</ul>
 {signed_badge}
 </div></body></html>"""
-    return HTMLResponse(page, headers={"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'"})
+    return HTMLResponse(
+        page,
+        headers={
+            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
+            "X-Robots-Tag": "noindex, nofollow",
+        },
+    )
 
 
 @router.post("/p/{token}/accept", response_class=HTMLResponse)

@@ -141,6 +141,26 @@ class NativeImapSyncEngine:
             company_name=company_name,
         )
 
+        # Global Suppression Guard: immediately suppress on unsubscribe reply
+        cat_lower = str(triage.get("category") or "").lower()
+        body_lower = (body or "").lower()
+        if cat_lower == "unsubscribe" or any(p in body_lower for p in ("unsubscribe", "opt out", "opt-out", "remove me from")):
+            from compliance.suppression import KeyedSuppressionVault
+            KeyedSuppressionVault.suppress(
+                clean_sender,
+                entity_type="email",
+                reason="inbound_unsubscribe",
+                source="master_inbox",
+                org_id=org_id,
+            )
+            with get_db() as conn:
+                conn.execute(
+                    "UPDATE sequence_enrollments SET status = 'stopped', stop_reason = 'unsubscribed' "
+                    "WHERE org_id = ? AND LOWER(recipient_email) = ?",
+                    (org_id, clean_sender),
+                )
+                conn.commit()
+
         with get_db() as conn:
             cur = conn.execute(
                 """

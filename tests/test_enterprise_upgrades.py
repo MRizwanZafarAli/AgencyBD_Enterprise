@@ -824,3 +824,75 @@ def test_email_hub_and_tools_enterprise_upgrades():
     assert t_ov.status_code == 200
     assert t_ov.json()["telemetry"]["swarm_agents"] == 8
     assert isinstance(t_ov.json()["recent_runs"], list)
+
+
+def test_email_hub_and_tools_qa_suppression_merge_guard_and_noindex():
+    from compliance.suppression import KeyedSuppressionVault
+    from api import app, client_report
+
+    org = "org_qa_3checks_final"
+    client = TestClient(app)
+    hdrs = _headers("super_admin", org)
+
+    # QA Check 1: Unsubscribe reply in Master Inbox adds email to global Suppression Vault & blocks future sends
+    unsub_email = "nothanks@prospect.io"
+    ing = client.post(
+        "/api/email/inbox/ingest",
+        headers=hdrs,
+        json={
+            "sender_email": unsub_email,
+            "recipient_email": "outreach@agencybd.enterprise",
+            "subject": "Re: Quick question",
+            "body": "Please unsubscribe me from your list.",
+        },
+    )
+    assert ing.status_code == 200
+    assert KeyedSuppressionVault.is_suppressed(unsub_email, org_id=org) is True
+    blocked = client.post(
+        "/api/email/send",
+        headers=hdrs,
+        json={"to_email": unsub_email, "subject": "Follow up", "body": "Checking back in on our earlier note."},
+    )
+    assert blocked.status_code == 422
+
+    # QA Check 2: Strict merge-tag & spintax guard blocks unresolved {{demo_site_url}}, allows {{first_name|there}}
+    bad_merge = client.post(
+        "/api/email/send",
+        headers=hdrs,
+        json={
+            "to_email": "alex@gmail.com",
+            "subject": "{Hi|Hello} {{first_name|there}}",
+            "body": "Here is your custom demo link: {{demo_site_url}} — let me know what you think.",
+            "is_test": True,
+        },
+    )
+    assert bad_merge.status_code == 422
+    assert "demo_site_url" in bad_merge.json()["detail"]
+
+    ok_merge = client.post(
+        "/api/email/send",
+        headers=hdrs,
+        json={
+            "to_email": "alex@gmail.com",
+            "subject": "{Hi|Hello} {{first_name|there}}",
+            "body": "Quick note for {{first_name|there}} at {{company}} — happy to share a brief teardown.",
+            "is_test": True,
+        },
+    )
+    assert ok_merge.status_code == 200
+
+    # QA Check 3: Shareable report endpoint returns X-Robots-Tag: noindex, nofollow and strips internal CRM notes
+    fname = f"report_{org}_example_com.html"
+    fpath = client_report.storage_dir / fname
+    fpath.parent.mkdir(parents=True, exist_ok=True)
+    fpath.write_text("<html><body><!-- INTERNAL_NOTES: secret margin --><h1>Report</h1>EST VALUE: $15,000 | LOST REASON: No Budget</body></html>", encoding="utf-8")
+    try:
+        rep = client.get(f"/api/reports/view/{fname}", headers=hdrs)
+        assert rep.status_code == 200
+        assert rep.headers.get("x-robots-tag") == "noindex, nofollow"
+        assert "INTERNAL_NOTES" not in rep.text
+        assert "EST VALUE" not in rep.text
+        assert "LOST REASON" not in rep.text
+    finally:
+        if fpath.exists():
+            fpath.unlink()

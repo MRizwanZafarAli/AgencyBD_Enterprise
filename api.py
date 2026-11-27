@@ -2018,15 +2018,21 @@ def export_executive_deck(req: ClientReportRequest, principal: Principal = Depen
 
 @app.get("/api/reports/view/{filename}")
 def view_client_report(filename: str, principal: Principal = Depends(require_permission("leads:read"))):
+    import re as _re
     name = os.path.basename(filename)
     if not (name.startswith(f"report_{principal.org_id}_") or name.startswith(f"deck_{principal.org_id}_")):      # tenants only see their own reports & decks
         raise HTTPException(status_code=404, detail="Report not found")
     path = client_report.storage_dir / name
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Report not found")
+    sec_headers = {"X-Robots-Tag": "noindex, nofollow"}
     if name.endswith(".html"):
-        return HTMLResponse(content=path.read_text(encoding="utf-8"))
-    return FileResponse(path=str(path), media_type="application/pdf", filename=name)
+        raw_html = path.read_text(encoding="utf-8")
+        # Strip internal CRM notes / admin metadata before rendering for prospects
+        clean_html = _re.sub(r"<!--\s*INTERNAL_NOTES:.*?-->", "", raw_html, flags=_re.DOTALL | _re.IGNORECASE)
+        clean_html = _re.sub(r"(EST VALUE:\s*\$[0-9,]+|LOST REASON:[^<\n|]+)(\s*\|\s*)?", "", clean_html)
+        return HTMLResponse(content=clean_html, headers=sec_headers)
+    return FileResponse(path=str(path), media_type="application/pdf", filename=name, headers=sec_headers)
 
 
 class AssistantChatRequest(BaseModel):
