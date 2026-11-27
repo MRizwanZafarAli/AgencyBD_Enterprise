@@ -35,7 +35,7 @@ export const Clients: FC<{
         }
       />
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
-      {tab === 'pipeline' && <PipelineBoard onOpen={setOpenLead} />}
+      {tab === 'pipeline' && <PipelineBoard onOpen={setOpenLead} onSendEmail={onSendEmail} />}
       {!isAuditor && tab === 'outreach' && <SequencesManager />}
       {!isAuditor && tab === 'partners' && <Partners />}
       <ClientPage leadId={openLead} onClose={() => setOpenLead(null)} onSendEmail={onSendEmail} onOpenScraper={onOpenScraper} />

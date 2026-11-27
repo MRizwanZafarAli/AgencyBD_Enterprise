@@ -1067,16 +1067,104 @@ def delete_pipeline_deal(lead_id: int, principal: Principal = Depends(require_pe
 
 @app.post("/api/pipeline/deals/clean_junk")
 def clean_junk_deals(principal: Principal = Depends(require_permission("leads:create"))):
-    """Purges scrapings with synthetic/invalid domains from the active CRM pipeline."""
+    """Purges scrapings with synthetic/invalid domains or raw HN question titles from the active CRM pipeline."""
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "DELETE FROM leads WHERE org_id = ? AND (domain LIKE '%.sec-edgar.gov' OR domain LIKE '%arxiv.org' OR domain LIKE '%.invalid')",
+            "DELETE FROM leads WHERE org_id = ? AND ("
+            "domain LIKE '%.sec-edgar.gov' OR domain LIKE '%arxiv.org' OR domain LIKE '%.invalid' OR domain LIKE '%.local' "
+            "OR company_name LIKE 'Does anyone%' OR company_name LIKE 'Ask HN:%')",
             (principal.org_id,)
         )
         count = cursor.rowcount
         conn.commit()
     return {"status": "cleaned", "deleted_count": count}
+
+
+class DealValueUpdateRequest(BaseModel):
+    deal_value: Optional[float] = Field(None, ge=0)
+
+
+class BulkDealsRequest(BaseModel):
+    lead_ids: List[int] = Field(default_factory=list)
+    action: str = Field(..., pattern="^(stage|delete)$")
+    stage: Optional[str] = None
+
+
+class MergeDealsRequest(BaseModel):
+    keep_id: int
+    remove_id: int
+
+
+@app.post("/api/pipeline/deals/{lead_id}/value")
+def update_pipeline_deal_value(lead_id: int, req: DealValueUpdateRequest, principal: Principal = Depends(require_permission("leads:create"))):
+    """Inline-updates EST VALUE: $N on a lead's notes."""
+    import re as _re
+    with get_db() as conn:
+        row = conn.execute("SELECT id, notes FROM leads WHERE id = ? AND org_id = ?", (lead_id, principal.org_id)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Lead not found")
+        notes = _re.sub(r"EST VALUE:\s*\$[0-9,]+\s*(\|\s*)?", "", row["notes"] or "").strip(" | ")
+        if req.deal_value is not None and req.deal_value > 0:
+            prefix = f"EST VALUE: ${req.deal_value:,.0f}"
+            notes = f"{prefix} | {notes}" if notes else prefix
+        conn.execute("UPDATE leads SET notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND org_id = ?", (notes, lead_id, principal.org_id))
+        conn.commit()
+    return {"lead_id": lead_id, "deal_value": req.deal_value}
+
+
+@app.post("/api/pipeline/deals/bulk")
+def bulk_pipeline_deals(req: BulkDealsRequest, principal: Principal = Depends(require_permission("leads:create"))):
+    """Bulk stage change or bulk delete for selected leads."""
+    ids = [int(i) for i in req.lead_ids[:100]]
+    if not ids:
+        return {"updated": 0}
+    if req.action == "stage":
+        if not req.stage:
+            raise HTTPException(status_code=422, detail="stage is required")
+        updated = 0
+        for lid in ids:
+            if LeadRepository.update_deal_stage(lid, req.stage, org_id=principal.org_id):
+                updated += 1
+        return {"updated": updated}
+    with get_db() as conn:
+        q_marks = ",".join("?" for _ in ids)
+        cur = conn.execute(f"DELETE FROM leads WHERE org_id = ? AND id IN ({q_marks})", (principal.org_id, *ids))
+        conn.commit()
+        return {"deleted": cur.rowcount}
+
+
+@app.get("/api/pipeline/deals/hygiene")
+def pipeline_hygiene_scan(principal: Principal = Depends(require_permission("leads:read"))):
+    """Scans CRM for duplicate domains, synthetic/non-company records, and missing deal values."""
+    with get_db() as conn:
+        rows = [dict(r) for r in conn.execute("SELECT id, company_name, domain, notes, status FROM leads WHERE org_id = ? ORDER BY id DESC", (principal.org_id,)).fetchall()]
+    by_dom: Dict[str, List[Dict[str, Any]]] = {}
+    junk: List[Dict[str, Any]] = []
+    unvalued: List[Dict[str, Any]] = []
+    for r in rows:
+        dom = (r.get("domain") or "").lower().strip()
+        cname = (r.get("company_name") or "").strip()
+        if dom:
+            by_dom.setdefault(dom, []).append(r)
+        if dom.endswith((".local", ".invalid", ".sec-edgar.gov")) or "arxiv.org" in dom or cname.startswith(("Does anyone", "Ask HN:", "How do ")) or cname.endswith("?"):
+            junk.append({"id": r["id"], "company_name": cname, "domain": dom, "reason": "Test domain or raw social question"})
+        if "EST VALUE:" not in (r.get("notes") or "") and (r.get("status") or "sourced") != "lost":
+            unvalued.append({"id": r["id"], "company_name": cname, "domain": dom, "suggested_value": 5000})
+    duplicates = [{"domain": dom, "records": recs} for dom, recs in by_dom.items() if len(recs) > 1]
+    return {"duplicates": duplicates, "junk": junk, "unvalued_count": len(unvalued), "unvalued_sample": unvalued[:10]}
+
+
+@app.post("/api/pipeline/deals/merge")
+def merge_pipeline_deals(req: MergeDealsRequest, principal: Principal = Depends(require_permission("leads:create"))):
+    """Merges remove_id into keep_id (re-links decision_makers & deletes duplicate)."""
+    if req.keep_id == req.remove_id:
+        raise HTTPException(status_code=422, detail="Cannot merge a lead with itself")
+    with get_db() as conn:
+        conn.execute("UPDATE decision_makers SET lead_id = ? WHERE lead_id = ? AND org_id = ?", (req.keep_id, req.remove_id, principal.org_id))
+        conn.execute("DELETE FROM leads WHERE id = ? AND org_id = ?", (req.remove_id, principal.org_id))
+        conn.commit()
+    return {"merged_into": req.keep_id, "removed": req.remove_id}
 
 
 

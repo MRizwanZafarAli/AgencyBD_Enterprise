@@ -555,3 +555,31 @@ def test_today_command_center_briefing_kpis_and_attribution():
     assert len(data["velocity_series"]) == 14
     assert "replies_followups" in data["action_queue"]
     assert "bottlenecks" in data["action_queue"]
+
+
+def test_clients_pipeline_inline_value_bulk_and_hygiene():
+    from database.models import LeadRepository
+    from api import app
+
+    org = "org_clients_qa"
+    l1 = LeadRepository.create_or_get_lead(company_name="Acme Dental", domain="acmedental.io", source_channel="map_osm", org_id=org)
+    l2 = LeadRepository.create_or_get_lead(company_name="Does anyone know a dev?", domain="hn-test.local", source_channel="social_hacker_news", org_id=org)
+    client = TestClient(app)
+    hdrs = _headers("growth_lead", org)
+
+    # 1. Inline value update
+    v_res = client.post(f"/api/pipeline/deals/{l1['id']}/value", headers=hdrs, json={"deal_value": 12500})
+    assert v_res.status_code == 200 and v_res.json()["deal_value"] == 12500
+
+    # 2. Bulk stage change
+    b_res = client.post("/api/pipeline/deals/bulk", headers=hdrs, json={"lead_ids": [l1["id"]], "action": "stage", "stage": "audited"})
+    assert b_res.status_code == 200 and b_res.json()["updated"] == 1
+
+    # 3. Hygiene scan detects .local / raw HN question junk
+    h_res = client.get("/api/pipeline/deals/hygiene", headers=hdrs)
+    assert h_res.status_code == 200
+    assert any(j["id"] == l2["id"] for j in h_res.json()["junk"])
+
+    # 4. Clean junk purges .local / raw HN question
+    c_res = client.post("/api/pipeline/deals/clean_junk", headers=hdrs)
+    assert c_res.status_code == 200 and c_res.json()["deleted_count"] >= 1

@@ -136,6 +136,20 @@ class LeadRepository:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM leads WHERE org_id = ? ORDER BY id DESC", (org_id,))
             rows = [dict(r) for r in cursor.fetchall()]
+            dm_rows = cursor.execute(
+                "SELECT lead_id, first_name, last_name, email FROM decision_makers WHERE org_id = ? ORDER BY id ASC",
+                (org_id,),
+            ).fetchall()
+            contacts_by_lead: Dict[int, Dict[str, Any]] = {}
+            for dm in dm_rows:
+                lid = dm["lead_id"]
+                if lid not in contacts_by_lead:
+                    full = f"{dm['first_name'] or ''} {dm['last_name'] or ''}".strip()
+                    contacts_by_lead[lid] = {"name": full or dm["email"], "email": dm["email"]}
+
+        from datetime import datetime, timezone
+        now_utc = datetime.now(timezone.utc)
+        rotting_thresholds = {"sourced": 14, "audited": 7, "sequence_active": 5, "meeting_booked": 5, "proposal_sent": 7}
 
         total_pipeline_value = 0.0
         weighted_projected_revenue = 0.0
@@ -164,6 +178,18 @@ class LeadRepository:
             if angle_match:
                 pitch_angle = angle_match.group(1).strip()
 
+            dm_info = contacts_by_lead.get(r["id"], {})
+            days_idle = 0
+            upd = r.get("updated_at") or r.get("created_at")
+            if upd:
+                try:
+                    dt = datetime.fromisoformat(str(upd).replace(" ", "T").replace("Z", "+00:00"))
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    days_idle = max(0, int((now_utc - dt).total_seconds() // 86400))
+                except Exception:
+                    days_idle = 0
+            thresh = rotting_thresholds.get(st, 999)
             deal_item = {
                 "id": r["id"],
                 "company_name": r["company_name"],
@@ -177,6 +203,10 @@ class LeadRepository:
                 "deal_stage": st,
                 "deal_value": deal_val,
                 "pitch_angle": pitch_angle,
+                "primary_contact": dm_info.get("name"),
+                "contact_email": dm_info.get("email"),
+                "days_idle": days_idle,
+                "is_rotting": st not in ("won", "lost") and days_idle >= thresh,
                 "created_at": r.get("created_at"),
                 "updated_at": r.get("updated_at")
             }
