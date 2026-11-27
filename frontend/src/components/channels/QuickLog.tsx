@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FC } from 'react';
 import { Sparkles } from 'lucide-react';
-import { Badge, Button, Card, field } from '../ui';
+import { Badge, Button, Card, Select, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { send } from '../../lib/hooks';
 import type { Catalog } from './types';
@@ -58,10 +58,21 @@ export const QuickLog: FC<{ catalog: Catalog; seed?: { text: string; n: number }
           <div className="flex flex-wrap gap-1.5">{draft.understood.map((u) => <Badge key={u} tone="accent">{u}</Badge>)}{draft.notes.map((n) => <Badge key={n} tone="warn">{n}</Badge>)}</div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
             <label className="text-xs text-slate-400 space-y-1">Platform
-              <select className={field} value={platform} onChange={(e) => setPlatform(e.target.value)}><option value="">Choose…</option>{catalog.platforms.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}</select></label>
+              <Select
+                aria-label="Platform"
+                placeholder="Choose…"
+                value={platform}
+                onChange={setPlatform}
+                options={catalog.platforms.map((p) => ({ value: p.id, label: p.label }))}
+              /></label>
             <label className="text-xs text-slate-400 space-y-1 lg:col-span-2">Title<input className={field} value={rec.title ?? ''} onChange={(e) => setRec({ ...rec, title: e.target.value || null })} /></label>
             <label className="text-xs text-slate-400 space-y-1">Status
-              <select className={field} value={rec.status} onChange={(e) => setRec({ ...rec, status: e.target.value })}>{catalog.statuses.map((s) => <option key={s} value={s}>{STATUS_LABEL[s] ?? s}</option>)}</select></label>
+              <Select
+                aria-label="Status"
+                value={rec.status}
+                onChange={(v) => setRec({ ...rec, status: v })}
+                options={catalog.statuses.map((s) => ({ value: s, label: STATUS_LABEL[s] ?? s }))}
+              /></label>
             <label className="text-xs text-slate-400 space-y-1">Value $<input className={field} inputMode="decimal" value={rec.value ?? ''} onChange={(e) => setRec({ ...rec, value: e.target.value === '' ? null : Number(e.target.value) })} /></label>
             <label className="text-xs text-slate-400 space-y-1">Follow up<input className={field} type="date" value={rec.next_followup ?? ''} onChange={(e) => setRec({ ...rec, next_followup: e.target.value || null })} /></label>
           </div>

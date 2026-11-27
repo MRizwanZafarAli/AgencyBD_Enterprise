@@ -14,6 +14,7 @@ from leadfinder import sources
 logger = logging.getLogger("AgencyBD.leadfinder")
 MAX_SEARCHES = 30
 MAX_NOTIFY_LINES = 5
+MAX_AUTO_PLAY_PER_RUN = 10
 
 
 def _now() -> datetime:
@@ -30,6 +31,13 @@ def _search(r) -> Dict[str, Any]:
     d["notify"], d["active"] = bool(d["notify"]), bool(d["active"])
     with get_db() as db:
         d["new_hits"] = db.execute("SELECT COUNT(*) FROM lead_hits WHERE search_id = ? AND status = 'new'", (d["id"],)).fetchone()[0]
+        d["total_hits"] = db.execute("SELECT COUNT(*) FROM lead_hits WHERE search_id = ?", (d["id"],)).fetchone()[0]
+        d["kept_hits"] = db.execute("SELECT COUNT(*) FROM lead_hits WHERE search_id = ? AND status = 'saved'", (d["id"],)).fetchone()[0]
+    d["hit_rate_pct"] = round((d["kept_hits"] / d["total_hits"]) * 100) if d["total_hits"] else 0
+    d["auto_play"] = bool(d["params"].get("auto_play", False))
+    d["min_score_alert"] = int(d["params"].get("min_score_alert") or 80)
+    d["alert_mode"] = d["params"].get("alert_mode") or ("instant" if d["notify"] else "digest")
+    d["channels"] = d["params"].get("channels") or (["Telegram", "Email Digest"] if d["notify"] else ["Email Digest"])
     return d
 
 
@@ -107,17 +115,40 @@ def run_search(org_id: str, search_id: int) -> Dict[str, Any]:
         logger.warning("lead search %s failed: %s", search_id, type(exc).__name__)
         status, detail = "error", str(exc)[:200] or "The source could not be reached. It will be tried again."
     new = 0
+    auto_played = 0
     now = _fmt(_now())
+    auto_play = bool(s["params"].get("auto_play", False))
+    min_score = int(s["params"].get("min_score_alert") or 80)
     with get_db() as db:
         first_run = s["last_run_at"] is None
+        existing_urls = {
+            _canonical_url(row[0])
+            for row in db.execute("SELECT url FROM lead_hits WHERE search_id = ? AND url IS NOT NULL", (search_id,)).fetchall()
+            if _canonical_url(row[0])
+        }
         for h in found:
+            canon_u = _canonical_url(h.get("url"))
+            if canon_u and canon_u in existing_urls:
+                continue
             cur = db.execute("INSERT OR IGNORE INTO lead_hits (org_id, search_id, key, title, detail, url, data_json, first_seen_at, notified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                              (org_id, search_id, h["key"], h["title"][:200], (h.get("detail") or "")[:300], h.get("url"), json.dumps(h.get("data") or {}), now, 0))
-            new += cur.rowcount
+            if cur.rowcount:
+                new += 1
+                if canon_u:
+                    existing_urls.add(canon_u)
+                if auto_play and auto_played < MAX_AUTO_PLAY_PER_RUN:
+                    sc = _infer_score(s["source"], h.get("data") or {})
+                    if sc >= min_score and cur.lastrowid:
+                        try:
+                            res = save_to_clients(org_id, cur.lastrowid, source_stamp=f"Auto-saved by {s['name']}")
+                            if res.get("lead_id"):
+                                auto_played += 1
+                        except Exception:
+                            pass
         db.execute("UPDATE lead_searches SET last_run_at = ?, last_status = ?, last_detail = ? WHERE id = ?",
-                   (now, status, detail or f"{len(found)} found, {new} new.", search_id))
+                   (now, status, detail or f"{len(found)} found, {new} new" + (f", {auto_played} auto-played." if auto_played else "."), search_id))
         db.commit()
-    return {"search_id": search_id, "status": status, "detail": detail, "total": len(found), "new": new, "first_run": first_run}
+    return {"search_id": search_id, "status": status, "detail": detail, "total": len(found), "new": new, "auto_played": auto_played, "first_run": first_run}
 
 
 def due(now: Optional[datetime] = None) -> List[Dict[str, Any]]:
@@ -133,8 +164,68 @@ def due(now: Optional[datetime] = None) -> List[Dict[str, Any]]:
 
 # ------------------------------------------------------------------ hits
 
+def _canonical_url(url: Optional[str]) -> str:
+    if not url:
+        return ""
+    base = url.strip().split("#")[0].split("?")[0].rstrip("/").lower()
+    return base.replace("https://www.", "https://").replace("http://www.", "http://")
+
+
+def _domain(url: Optional[str]) -> str:
+    if not url:
+        return ""
+    host = url.lower().strip().replace("https://", "").replace("http://", "").split("/")[0].split("?")[0].removeprefix("www.")
+    parts = host.split(".")
+    if len(parts) >= 3 and parts[-2] not in ("co", "com", "org", "net", "gov", "ac"):
+        return ".".join(parts[-2:])
+    return host
+
+
+_CORP_SUFFIX_RE = re.compile(r"\b(inc|incorporated|ltd|limited|llc|llp|plc|corp|corporation|gmbh|co|company|group|holdings)\b\.?", re.I)
+
+
+def _normalize_company_name(name: str) -> str:
+    cleaned = _CORP_SUFFIX_RE.sub("", (name or "").lower())
+    return re.sub(r"[^a-z0-9]+", "", cleaned)
+
+
+def _infer_score(source: str, data: Dict[str, Any]) -> int:
+    if data.get("intent_score") is not None:
+        return int(data["intent_score"])
+    if data.get("fit_score") is not None:
+        val = float(data["fit_score"])
+        return round(val * 100) if val <= 1.0 else int(val)
+    return 78 if source in ("social_intent", "tender_cpv") else 72
+
+
+def _infer_domain(url: Optional[str], data: Dict[str, Any]) -> str:
+    if data.get("domain"):
+        return str(data["domain"]).lower().lstrip("www.")
+    if data.get("website"):
+        return _domain(str(data["website"])) or ""
+    ext = data.get("external_urls") or []
+    if ext:
+        return _domain(str(ext[0])) or ""
+    if url:
+        dom = _domain(url) or ""
+        if dom and not any(b in dom for b in ("reddit.com", "news.ycombinator.com", "github.com", "bsky.app", "dev.to", "lobste.rs")):
+            return dom
+    return ""
+
+
+def _action_window(source: str, data: Dict[str, Any]) -> str:
+    if source == "social_intent":
+        return "Act within 24h"
+    if source == "tender_cpv":
+        dl = data.get("deadline")
+        return f"Deadline {str(dl)[:10]}" if dl else "Portal deadline"
+    if source == "site_signals":
+        return "Technical pain active"
+    return "7d hiring window"
+
+
 def list_hits(org_id: str, status: Optional[str] = None, search_id: Optional[int] = None, limit: int = 100) -> List[Dict[str, Any]]:
-    q, args = "SELECT h.*, s.name AS search_name FROM lead_hits h JOIN lead_searches s ON s.id = h.search_id WHERE h.org_id = ?", [org_id]
+    q, args = "SELECT h.*, s.name AS search_name, s.source AS search_source FROM lead_hits h JOIN lead_searches s ON s.id = h.search_id WHERE h.org_id = ?", [org_id]
     if status:
         q += " AND h.status = ?"
         args.append(status)
@@ -146,10 +237,24 @@ def list_hits(org_id: str, status: Optional[str] = None, search_id: Optional[int
     with get_db() as db:
         rows = db.execute(q, args).fetchall()
     out = []
+    company_counts: Dict[str, int] = {}
     for r in rows:
         d = dict(r)
-        d["data"] = json.loads(d.pop("data_json") or "{}")
+        data = json.loads(d.pop("data_json") or "{}")
+        d["data"] = data
+        src = d.get("search_source") or "hiring"
+        d["score"] = _infer_score(src, data)
+        d["auto_domain"] = _infer_domain(d.get("url"), data)
+        d["company_name"] = (data.get("company_name") or d.get("title") or "").strip()[:80]
+        d["action_window"] = _action_window(src, data)
+        stack_key = d["auto_domain"] or _normalize_company_name(d["company_name"])
+        if stack_key:
+            company_counts[stack_key] = company_counts.get(stack_key, 0) + 1
+        d["_stack_key"] = stack_key
         out.append(d)
+    for d in out:
+        sk = d.pop("_stack_key", "")
+        d["multi_signal_count"] = company_counts.get(sk, 1) if sk else 1
     return out
 
 
@@ -163,7 +268,7 @@ def dismiss(org_id: str, hit_id: int) -> bool:
 _DOMAIN = re.compile(r"^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$")
 
 
-def save_to_clients(org_id: str, hit_id: int, website: Optional[str] = None) -> Dict[str, Any]:
+def save_to_clients(org_id: str, hit_id: int, website: Optional[str] = None, source_stamp: Optional[str] = None) -> Dict[str, Any]:
     """Keeps a hit. When there is a website (given by you, or already known from your own check) it also becomes a client you can
     work on. A website is never guessed: without one the hit is kept and no client is created."""
     with get_db() as db:
@@ -171,17 +276,43 @@ def save_to_clients(org_id: str, hit_id: int, website: Optional[str] = None) -> 
     if not r:
         raise LookupError("hit not found")
     data = json.loads(r["data_json"] or "{}")
-    domain = (website or data.get("domain") or "").lower().strip().replace("https://", "").replace("http://", "").split("/")[0].removeprefix("www.")
+    inferred = _infer_domain(r["url"], data)
+    domain = (website or inferred or "").lower().strip().replace("https://", "").replace("http://", "").split("/")[0].removeprefix("www.")
     if website and not _DOMAIN.match(domain):
         raise ValueError("That does not look like a website address. Use something like example.com.")
     lead_id = None
     if domain and _DOMAIN.match(domain):
-        lead = LeadRepository.create_or_get_lead(company_name=(data.get("company") or r["title"]), domain=domain, source_channel="lead_finder", source_query=r["search_name"], org_id=org_id)
+        lead = LeadRepository.create_or_get_lead(
+            company_name=(data.get("company_name") or data.get("company") or r["title"]),
+            domain=domain,
+            source_channel="lead_finder",
+            source_query=source_stamp or r["search_name"],
+            org_id=org_id,
+        )
         lead_id = lead["id"]
     with get_db() as db:
         db.execute("UPDATE lead_hits SET status = 'saved', lead_id = COALESCE(?, lead_id) WHERE id = ?", (lead_id, hit_id))
         db.commit()
     return {"hit_id": hit_id, "lead_id": lead_id}
+
+
+def bulk_save(org_id: str, hit_ids: List[int]) -> Dict[str, Any]:
+    saved = 0
+    for hid in hit_ids[:100]:
+        try:
+            save_to_clients(org_id, int(hid))
+            saved += 1
+        except Exception:
+            pass
+    return {"saved": saved}
+
+
+def bulk_dismiss(org_id: str, hit_ids: List[int]) -> Dict[str, Any]:
+    dismissed = 0
+    for hid in hit_ids[:100]:
+        if dismiss(org_id, int(hid)):
+            dismissed += 1
+    return {"dismissed": dismissed}
 
 
 # ------------------------------------------------------------------ telling the person (one quiet digest, never a phone call)

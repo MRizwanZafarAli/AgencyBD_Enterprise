@@ -43,11 +43,16 @@ def _matches(text: str, keywords: List[str]) -> bool:
 def clean_params(source: str, params: Dict[str, Any]) -> Dict[str, Any]:
     """Validates and normalises the options of one source. Raises ValueError with a sentence a person can act on."""
     p = params or {}
+    meta_keys = {k: p[k] for k in ("auto_play", "min_score_alert", "alert_mode", "channels") if k in p}
     if source == "hiring":
-        keywords = [str(k).strip()[:60] for k in (p.get("keywords") or []) if str(k).strip()][:12]
+        raw_kw = p.get("keywords") or ([p.get("q")] if p.get("q") else [])
+        keywords = [str(k).strip()[:60] for k in raw_kw if str(k).strip()][:12]
         if not keywords:
             raise ValueError("Add at least one word or phrase to look for, for example: react developer.")
-        return {"keywords": keywords, "min_fit": max(0, min(100, int(p.get("min_fit") or 0)))}
+        return {"keywords": keywords, "min_fit": max(0, min(100, int(p.get("min_fit") or 0))), **meta_keys}
+    if source in ("social_intent", "tender_cpv"):
+        q = str(p.get("q") or p.get("query") or p.get("cpv") or "").strip()[:120]
+        return {"q": q, **meta_keys}
     if source == "new_companies":
         days = int(p.get("days") or 7)
         if not 1 <= days <= 30:
@@ -55,7 +60,7 @@ def clean_params(source: str, params: Dict[str, Any]) -> Dict[str, Any]:
         sic = [str(c).strip() for c in (p.get("sic_codes") or []) if str(c).strip()][:10]
         if any(not re.fullmatch(r"\d{4,5}", c) for c in sic):
             raise ValueError("Business type codes (SIC) are 4 or 5 digits, for example 47910.")
-        return {"days": days, "sic_codes": sic, "location": str(p.get("location") or "").strip()[:60]}
+        return {"days": days, "sic_codes": sic, "location": str(p.get("location") or "").strip()[:60], **meta_keys}
     if source == "new_companies_ie":
         days = int(p.get("days") or 7)
         if not 1 <= days <= 30:
@@ -66,12 +71,12 @@ def clean_params(source: str, params: Dict[str, Any]) -> Dict[str, Any]:
         place = str(p.get("location") or "").strip()[:40]
         if place and not re.fullmatch(r"[A-Za-z0-9 \-]+", place):
             raise ValueError("The place can only use letters, numbers, spaces and hyphens.")
-        return {"days": days, "sic_codes": codes, "location": place}
+        return {"days": days, "sic_codes": codes, "location": place, **meta_keys}
     if source == "site_signals":
         chosen = [s for s in (p.get("signals") or []) if s in SIGNALS]
         if not chosen:
             raise ValueError("Pick at least one thing to watch for.")
-        return {"signals": chosen}
+        return {"signals": chosen, **meta_keys}
     raise ValueError("Unknown source.")
 
 
@@ -180,9 +185,51 @@ def site_signals(org_id: str, params: Dict[str, Any]) -> List[Hit]:
     return out
 
 
+def social_intent(org_id: str, params: Dict[str, Any]) -> List[Dict[str, Any]]:
+    from connectors.social_radar import scan_social_intent
+    q = (params.get("q") or params.get("query") or "").strip() or None
+    rows = scan_social_intent(query=q, limit=25)
+    return [
+        {
+            "key": f"{r['source']}:{r['external_id']}",
+            "title": r["title"],
+            "detail": f"[{r['platform']}] {r.get('trigger_sentence') or r.get('intent_phrase') or ''}",
+            "url": r.get("url"),
+            "data": r,
+        }
+        for r in rows
+    ]
+
+
+def tender_cpv(org_id: str, params: Dict[str, Any]) -> List[Dict[str, Any]]:
+    q = (params.get("q") or params.get("cpv") or "").strip().lower()
+    with get_db() as db:
+        rows = db.execute(
+            "SELECT id, source, title, company_name, url, deadline, budget_max, fit_score FROM opportunities WHERE org_id = ? AND type = 'tender' ORDER BY id DESC LIMIT 120",
+            (org_id,),
+        ).fetchall()
+    out = []
+    for r in rows:
+        hay = f"{r['title'] or ''} {r['company_name'] or ''}".lower()
+        if q and q not in hay:
+            continue
+        out.append({
+            "key": f"tender:{r['id']}",
+            "title": r["title"],
+            "detail": f"{r['company_name'] or 'Contracting Authority'} · Deadline {(r['deadline'] or 'Portal')[:10]}",
+            "url": r["url"],
+            "data": {"opportunity_id": r["id"], "company_name": r["company_name"], "fit_score": r["fit_score"], "deadline": r["deadline"]},
+        })
+    return out[:25]
+
+
 SOURCES = {
     "hiring": {"label": "Jobs and projects", "run": hiring, "needs": None,
-               "about": "Looks through the jobs, projects and hiring posts your scans have collected and keeps the ones that mention your words."},
+               "about": "Monitors collected jobs, projects, and hiring posts for matching skills and stale roles."},
+    "social_intent": {"label": "Social buying intent", "run": social_intent, "needs": None,
+                      "about": "Monitors Hacker News, Product Hunt, WordPress.org, Shopify Community, Bluesky, Reddit, GitHub & Dev.to for active buyer intent."},
+    "tender_cpv": {"label": "Tenders & CPV / Authority", "run": tender_cpv, "needs": None,
+                   "about": "Monitors TED (EU), UK Find a Tender, UK Contracts Finder & SAM.gov for matching CPV codes or Contracting Authorities."},
     "new_companies": {"label": "Newly registered UK companies", "run": companies_house, "needs": "COMPANIES_HOUSE_API_KEY",
                       "about": "Companies registered in the last few days. They usually need a website, logo and email address soon. Free official register."},
     "new_companies_ie": {"label": "Newly registered Irish companies", "run": cro_ireland, "needs": None,

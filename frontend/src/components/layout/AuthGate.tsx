@@ -3,6 +3,7 @@ import type { FC, FormEvent } from 'react';
 import { ArrowRight, Cpu, Eye, EyeOff, LockKeyhole } from 'lucide-react';
 import { loadTiers, login } from '../../lib/api';
 import type { Me, Tier } from '../../lib/api';
+import { Select } from '../ui';
 
 const RIBBON = ['Lead Finder', 'Alert Desk', 'Site Clinic', 'Fixed-price offers', 'Chase today', 'Partner tracker', 'Weekly scorecard', 'Reply drafts', 'Pipeline'];
 
@@ -76,9 +77,13 @@ export const AuthGate: FC<AuthGateProps> = ({ onAuthenticated, notice }) => {
           {!anySet && <div role="alert" className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3">No passwords are set yet. On the server, run <code className="font-mono">python scripts/set_passwords.py</code>, then reload this page.</div>}
           <label className="block space-y-2">
             <span className="text-xs font-medium text-slate-400">Tier</span>
-            <select value={role} onChange={(e) => setRole(e.target.value)} aria-label="Tier" className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-sm focus:outline-none focus:border-indigo-500">
-              {tiers.map((t) => <option key={t.role} value={t.role}>{t.label}</option>)}
-            </select>
+            <Select
+              aria-label="Tier"
+              value={role}
+              onChange={setRole}
+              options={tiers.map((t) => ({ value: t.role, label: t.label }))}
+              className="!rounded-2xl !px-4 !py-3"
+            />
           </label>
           <label className="block space-y-2">
             <span className="text-xs font-medium text-slate-400 flex items-center space-x-1"><LockKeyhole className="h-3 w-3" /><span>Password</span></span>

@@ -157,6 +157,20 @@ def resolve_opportunity_owner(opportunity_id: int, org_id: str = "org_default") 
             pass
 
     # Sort site contacts by executive rank
+    HM_RE = re.compile(r"\b(cto|ceo|coo|cfo|vp|vice president|head of|director|founder|co-founder|owner|engineering manager|qa manager|tech lead|principal|architect|chief)\b", re.I)
+    HR_RE = re.compile(r"\b(recruit|talent acquisition|hr\b|human resources|people ops|staffing|sourcer|talent partner)\b", re.I)
+
+    for c in site_contacts:
+        t = c.get("title") or ""
+        if HR_RE.search(t):
+            c["contact_type"] = "recruiter"
+            c["rank"] = max(1, (c.get("rank") or 50) - 50)
+        elif HM_RE.search(t):
+            c["contact_type"] = "hiring_manager"
+            c["rank"] = (c.get("rank") or 50) + 40
+        else:
+            c["contact_type"] = "general"
+
     site_contacts.sort(key=lambda x: -x["rank"])
 
     # Pick the primary business owner / decision maker

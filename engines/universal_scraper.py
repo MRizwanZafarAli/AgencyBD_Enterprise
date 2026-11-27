@@ -305,6 +305,31 @@ class UniversalScraperEngine:
 
         # 2. Render Virtual DOM
         dom_data = self.browser_service.render_spa_dom(target_url)
+        if dom_data.get("status") == "unreachable":
+            err_msg = dom_data.get("error", f"Unable to establish secure connection to {clean_host}.")
+            return ScrapeResult(
+                url=target_url,
+                domain=clean_host,
+                title=f"Unreachable: {clean_host}",
+                fit_markdown=f"### Site Unreachable\n\n`{clean_host}` could not be scraped automatically.\n\n**Reason:** {err_msg}\n\nTry opening the site in the Native Chrome Popout Window to inspect whether it uses legacy TLS/SSL or blocks automated handshakes.",
+                raw_html_length=0,
+                markdown_length=0,
+                compression_ratio=0.0,
+                challenge_detected=False,
+                challenge_type=None,
+                extracted_data={"error": err_msg},
+                developer_audit={
+                    "health_score": 0,
+                    "cms_frameworks": [],
+                    "seo_audit": {"has_title": False, "has_meta_description": False, "has_og_image": False, "has_viewport": False},
+                    "technical_gaps": [f"TLS / Network Handshake Failure: {err_msg}"],
+                    "recommended_hook": f"Hi team — I tried reviewing {clean_host} and noticed an SSL/TLS handshake error preventing automated and modern client connections. Worth a quick check on your certificate/TLS config.",
+                },
+                mode=mode,
+                duration_ms=round((time.time() - start_time) * 1000, 2),
+                status="unreachable",
+            )
+
         html = ""
         # If render_spa_dom returned, fetch full html via SafeFetcher for deep parsing
         try:

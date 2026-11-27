@@ -17,12 +17,13 @@ from connectors.reddit import RedditConnector
 from connectors.remoteok import RemoteOKConnector
 from connectors.sam_gov import SamGovConnector
 from connectors.ted import TedConnector
+from connectors.uk_contracts_finder import UkContractsFinderConnector
 from connectors.uk_fts import UkFindATenderConnector
 from connectors.upwork import UpworkConnector
 from connectors.wwr import WeWorkRemotelyConnector
 from database.db import get_db
 from database.models import OpportunityRepository
-from radar.fit import agency_profile_terms, score_opportunity
+from radar.fit import agency_profile_terms, apply_feedback_adjustment, feedback_profile, score_opportunity
 
 logger = logging.getLogger("AgencyBD.radar")
 
@@ -31,7 +32,29 @@ UPWORK_CACHE_HOURS = 24  # Upwork API terms: do not cache API data longer than t
 
 def default_connectors() -> List[BaseConnector]:
     return [UpworkConnector(), HackerNewsConnector(), RemoteOKConnector(), WeWorkRemotelyConnector(), TedConnector(),
-            UkFindATenderConnector(), SamGovConnector(), RedditConnector(), GitHubBountyConnector()]
+            UkFindATenderConnector(), UkContractsFinderConnector(), SamGovConnector(), RedditConnector(), GitHubBountyConnector()]
+
+
+def rescore_tenders(org_id: str) -> int:
+    """Re-score existing cached tender rows with the updated fit.py stop-word & feedback rules."""
+    profile = agency_profile_terms(org_id)
+    fb = feedback_profile(org_id)
+    updated = 0
+    with get_db() as db:
+        rows = db.execute(
+            "SELECT id, title, description, type, budget_max, company_name FROM opportunities WHERE org_id = ? AND type = 'tender'",
+            (org_id,),
+        ).fetchall()
+        for r in rows:
+            fit = score_opportunity(r["title"] or "", r["description"] or "", r["type"], r["budget_max"], profile)
+            fit = apply_feedback_adjustment(fit, r["title"] or "", r["company_name"], fb)
+            db.execute(
+                "UPDATE opportunities SET fit_score = ?, fit_reasons_json = ? WHERE id = ?",
+                (fit.score, __import__("json").dumps(fit.reasons), r["id"]),
+            )
+            updated += 1
+        db.commit()
+    return updated
 
 
 def purge_expired(org_id: str) -> int:
@@ -58,6 +81,7 @@ class OpportunityRadarEngine:
         """Reads every source IN PARALLEL (the slowest one sets the time, not the sum), then scores and stores the results in source order."""
         from concurrent.futures import ThreadPoolExecutor, as_completed
         profile = agency_profile_terms(org_id)
+        fb = feedback_profile(org_id)
         collected: List[Dict[str, Any]] = []
 
         def read(conn):
@@ -90,7 +114,12 @@ class OpportunityRadarEngine:
 
             scored = []
             for it in items:
-                fit = score_opportunity(it.title, it.description, it.type, it.budget_max, profile)
+                fit = apply_feedback_adjustment(
+                    score_opportunity(it.title, it.description, it.type, it.budget_max, profile),
+                    it.title,
+                    it.company_name,
+                    fb,
+                )
                 scored.append((fit, it))
             # best fit first; unscored items (no profile) keep source order, which is newest-first
             scored.sort(key=lambda p: (p[0].score is None, -(p[0].score or 0.0)))

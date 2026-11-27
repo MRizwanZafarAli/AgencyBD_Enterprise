@@ -15,7 +15,7 @@ export const Today: FC<{
   identity?: Me | null;
   onSendEmail?: (params: { recipient: string; recipientName?: string; companyName?: string; subject?: string; body?: string; leadId?: number }) => void;
   onOpenScraper?: (url: string, mode?: 'general' | 'client_audit' | 'job_spec' | 'local_audit', title?: string) => void;
-}> = ({ onOpenClient, onSettings, onGo, onSearch, identity, onOpenScraper }) => {
+}> = ({ onOpenClient, onSettings, onGo, onSearch, identity, onSendEmail, onOpenScraper }) => {
   const role = identity?.role || 'super_admin';
 
   if (!identity) {
@@ -44,7 +44,7 @@ export const Today: FC<{
   } else {
     dashboard = (
       <ErrorBoundary fallbackTitle="Admin Dashboard Error">
-        <AdminDashboard identity={identity} onGo={onGo} onSettings={onSettings} />
+        <AdminDashboard identity={identity} onGo={onGo} onSettings={onSettings} onOpenClient={onOpenClient} onSendEmail={onSendEmail} />
       </ErrorBoundary>
     );
   }

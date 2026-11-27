@@ -16,29 +16,33 @@ import {
   Building2,
   UserPlus,
   Cpu,
+  ThumbsUp,
+  ThumbsDown,
+  Flame,
+  Bell,
+  Download,
+  ChevronDown,
+  ChevronRight,
+  Video,
+  Server,
 } from 'lucide-react';
-import { Badge, Button, Card, Drawer, EmptyState, Pager, ScoreBar, Skeletons, SuggestInput, field } from '../ui';
+import { Badge, Button, Card, Drawer, EmptyState, Pager, ScoreBar, Select, Skeletons, SuggestInput, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { send, useApi } from '../../lib/hooks';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
 import { normalizeUrl } from '../../lib/urls';
+import {
+  buildLoomScript,
+  detectCompanyStage,
+  detectEngagementType,
+  detectNoAgenciesRedFlag,
+  extractCompanyIntel,
+  formatBudgetOrEstimate,
+  getFreshness,
+} from './jobIntel';
+import type { CompanyStageFilter, EngagementFilter, OppItem, PitchAngle } from './jobIntel';
 
-interface Opp {
-  id: number;
-  type: string;
-  source: string;
-  title: string;
-  description: string | null;
-  company_name: string | null;
-  budget_min: number | null;
-  budget_max: number | null;
-  currency: string | null;
-  url: string | null;
-  posted_at: string | null;
-  fit_score: number | null;
-  fit_reasons: string[];
-  risk_flags: string[];
-}
+type Opp = OppItem;
 
 interface Source {
   source: string;
@@ -116,6 +120,7 @@ export interface JobsPreset {
 }
 
 export const FindJobs: FC<{
+  mode?: 'jobs' | 'tender';
   types?: string[];
   preset?: JobsPreset | null;
   onSendEmail?: (params: {
@@ -128,7 +133,7 @@ export const FindJobs: FC<{
   }) => void;
   onOpenClient?: (leadId: number) => void;
   onOpenScraper?: (url: string, mode?: 'general' | 'client_audit' | 'job_spec' | 'local_audit', title?: string) => void;
-}> = ({ types, preset, onSendEmail, onOpenClient, onOpenScraper }) => {
+}> = ({ mode = 'jobs', types = ['marketplace', 'hiring_signal', 'inbound', 'outbound'], preset, onSendEmail, onOpenClient, onOpenScraper }) => {
   const opps = useApi<Opp[]>('/api/opportunities?limit=200');
   const sources = useApi<Source[]>('/api/connectors');
   const [q, setQ] = useState('');
@@ -137,6 +142,17 @@ export const FindJobs: FC<{
   const [minBudget, setMinBudget] = useState('');
   const [maxBudget, setMaxBudget] = useState('');
   const [remoteOnly, setRemoteOnly] = useState(false);
+  const [engagement, setEngagement] = useState<EngagementFilter>('all');
+  const [companyStage, setCompanyStage] = useState<CompanyStageFilter>('all');
+  const [hideSeen, setHideSeen] = useState(false);
+  const [groupCompanies, setGroupCompanies] = useState(mode !== 'tender');
+  const [expandedCompanies, setExpandedCompanies] = useState<Set<string>>(new Set());
+  const [showSources, setShowSources] = useState(false);
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [watchNotice, setWatchNotice] = useState('');
+  const [votes, setVotes] = useState<Record<number, 'up' | 'down' | null>>({});
+  const [pitchAngle, setPitchAngle] = useState<PitchAngle>('staff_aug');
+  const [loomScript, setLoomScript] = useState('');
   const [page, setPage] = useState(0);
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState('');
@@ -170,26 +186,113 @@ export const FindJobs: FC<{
   useEffect(() => {
     if (!preset || preset.nonce === seen.current) return;
     seen.current = preset.nonce;
-    const t = window.setTimeout(() => {
-      setQ(preset.q);
-      setMinBudget(preset.min_budget ? String(preset.min_budget) : '');
-      setMaxBudget(preset.max_budget ? String(preset.max_budget) : '');
-      setRemoteOnly(!!preset.remote);
-      setSource('');
-      setMinFit(0);
-      setPage(0);
-    }, 0);
-    return () => window.clearTimeout(t);
+    setQ(preset.q);
+    setMinBudget(preset.min_budget ? String(preset.min_budget) : '');
+    setMaxBudget(preset.max_budget ? String(preset.max_budget) : '');
+    setRemoteOnly(!!preset.remote);
+    setSource('');
+    setMinFit(0);
+    setPage(0);
   }, [preset]);
 
-  const rows = useMemo(() => (opps.data ?? []).filter((o) =>
-    (!types || types.includes(o.type)) &&
-    (!source || o.source === source) &&
-    (o.fit_score ?? 0) * 100 >= minFit &&
-    (!minBudget || (o.budget_max ?? -1) >= Number(minBudget)) &&
-    (!maxBudget || (o.budget_max != null && o.budget_max <= Number(maxBudget))) &&
-    (!remoteOnly || /remote|anywhere|worldwide/i.test(`${o.title} ${o.description ?? ''}`)) &&
-    matchesQuery(`${o.title} ${o.company_name ?? ''} ${o.description ?? ''}`, q)), [opps.data, types, source, minFit, q, minBudget, maxBudget, remoteOnly]);
+  const rows = useMemo(() => (opps.data ?? []).filter((o) => {
+    const v = votes[o.id] !== undefined ? votes[o.id] : o.user_vote;
+    if (types && !types.includes(o.type)) return false;
+    if (source && o.source !== source) return false;
+    if ((o.fit_score ?? 0) * 100 < minFit) return false;
+    if (minBudget && (o.budget_max ?? -1) < Number(minBudget)) return false;
+    if (maxBudget && (o.budget_max == null || o.budget_max > Number(maxBudget))) return false;
+    if (remoteOnly && !/remote|anywhere|worldwide/i.test(`${o.title} ${o.description ?? ''}`)) return false;
+    if (engagement !== 'all' && detectEngagementType(o) !== engagement) return false;
+    if (companyStage !== 'all' && detectCompanyStage(o) !== companyStage) return false;
+    if (hideSeen && (o.crm_status || v === 'down')) return false;
+    return matchesQuery(`${o.title} ${o.company_name ?? ''} ${o.description ?? ''}`, q);
+  }), [opps.data, types, source, minFit, q, minBudget, maxBudget, remoteOnly, engagement, companyStage, hideSeen, votes]);
+
+  const companyCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const r of rows) {
+      const key = (r.company_name || '').trim().toLowerCase();
+      if (key && key !== 'unknown') map[key] = (map[key] || 0) + 1;
+    }
+    return map;
+  }, [rows]);
+
+  const groupedRows = useMemo(() => {
+    if (!groupCompanies) return rows.map((r) => ({ item: r, siblings: [] as Opp[] }));
+    const seenCo = new Map<string, { item: Opp; siblings: Opp[] }>();
+    const out: Array<{ item: Opp; siblings: Opp[] }> = [];
+    for (const r of rows) {
+      const key = (r.company_name || '').trim().toLowerCase();
+      if (!key || key === 'unknown') {
+        out.push({ item: r, siblings: [] });
+        continue;
+      }
+      const existing = seenCo.get(key);
+      if (!existing) {
+        const entry = { item: r, siblings: [] as Opp[] };
+        seenCo.set(key, entry);
+        out.push(entry);
+      } else {
+        existing.siblings.push(r);
+      }
+    }
+    return out;
+  }, [rows, groupCompanies]);
+
+  const voteOpp = async (id: number, vote: 'up' | 'down') => {
+    const cur = votes[id] !== undefined ? votes[id] : opps.data?.find((x) => x.id === id)?.user_vote;
+    const next = cur === vote ? 'clear' : vote;
+    setVotes((prev) => ({ ...prev, [id]: next === 'clear' ? null : next }));
+    try {
+      await send(`/api/opportunities/${id}/feedback`, 'POST', { vote: next });
+    } catch { /* non-blocking */ }
+  };
+
+  const watchSearch = async () => {
+    setWatchNotice('');
+    try {
+      await send('/api/leadfinder/searches', 'POST', {
+        name: `${q || (mode === 'tender' ? 'Tenders' : 'Jobs & Projects')}${minFit ? ` (${minFit}%+)` : ''}`,
+        source: source || 'remoteok',
+        params: { query: q || '', min_fit: minFit },
+        notify: true,
+        every_hours: 1,
+      });
+      setWatchNotice('Saved to Watching with instant alerts.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save watch');
+    }
+  };
+
+  const bulkSaveCrm = async () => {
+    const ids = Array.from(picked);
+    if (ids.length === 0) return;
+    let savedCount = 0;
+    for (const id of ids) {
+      try {
+        const res = await apiFetch(`/api/opportunities/${id}/convert_to_lead`, { method: 'POST' });
+        if (res.ok) savedCount += 1;
+      } catch { /* continue */ }
+    }
+    setPicked(new Set());
+    setWatchNotice(`Saved ${savedCount}/${ids.length} opportunities to Clients CRM.`);
+    opps.reload();
+  };
+
+  const exportCsv = () => {
+    const targets = picked.size > 0 ? rows.filter((r) => picked.has(r.id)) : rows;
+    const csvQ = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const csv = [
+      ['title', 'company', 'source', 'fit_pct', 'budget', 'posted_at', 'url'],
+      ...targets.map((r) => [r.title, r.company_name, r.source, r.fit_score != null ? Math.round(r.fit_score * 100) : '', formatBudgetOrEstimate(r).text, r.posted_at, r.url]),
+    ].map((row) => row.map(csvQ).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = `opportunities-${mode}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
   const sourceNames = useMemo(() => Array.from(new Set((opps.data ?? []).filter((o) => !types || types.includes(o.type)).map((o) => o.source))).sort(), [opps.data, types]);
 
   const detectedEmails = useMemo(() => {
@@ -254,6 +357,10 @@ export const FindJobs: FC<{
     setRelatedError('');
     setConvertedLeadId(null);
     setConvertSuccess('');
+    setLoomScript('');
+    const stg = detectCompanyStage(o);
+    const eng = detectEngagementType(o);
+    setPitchAngle(stg === 'agency_partner' ? 'white_label' : eng === 'direct_project' || eng === 'contract_c2c' ? 'fixed_scope' : 'staff_aug');
     const text = `${o.title} ${o.description || ''}`;
     const matches = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
     const unique = Array.from(new Set(matches.map((e) => e.toLowerCase())));
@@ -429,13 +536,14 @@ export const FindJobs: FC<{
     }
   };
 
-  const slice = rows.slice(page * PAGE, (page + 1) * PAGE);
-  const money = (o: Opp) =>
-    o.budget_max
-      ? `${o.currency ?? 'USD'} ${Math.round(o.budget_max).toLocaleString()}${
-          o.type === 'hiring_signal' ? ' salary' : ''
-        }`
-      : '–';
+  const slice = groupedRows.slice(page * PAGE, (page + 1) * PAGE);
+  const money = (o: Opp) => {
+    const b = formatBudgetOrEstimate(o);
+    return <span className={b.estimated ? 'text-slate-400 italic' : 'text-slate-200 font-medium'}>{b.text}</span>;
+  };
+  const relevantSources = (sources.data ?? []).filter((s) =>
+    mode === 'tender' ? ['sam_gov', 'ted', 'uk_fts'].includes(s.source) : !['sam_gov', 'ted', 'uk_fts'].includes(s.source),
+  );
 
   return (
     <div className="space-y-4">
@@ -455,36 +563,27 @@ export const FindJobs: FC<{
           </label>
           <label className="text-xs text-slate-400 space-y-1">
             Source
-            <select
-              className={field}
+            <Select
+              aria-label="Source"
               value={source}
-              onChange={(e) => {
-                setSource(e.target.value);
+              onChange={(v) => {
+                setSource(v);
                 setPage(0);
               }}
-            >
-              <option value="">All</option>
-              {sourceNames.map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
+              options={[{ value: '', label: 'All' }, ...sourceNames.map((s) => ({ value: s, label: s }))]}
+            />
           </label>
           <label className="text-xs text-slate-400 space-y-1">
             Minimum fit
-            <select
-              className={field}
+            <Select
+              aria-label="Minimum fit"
               value={minFit}
-              onChange={(e) => {
-                setMinFit(Number(e.target.value));
+              onChange={(v) => {
+                setMinFit(Number(v));
                 setPage(0);
               }}
-            >
-              {[0, 30, 50, 70].map((n) => (
-                <option key={n} value={n}>
-                  {n ? `${n}%+` : 'Any'}
-                </option>
-              ))}
-            </select>
+              options={[0, 30, 50, 70].map((n) => ({ value: n, label: n ? `${n}%+` : 'Any' }))}
+            />
           </label>
           <label className="text-xs text-slate-400 space-y-1">
             Budget from
@@ -512,22 +611,84 @@ export const FindJobs: FC<{
               }}
             />
           </label>
-          <label className="flex items-center gap-2 text-xs text-slate-300 pb-2">
-            <input
-              type="checkbox"
-              checked={remoteOnly}
-              onChange={(e) => {
-                setRemoteOnly(e.target.checked);
-                setPage(0);
-              }}
-            />
-            Remote only
-          </label>
+          {mode !== 'tender' && (
+            <label className="flex items-center gap-2 text-xs text-slate-300 pb-2">
+              <input
+                type="checkbox"
+                checked={remoteOnly}
+                onChange={(e) => {
+                  setRemoteOnly(e.target.checked);
+                  setPage(0);
+                }}
+              />
+              Remote only
+            </label>
+          )}
           <Button variant="primary" onClick={scan} disabled={scanning}>
             <RefreshCw className={`h-4 w-4 ${scanning ? 'animate-spin' : ''}`} />
             {scanning ? 'Scanning…' : 'Scan sources'}
           </Button>
+          <Button type="button" onClick={watchSearch}>
+            <Bell className="h-3.5 w-3.5" />
+            Watch search
+          </Button>
         </div>
+
+        {mode !== 'tender' && (
+          <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-slate-800/80 text-xs">
+            <label className="text-slate-400 inline-flex items-center gap-1.5">
+              Engagement
+              <Select
+                small
+                aria-label="Engagement Type"
+                className="w-44"
+                value={engagement}
+                onChange={(v) => { setEngagement(v as EngagementFilter); setPage(0); }}
+                options={[
+                  { value: 'all', label: 'All engagements' },
+                  { value: 'direct_project', label: 'Direct Projects / Freelance' },
+                  { value: 'contract_c2c', label: 'Contract / C2C / Staff-Aug' },
+                  { value: 'full_time', label: 'Full-Time Hiring Signals' },
+                ]}
+              />
+            </label>
+            <label className="text-slate-400 inline-flex items-center gap-1.5">
+              Company
+              <Select
+                small
+                aria-label="Company Stage"
+                className="w-40"
+                value={companyStage}
+                onChange={(v) => { setCompanyStage(v as CompanyStageFilter); setPage(0); }}
+                options={[
+                  { value: 'all', label: 'All company sizes' },
+                  { value: 'startup_smb', label: 'Startup / SMB' },
+                  { value: 'agency_partner', label: 'Agency Partner' },
+                  { value: 'enterprise', label: 'Enterprise ($100M+)' },
+                ]}
+              />
+            </label>
+            <label className="inline-flex items-center gap-1.5 text-slate-300 cursor-pointer">
+              <input type="checkbox" checked={groupCompanies} onChange={(e) => { setGroupCompanies(e.target.checked); setPage(0); }} />
+              Group by company
+            </label>
+            <label className="inline-flex items-center gap-1.5 text-slate-300 cursor-pointer">
+              <input type="checkbox" checked={hideSeen} onChange={(e) => { setHideSeen(e.target.checked); setPage(0); }} />
+              Hide in CRM / 👎
+            </label>
+            {sources.data && (
+              <button
+                type="button"
+                onClick={() => setShowSources((v) => !v)}
+                className="ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-900/60 text-slate-300 hover:text-white"
+              >
+                <Server className="h-3.5 w-3.5 text-indigo-400" />
+                Sources ({relevantSources.length})
+              </button>
+            )}
+          </div>
+        )}
+
         {scanning && (
           <p role="status" aria-live="polite" className="mt-3 text-xs text-slate-400">
             {scanNote} Sources are read in parallel; the slowest one (usually the tender feeds) sets the time, about a minute.
@@ -536,18 +697,18 @@ export const FindJobs: FC<{
         {(minBudget || maxBudget) && (
           <p className="text-[11px] text-slate-500 mt-2">Budget filters show only posts that state a budget.</p>
         )}
-        {sources.data && (
-          <div className="flex flex-wrap items-center gap-1.5 mt-3">
+        {showSources && sources.data && (
+          <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-slate-800/80">
             {sources.data.some((x) => x.source === 'upwork' && x.status === 'not_connected') && (
               <Button small onClick={connectUpwork}>
                 Connect Upwork
               </Button>
             )}
-            {sources.data.map((s) => (
+            {relevantSources.map((s) => (
               <Badge
                 key={s.source}
                 tone={
-                  s.status === 'not_configured'
+                  s.status === 'not_configured' || s.status === 'not_connected'
                     ? 'neutral'
                     : s.last_run?.status === 'ok'
                     ? 'good'
@@ -559,15 +720,20 @@ export const FindJobs: FC<{
               >
                 {s.source}
                 {s.last_run
-                  ? ` · ${s.last_run.stored} kept`
-                  : s.status === 'not_configured'
-                  ? ' · needs key'
-                  : ' · not scanned'}
+                  ? s.last_run.stored > 0
+                    ? ` · ${s.last_run.stored} kept`
+                    : s.last_run.fetched > 0
+                      ? ' · filtered by fit'
+                      : ' · 0 matched'
+                  : s.status === 'not_configured' || s.status === 'not_connected'
+                  ? ' · not connected'
+                  : ' · ready'}
               </Badge>
             ))}
           </div>
         )}
       </Card>
+      {watchNotice && <div role="status" className="p-3 rounded-xl bg-indigo-500/15 border border-indigo-500/40 text-xs text-slate-100">{watchNotice}</div>}
       <ErrorBanner message={error || opps.error} />
 
       <Card>
@@ -583,69 +749,165 @@ export const FindJobs: FC<{
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 mb-3">
               <span className="flex items-center gap-1.5 font-medium text-slate-300">
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                <span className="tabular font-semibold text-white">{rows.length}</span> opportunities detected & scored
+                <span className="tabular font-semibold text-white">{rows.length}</span> opportunities
+                {groupCompanies && groupedRows.length < rows.length && (
+                  <span className="text-slate-500">({groupedRows.length} companies)</span>
+                )}
               </span>
-              <span className="text-[11px] text-slate-500">Click any job/project to run Related Read for business owner details</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button small onClick={exportCsv}><Download className="h-3.5 w-3.5" />CSV</Button>
+                <Button small variant="primary" disabled={picked.size === 0} onClick={bulkSaveCrm}>
+                  Save {picked.size > 0 ? `${picked.size} ` : ''}to CRM
+                </Button>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-slate-500 border-b border-slate-800">
-                    <th className="py-2 pr-3 w-24">Fit</th>
+                    <th className="py-2 pr-2 w-8"><span className="sr-only">Select</span></th>
+                    <th className="py-2 pr-3 w-28">Fit</th>
                     <th className="py-2 pr-3">Opportunity</th>
+                    <th className="py-2 pr-3 hidden md:table-cell">Freshness</th>
                     <th className="py-2 pr-3 hidden md:table-cell">Source</th>
-                    <th className="py-2 pr-3 hidden md:table-cell">Budget</th>
+                    <th className="py-2 pr-3 hidden md:table-cell">Est. Value / Budget</th>
                     <th className="py-2 pr-3 text-right">Business Details</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {slice.map((o) => (
-                    <tr
-                      key={o.id}
-                      className="border-b border-slate-800/70 hover:bg-slate-900/60 cursor-pointer"
-                      onClick={() => openRow(o)}
-                    >
-                      <td className="py-2.5 pr-3">
-                        {o.fit_score == null ? (
-                          <span className="text-xs text-slate-500">not scored</span>
-                        ) : (
-                          <>
-                            <div className="font-mono tabular text-white">{Math.round(o.fit_score * 100)}%</div>
-                            <ScoreBar value={o.fit_score * 100} />
-                          </>
-                        )}
-                      </td>
-                      <td className="py-2.5 pr-3">
-                        <button className="text-left text-slate-100 hover:text-white font-medium line-clamp-1">
-                          {o.title}
-                        </button>
-                        <div className="text-xs text-slate-500 flex gap-2 items-center">
-                          <Badge>{TYPE_LABEL[o.type] ?? o.type}</Badge>
-                          <span className="font-medium text-slate-300">{getCompanyName(o)}</span>
-                        </div>
-                      </td>
-                      <td className="py-2.5 pr-3 hidden md:table-cell text-xs text-slate-400">{o.source}</td>
-                      <td className="py-2.5 pr-3 hidden md:table-cell text-xs text-slate-300 tabular">{money(o)}</td>
-                      <td className="py-2.5 pr-3 text-right">
-                        <Button
-                          small
-                          variant="primary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openRow(o);
-                            handleRelatedRead(o.id);
-                          }}
+                  {slice.map(({ item: o, siblings }) => {
+                    const renderRow = (rowItem: Opp, isChild = false) => {
+                      const fresh = getFreshness(rowItem.posted_at);
+                      const stage = detectCompanyStage(rowItem);
+                      const redFlag = detectNoAgenciesRedFlag(rowItem);
+                      const curVote = votes[rowItem.id] !== undefined ? votes[rowItem.id] : rowItem.user_vote;
+                      const coKey = (rowItem.company_name || '').trim().toLowerCase();
+                      const isExpanded = expandedCompanies.has(coKey);
+                      return (
+                        <tr
+                          key={rowItem.id}
+                          className={`border-b border-slate-800/70 hover:bg-slate-900/60 cursor-pointer ${isChild ? 'bg-slate-950/40' : ''}`}
+                          onClick={() => openRow(rowItem)}
                         >
-                          <Building2 className="h-3.5 w-3.5" />
-                          See Business Details
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                          <td className="py-2.5 pr-2" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${rowItem.title}`}
+                              checked={picked.has(rowItem.id)}
+                              onChange={() =>
+                                setPicked((prev) => {
+                                  const n = new Set(prev);
+                                  if (n.has(rowItem.id)) n.delete(rowItem.id);
+                                  else n.add(rowItem.id);
+                                  return n;
+                                })
+                              }
+                            />
+                          </td>
+                          <td className="py-2.5 pr-3">
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex-1">
+                                {rowItem.fit_score == null ? (
+                                  <span className="text-xs text-slate-500">not scored</span>
+                                ) : (
+                                  <>
+                                    <div className="font-mono tabular text-white">{Math.round(rowItem.fit_score * 100)}%</div>
+                                    <ScoreBar value={rowItem.fit_score * 100} />
+                                  </>
+                                )}
+                              </div>
+                              <div className="flex flex-col gap-0.5" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  title="Good fit"
+                                  onClick={() => voteOpp(rowItem.id, 'up')}
+                                  className={`p-0.5 rounded ${curVote === 'up' ? 'text-emerald-400' : 'text-slate-600 hover:text-slate-300'}`}
+                                >
+                                  <ThumbsUp className="h-3 w-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  title="Not for us"
+                                  onClick={() => voteOpp(rowItem.id, 'down')}
+                                  className={`p-0.5 rounded ${curVote === 'down' ? 'text-rose-400' : 'text-slate-600 hover:text-slate-300'}`}
+                                >
+                                  <ThumbsDown className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-2.5 pr-3">
+                            <button className="text-left text-slate-100 hover:text-white font-medium line-clamp-1">
+                              {isChild ? `↳ ${rowItem.title}` : rowItem.title}
+                            </button>
+                            <div className="text-xs text-slate-500 flex flex-wrap gap-1.5 items-center mt-0.5">
+                              <Badge>{TYPE_LABEL[rowItem.type] ?? rowItem.type}</Badge>
+                              <span className="font-medium text-slate-300">{getCompanyName(rowItem)}</span>
+                              {rowItem.crm_status && <Badge tone="good">In CRM ({rowItem.crm_status.deal_stage})</Badge>}
+                              {stage === 'agency_partner' && <Badge tone="info">Agency Partner</Badge>}
+                              {redFlag && <Badge tone="bad">No Agencies</Badge>}
+                              {!isChild && siblings.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setExpandedCompanies((prev) => {
+                                      const n = new Set(prev);
+                                      if (n.has(coKey)) n.delete(coKey);
+                                      else n.add(coKey);
+                                      return n;
+                                    });
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25"
+                                >
+                                  <Flame className="h-3 w-3" />
+                                  {siblings.length + 1} open roles
+                                  {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-2.5 pr-3 hidden md:table-cell text-xs whitespace-nowrap">
+                            {fresh.isStale ? (
+                              <Badge tone="warn">🔥 {fresh.label}</Badge>
+                            ) : (
+                              <span className="text-slate-400">{fresh.label}</span>
+                            )}
+                          </td>
+                          <td className="py-2.5 pr-3 hidden md:table-cell text-xs text-slate-400">{rowItem.source}</td>
+                          <td className="py-2.5 pr-3 hidden md:table-cell text-xs tabular">{money(rowItem)}</td>
+                          <td className="py-2.5 pr-3 text-right whitespace-nowrap">
+                            <Button
+                              small
+                              variant="primary"
+                              className="whitespace-nowrap"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openRow(rowItem);
+                                handleRelatedRead(rowItem.id);
+                              }}
+                            >
+                              <Building2 className="h-3.5 w-3.5" />
+                              {mode === 'tender' ? 'Agency & Tender Details' : 'See Business Details'}
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    };
+
+                    const coKey = (o.company_name || '').trim().toLowerCase();
+                    const isExpanded = expandedCompanies.has(coKey);
+                    return (
+                      <>
+                        {renderRow(o, false)}
+                        {isExpanded && siblings.map((sib) => renderRow(sib, true))}
+                      </>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-            <Pager page={page} pageSize={PAGE} total={rows.length} onPage={setPage} />
+            <Pager page={page} pageSize={PAGE} total={groupedRows.length} onPage={setPage} />
           </>
         )}
       </Card>
@@ -657,12 +919,37 @@ export const FindJobs: FC<{
               <Badge tone="accent">{open.source}</Badge>
               <Badge>{TYPE_LABEL[open.type] ?? open.type}</Badge>
               {open.fit_score != null && <Badge tone="good">Fit {Math.round(open.fit_score * 100)}%</Badge>}
+              {detectCompanyStage(open) === 'agency_partner' && <Badge tone="info">Agency Partner Opportunity</Badge>}
+              {getFreshness(open.posted_at).isStale && <Badge tone="warn">🔥 {getFreshness(open.posted_at).label}</Badge>}
               {open.risk_flags.map((f) => (
                 <Badge key={f} tone="warn">
                   {f.replace(/_/g, ' ')}
                 </Badge>
               ))}
             </div>
+
+            {detectNoAgenciesRedFlag(open) && (
+              <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-200 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />
+                <span><strong>{detectNoAgenciesRedFlag(open)}</strong> — This post explicitly restricts agencies/C2C. Pitch the hiring manager directly only if offering a fractional/advisory angle.</span>
+              </div>
+            )}
+
+            {(() => {
+              const coKey = (open.company_name || '').trim().toLowerCase();
+              const intel = extractCompanyIntel(open, companyCounts[coKey] || 1);
+              if (!intel.techStack.length && !intel.scaleSignal && !intel.hiringVelocity) return null;
+              return (
+                <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3 space-y-2 text-xs">
+                  <div className="font-semibold text-white">Company & Role Intelligence</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {intel.scaleSignal && <Badge tone="info">Scale: {intel.scaleSignal}</Badge>}
+                    {intel.hiringVelocity && <Badge tone="warn">🔥 {intel.hiringVelocity}</Badge>}
+                    {intel.techStack.map((t) => <Badge key={t} tone="neutral">{t}</Badge>)}
+                  </div>
+                </div>
+              );
+            })()}
 
             {open.url && (
               <div className="flex flex-wrap items-center gap-2">
@@ -701,8 +988,36 @@ export const FindJobs: FC<{
 
             <ErrorBanner message={panelError} />
 
-            {/* Action Buttons */}
-            <div className="flex flex-wrap items-center gap-2.5 pt-1 border-t border-slate-800">
+            {/* Pitch Angle & Action Buttons */}
+            <div className="space-y-3 pt-2 border-t border-slate-800">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="text-slate-400 font-medium">Pitch Angle:</span>
+                <Select
+                  small
+                  aria-label="Agency Pitch Angle"
+                  className="w-60"
+                  value={pitchAngle}
+                  onChange={(v) => setPitchAngle(v as PitchAngle)}
+                  options={[
+                    { value: 'staff_aug', label: 'Staff Augmentation / Dedicated Pod' },
+                    { value: 'fixed_scope', label: 'Fixed-Scope Project Bid' },
+                    { value: 'white_label', label: 'White-Label / Agency Overflow' },
+                  ]}
+                />
+                <Button
+                  small
+                  onClick={() => setLoomScript(buildLoomScript(open, getCompanyName(open), pitchAngle))}
+                >
+                  <Video className="h-3.5 w-3.5 text-indigo-400" />
+                  60s Loom Script
+                </Button>
+              </div>
+              {loomScript && (
+                <pre className="rounded-xl border border-indigo-500/30 bg-indigo-950/20 p-3 text-xs text-slate-200 whitespace-pre-wrap font-sans leading-relaxed">
+                  {loomScript}
+                </pre>
+              )}
+              <div className="flex flex-wrap items-center gap-2.5">
               <Button
                 variant="primary"
                 disabled={busy !== '' || relatedLoading}
@@ -730,6 +1045,7 @@ export const FindJobs: FC<{
                 <Sparkles className="h-4 w-4" />
                 {busy === 'draft' ? 'Drafting Proposal…' : draft ? 'Regenerate Proposal' : '✨ Draft & Send Proposal'}
               </Button>
+              </div>
             </div>
 
             {/* Related Read: Business Owner Details Surface */}

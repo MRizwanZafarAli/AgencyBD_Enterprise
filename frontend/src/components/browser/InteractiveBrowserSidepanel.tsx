@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { FC } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Globe, 
   ExternalLink, 
@@ -120,6 +121,8 @@ export const InteractiveBrowserSidepanel: FC<InteractiveBrowserSidepanelProps> =
   const [scrapeData, setScrapeData] = useState<ScrapeData | null>(null);
   const [copied, setCopied] = useState(false);
   const [copiedHook, setCopiedHook] = useState(false);
+  const [capturingLead, setCapturingLead] = useState(false);
+  const [capturedMsg, setCapturedMsg] = useState('');
   const [resuming, setResuming] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [radarActive, setRadarActive] = useState(false);
@@ -130,6 +133,12 @@ export const InteractiveBrowserSidepanel: FC<InteractiveBrowserSidepanelProps> =
   useEffect(() => {
     if (isOpen && initialUrl && initialUrl.trim()) {
       setUrl(initialUrl);
+      setNavData(null);
+      setScrapeData(null);
+      setStatusMessage(null);
+      setCapturedMsg('');
+      setRadarState('idle');
+      setRadarActive(false);
       if (mode === 'client_audit') setActiveTab('expert_audit');
       else if (mode === 'job_spec') setActiveTab('markdown');
       else if (mode === 'local_audit') setActiveTab('entities');
@@ -263,10 +272,27 @@ export const InteractiveBrowserSidepanel: FC<InteractiveBrowserSidepanelProps> =
     setTimeout(() => setCopied(false), 2000);
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopImmediatePropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[560px] lg:w-[680px] bg-slate-950/95 border-l border-amber-500/30 backdrop-blur-2xl shadow-2xl flex flex-col font-sans transition-all duration-300">
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={contextTitle ? `${contextTitle} Universal Scraper` : 'Universal Scraper Sidepanel'}
+      className="fixed inset-y-0 right-0 z-[60] w-full sm:w-[560px] lg:w-[680px] bg-slate-950/95 border-l border-amber-500/30 backdrop-blur-2xl shadow-2xl flex flex-col font-sans transition-all duration-300"
+    >
       {/* Header Bar */}
       <div className="p-4 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
@@ -303,15 +329,49 @@ export const InteractiveBrowserSidepanel: FC<InteractiveBrowserSidepanelProps> =
             onClick={handleLaunchNativeHeaded}
             disabled={launchingHeaded}
             title="Pop out in Native Chromium Window (for manual 2FA, Captchas or Human Touch)"
-            className="p-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1 text-xs px-2.5 font-medium shadow-sm"
+            className="p-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1 text-xs px-2.5 font-medium shadow-sm whitespace-nowrap"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Popout Window</span>
           </button>
 
+          {/* Sales Nav / Site 1-Click Capture to CRM */}
+          <button
+            type="button"
+            disabled={capturingLead || !url.trim()}
+            onClick={async () => {
+              setCapturingLead(true);
+              setCapturedMsg('');
+              try {
+                const cleanDom = url.trim().replace(/^https?:\/\//, '').split('/')[0];
+                const company = contextTitle || scrapeData?.title?.split('|')[0]?.trim() || cleanDom;
+                const firstEmail = scrapeData?.extracted_data?.emails?.[0] || '';
+                const res = await apiFetch('/api/v1/browser/session/capture-leads', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    leads: [{ company_name: company, domain: cleanDom, email: firstEmail }],
+                    source: 'sales_nav_companion',
+                  }),
+                });
+                if (res.ok) setCapturedMsg(`Saved ${company} to Clients!`);
+                else setCapturedMsg('Could not save lead.');
+              } finally {
+                setCapturingLead(false);
+              }
+            }}
+            title="Capture current site/account into CRM Clients"
+            className="p-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 transition-colors flex items-center gap-1 text-xs px-2.5 font-medium whitespace-nowrap"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{capturingLead ? 'Saving…' : 'Save to CRM'}</span>
+          </button>
+
           {/* Close drawer button */}
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Close scraper sidepanel"
             className="p-1.5 rounded-lg border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
           >
             <X className="w-4 h-4" />
@@ -363,9 +423,9 @@ export const InteractiveBrowserSidepanel: FC<InteractiveBrowserSidepanelProps> =
           )}
         </form>
 
-        {statusMessage && (
+        {(statusMessage || capturedMsg) && (
           <div className="text-[11px] font-mono text-amber-300 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20">
-            {statusMessage}
+            {capturedMsg || statusMessage}
           </div>
         )}
 
@@ -739,6 +799,7 @@ export const InteractiveBrowserSidepanel: FC<InteractiveBrowserSidepanelProps> =
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

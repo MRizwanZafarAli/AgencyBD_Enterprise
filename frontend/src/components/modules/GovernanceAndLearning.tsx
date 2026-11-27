@@ -292,7 +292,7 @@ export const GovernanceAndLearning: FC = () => {
                           <select
                             value={rule.level}
                             onChange={(e) => handleUpdatePolicyLevel(rule.rule_name, e.target.value)}
-                            className="bg-slate-850 border border-slate-750 text-white rounded-lg px-2 py-1 text-xs font-mono focus:border-amber-500 focus:outline-none"
+                            className="bg-slate-900 border border-slate-700 text-slate-100 rounded-lg px-2.5 py-1 text-xs font-mono focus:border-indigo-500 focus:outline-none"
                           >
                             <option value="L0">L0 (Observe)</option>
                             <option value="L1">L1 (Draft + Human)</option>
@@ -595,7 +595,7 @@ export const GovernanceAndLearning: FC = () => {
               <select
                 value={newMailboxType}
                 onChange={(e) => setNewMailboxType(e.target.value)}
-                className="bg-slate-900 border border-slate-750 text-white rounded-lg px-2 py-1.5 text-xs font-mono"
+                className="bg-slate-900 border border-slate-700 text-slate-100 rounded-lg px-2.5 py-1.5 text-xs font-mono focus:border-indigo-500 focus:outline-none"
               >
                 <option value="smtp">SMTP (Google Workspace, Microsoft 365, any relay)</option>
                 <option value="smartlead">Smartlead API</option>

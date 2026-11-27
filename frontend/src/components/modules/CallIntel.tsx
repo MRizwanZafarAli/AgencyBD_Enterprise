@@ -92,12 +92,12 @@ export const CallIntel: FC = () => {
       {/* Header and Mode Selector */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center space-x-2">
+          <h2 className="text-2xl font-bold tracking-tight text-white flex items-center space-x-2">
             <span>Sales Intelligence & Deal Desk Hub</span>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
               GONG & CHORUS REPLACEMENT
             </span>
-          </h1>
+          </h2>
           <p className="text-sm text-slate-400 mt-0.5">
             Real-time discovery call telemetry, automated SOW scoping, and live psychological objection counter-scripts.
           </p>

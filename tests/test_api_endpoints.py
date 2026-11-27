@@ -126,8 +126,8 @@ def test_role_permissions_enforced(client, make_key):
     assert client.get("/api/leads", headers=auditor).status_code == 200
     assert client.post("/api/sourcing/run", json={"channel": "venture_database", "query": "Series A", "limit": 1},
                        headers=auditor).status_code == 403
-    # sdr cannot dispatch or read business metrics
-    assert client.post("/api/dispatch/send", json={"lead_id": 1}, headers=sdr).status_code == 403
+    # sdr cannot toggle global outbound controls or read business metrics
+    assert client.post("/api/controls/outbound", json={"halted": True}, headers=sdr).status_code == 403
     assert client.get("/api/metrics", headers=sdr).status_code == 403
 
 

@@ -55,13 +55,40 @@ def parse_date(text: str = "", principal: Principal = Depends(READ)):
 
 @router.get("/platforms")
 def platforms(principal: Principal = Depends(READ)):
-    return {"platforms": [{"id": k, **{x: v[x] for x in ("label", "kind", "home", "terms", "rules", "profile", "limits", "templates", "pages", "features")}, "has_search": bool(v["search"])} for k, v in ch.PLATFORMS.items()],
-            "statuses": ch.STATUSES, "activity_kinds": ch.ACTIVITY_KINDS}
+    return ch.list_platforms_with_specs(principal.org_id)
 
 
 @router.get("/overview")
 def overview(principal: Principal = Depends(READ)):
-    return {"platforms": ch.overview(principal.org_id)}
+    return ch.overview(principal.org_id)
+
+
+class PreferencesBody(BaseModel):
+    hidden_platforms: List[str] = Field(default_factory=list)
+
+
+@router.post("/preferences")
+def save_preferences(body: PreferencesBody, principal: Principal = Depends(WRITE)):
+    return {"hidden_platforms": _guard(ch.set_hidden_platforms, principal.org_id, body.hidden_platforms)}
+
+
+class CustomChannelBody(BaseModel):
+    label: str = Field(..., max_length=60)
+    archetype: str = "custom"
+    home_url: str = ""
+    quick_links: List[Dict[str, str]] = Field(default_factory=list)
+
+
+@router.post("/custom")
+def add_custom_channel(body: CustomChannelBody, principal: Principal = Depends(WRITE)):
+    return _guard(ch.create_custom_channel, principal.org_id, body.label, body.archetype, body.home_url, body.quick_links)
+
+
+@router.delete("/custom/{slug}")
+def remove_custom_channel(slug: str, principal: Principal = Depends(WRITE)):
+    if not ch.delete_custom_channel(principal.org_id, slug):
+        raise HTTPException(status_code=404, detail="Custom channel not found")
+    return {"deleted": slug}
 
 
 @router.post("/linkedin/search_links")
@@ -109,3 +136,91 @@ def remove_record(platform: str, record_id: int, principal: Principal = Depends(
     if not _guard(ch.delete_record, principal.org_id, platform, record_id):
         raise HTTPException(status_code=404, detail="Record not found")
     return {"deleted": record_id}
+
+
+@router.post("/{platform}/records/{record_id}/promote")
+def promote_record(platform: str, record_id: int, principal: Principal = Depends(WRITE)):
+    """Promote a channel pipeline item into the main CRM leads table."""
+    out = _guard(ch.promote_to_crm, principal.org_id, platform, record_id)
+    if not out:
+        raise HTTPException(status_code=404, detail="Record not found")
+    return out
+
+
+class CaptureBody(BaseModel):
+    title: str = Field(..., max_length=180)
+    url: Optional[str] = None
+    client_name: Optional[str] = None
+    budget: Optional[float] = 0
+    currency_spent: Optional[float] = 0
+    boosted: bool = False
+    hook_template_id: Optional[str] = None
+    client_payment_verified: bool = False
+    client_hire_rate: Optional[int] = 0
+    client_avg_hourly: Optional[float] = 0
+    status: str = "applied"
+    notes: Optional[str] = None
+
+
+@router.post("/{platform}/capture")
+def capture_sidepanel(platform: str, body: CaptureBody, principal: Principal = Depends(WRITE)):
+    """1-click Side-Panel Auto-Capture into native channel table + Clients CRM."""
+    return _guard(ch.capture_from_sidepanel, principal.org_id, platform, body.model_dump())
+
+
+@router.post("/{platform}/bids")
+def create_bid(platform: str, body: Dict[str, Any], principal: Principal = Depends(WRITE)):
+    return _guard(ch.add_bid, principal.org_id, platform, body)
+
+
+@router.patch("/{platform}/bids/{bid_id}")
+def patch_bid(platform: str, bid_id: int, body: Dict[str, Any], principal: Principal = Depends(WRITE)):
+    out = _guard(ch.update_bid, principal.org_id, platform, bid_id, body)
+    if not out:
+        raise HTTPException(status_code=404, detail="Bid not found")
+    return out
+
+
+@router.delete("/{platform}/bids/{bid_id}")
+def remove_bid(platform: str, bid_id: int, principal: Principal = Depends(WRITE)):
+    if not _guard(ch.delete_bid, principal.org_id, platform, bid_id):
+        raise HTTPException(status_code=404, detail="Bid not found")
+    return {"deleted": bid_id}
+
+
+@router.post("/{platform}/gigs")
+def create_gig(platform: str, body: Dict[str, Any], principal: Principal = Depends(WRITE)):
+    return _guard(ch.add_gig, principal.org_id, platform, body)
+
+
+@router.patch("/{platform}/gigs/{gig_id}")
+def patch_gig(platform: str, gig_id: int, body: Dict[str, Any], principal: Principal = Depends(WRITE)):
+    out = _guard(ch.update_gig, principal.org_id, platform, gig_id, body)
+    if not out:
+        raise HTTPException(status_code=404, detail="Gig not found")
+    return out
+
+
+@router.delete("/{platform}/gigs/{gig_id}")
+def remove_gig(platform: str, gig_id: int, principal: Principal = Depends(WRITE)):
+    if not _guard(ch.delete_gig, principal.org_id, platform, gig_id):
+        raise HTTPException(status_code=404, detail="Gig not found")
+    return {"deleted": gig_id}
+
+
+@router.post("/{platform}/reviews")
+def create_review(platform: str, body: Dict[str, Any], principal: Principal = Depends(WRITE)):
+    return _guard(ch.invite_review, principal.org_id, platform, body)
+
+
+@router.patch("/{platform}/reviews/{review_id}")
+def patch_review(platform: str, review_id: int, body: Dict[str, Any], principal: Principal = Depends(WRITE)):
+    out = _guard(ch.update_review, principal.org_id, platform, review_id, body)
+    if not out:
+        raise HTTPException(status_code=404, detail="Review not found")
+    return out
+
+
+@router.post("/{platform}/pacing")
+def save_pacing(platform: str, body: Dict[str, Any], principal: Principal = Depends(WRITE)):
+    return _guard(ch.upsert_pacing, principal.org_id, platform, body)

@@ -1,21 +1,26 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { FC, ReactNode, ButtonHTMLAttributes } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, X } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 
 /* Small design-system layer. Semantic slate classes flip automatically between the dark and light themes (see index.css). */
 
+export { Select } from './Select';
+export type { SelectOption } from './Select';
+
 export const field =
   'w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-indigo-500';
 
-type Tone = 'neutral' | 'good' | 'warn' | 'bad' | 'info' | 'accent';
+type Tone = 'neutral' | 'good' | 'warn' | 'bad' | 'info' | 'accent' | 'ai';
 const TONES: Record<Tone, string> = {
   neutral: 'bg-slate-800/70 text-slate-300 border-slate-700',
-  good: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-  warn: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  bad: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
-  info: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
-  accent: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
+  good: 'bg-emerald-500/12 text-emerald-300 border-emerald-500/30',
+  warn: 'bg-amber-500/12 text-amber-300 border-amber-500/30',
+  bad: 'bg-rose-500/12 text-rose-300 border-rose-500/30',
+  info: 'bg-cyan-500/12 text-cyan-300 border-cyan-500/30',
+  accent: 'bg-indigo-500/12 text-indigo-300 border-indigo-500/30',
+  ai: 'bg-purple-500/12 text-purple-300 border-purple-500/30',
 };
 
 export const Badge: FC<{ tone?: Tone; children: ReactNode; title?: string }> = ({ tone = 'neutral', children, title }) => (
@@ -144,7 +149,7 @@ export const Drawer: FC<{ open: boolean; title: string; onClose: () => void; chi
     };
   }, [open, onClose]);
   if (!open) return null;
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={title}>
       <div className="absolute inset-0 scrim" onClick={onClose} />
       <div ref={panel} tabIndex={-1} className={`relative h-full w-full ${wide ? 'max-w-3xl' : 'max-w-xl'} glass-sheet border-l border-slate-800 overflow-y-auto animate-fade-up focus:outline-none`}>
@@ -154,7 +159,8 @@ export const Drawer: FC<{ open: boolean; title: string; onClose: () => void; chi
         </div>
         <div className="p-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

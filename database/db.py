@@ -892,6 +892,74 @@ def init_db():
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(org_id, domain)
     );
+
+    CREATE TABLE IF NOT EXISTS inbox_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        mailbox_id INTEGER,
+        lead_id INTEGER,
+        direction TEXT NOT NULL DEFAULT 'inbound', -- inbound | outbound
+        sender_email TEXT NOT NULL,
+        recipient_email TEXT NOT NULL,
+        subject TEXT NOT NULL DEFAULT '',
+        body TEXT NOT NULL,
+        category TEXT DEFAULT 'generic',
+        sentiment TEXT DEFAULT 'neutral',
+        auto_reply_draft TEXT,
+        message_id TEXT,
+        in_reply_to TEXT,
+        status TEXT NOT NULL DEFAULT 'unread', -- unread | read | replied | archived
+        received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_inbox_messages_org ON inbox_messages(org_id, status, received_at DESC);
+
+    CREATE TABLE IF NOT EXISTS autopilot_schedules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        name TEXT NOT NULL,
+        channel TEXT NOT NULL, -- hiring | local | sec_edgar | social
+        query TEXT DEFAULT '',
+        location TEXT DEFAULT '',
+        limit_per_run INTEGER NOT NULL DEFAULT 5,
+        cadence_hours INTEGER NOT NULL DEFAULT 24,
+        assign_mode TEXT NOT NULL DEFAULT 'round_robin', -- round_robin | unassigned
+        auto_send_tier_a INTEGER NOT NULL DEFAULT 0,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        last_run_at TIMESTAMP,
+        next_run_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS smart_link_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        token TEXT NOT NULL,
+        lead_id INTEGER,
+        report_type TEXT NOT NULL DEFAULT 'audit', -- audit | proposal
+        viewer_ip TEXT,
+        user_agent TEXT,
+        referrer TEXT,
+        dwell_seconds INTEGER DEFAULT 0,
+        viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_smart_links_token ON smart_link_events(token, viewed_at DESC);
+
+    CREATE TABLE IF NOT EXISTS interactive_proposals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        lead_id INTEGER NOT NULL,
+        token TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        summary TEXT NOT NULL DEFAULT '',
+        scope_json TEXT NOT NULL DEFAULT '[]',
+        price_amount REAL,
+        currency TEXT NOT NULL DEFAULT 'USD',
+        booking_link TEXT DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'draft', -- draft | sent | viewed | accepted
+        signed_by TEXT,
+        signed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE INDEX IF NOT EXISTS idx_browser_session_domain ON browser_session_vault(org_id, domain);
 
     CREATE TABLE IF NOT EXISTS scraped_pages (
@@ -908,6 +976,120 @@ def init_db():
         UNIQUE(org_id, url)
     );
     CREATE INDEX IF NOT EXISTS idx_scraped_pages_domain ON scraped_pages(org_id, domain);
+
+    CREATE TABLE IF NOT EXISTS email_templates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        name TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        body TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_email_templates_org ON email_templates(org_id);
+
+    CREATE TABLE IF NOT EXISTS opportunity_feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        opportunity_id INTEGER NOT NULL,
+        vote TEXT NOT NULL, -- 'up' | 'down'
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(org_id, opportunity_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_opp_feedback_org ON opportunity_feedback(org_id, opportunity_id);
+
+    CREATE TABLE IF NOT EXISTS channel_bids (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL,
+        platform TEXT NOT NULL,
+        job_url TEXT DEFAULT '',
+        title TEXT NOT NULL,
+        client_name TEXT DEFAULT '',
+        bid_amount REAL DEFAULT 0,
+        currency_name TEXT DEFAULT 'Connects',
+        currency_spent REAL DEFAULT 0,
+        boosted INTEGER DEFAULT 0,
+        hook_template_id TEXT DEFAULT '',
+        client_payment_verified INTEGER DEFAULT 0,
+        client_hire_rate INTEGER DEFAULT 0,
+        client_avg_hourly REAL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'applied', -- saved | applied | viewed | replied | interview | won | lost
+        notes TEXT DEFAULT '',
+        crm_lead_id INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_channel_bids_org ON channel_bids(org_id, platform, status);
+
+    CREATE TABLE IF NOT EXISTS channel_gigs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL,
+        platform TEXT NOT NULL,
+        title TEXT NOT NULL,
+        url TEXT DEFAULT '',
+        impressions INTEGER DEFAULT 0,
+        clicks INTEGER DEFAULT 0,
+        inquiries INTEGER DEFAULT 0,
+        orders INTEGER DEFAULT 0,
+        revenue REAL DEFAULT 0,
+        avg_response_mins INTEGER DEFAULT 0,
+        keywords TEXT DEFAULT '',
+        status TEXT DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_channel_gigs_org ON channel_gigs(org_id, platform);
+
+    CREATE TABLE IF NOT EXISTS channel_reviews (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL,
+        platform TEXT NOT NULL DEFAULT 'clutch',
+        client_id INTEGER,
+        client_name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'invited', -- invited | submitted | published
+        rating REAL,
+        review_url TEXT DEFAULT '',
+        invited_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        published_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_channel_reviews_org ON channel_reviews(org_id, platform);
+
+    CREATE TABLE IF NOT EXISTS channel_pacing (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL,
+        platform TEXT NOT NULL DEFAULT 'linkedin',
+        day TEXT NOT NULL,
+        invites_sent INTEGER DEFAULT 0,
+        inmails_sent INTEGER DEFAULT 0,
+        profile_views INTEGER DEFAULT 0,
+        comments_left INTEGER DEFAULT 0,
+        weekly_limit INTEGER DEFAULT 80,
+        ssi_score INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(org_id, platform, day)
+    );
+    CREATE INDEX IF NOT EXISTS idx_channel_pacing_org ON channel_pacing(org_id, platform, day);
+
+    CREATE TABLE IF NOT EXISTS custom_channels (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL,
+        slug TEXT NOT NULL,
+        label TEXT NOT NULL,
+        archetype TEXT NOT NULL DEFAULT 'custom',
+        home_url TEXT DEFAULT '',
+        quick_links_json TEXT DEFAULT '[]',
+        active INTEGER DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(org_id, slug)
+    );
+
+    CREATE TABLE IF NOT EXISTS channel_preferences (
+        org_id TEXT PRIMARY KEY,
+        hidden_platforms_json TEXT DEFAULT '[]',
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
     """)
     cursor.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS idx_opp_org_source_ext
@@ -918,6 +1100,13 @@ def init_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_outbound_drafts_status ON outbound_drafts(org_id, status, sent_at);")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_runs_org ON audit_runs(org_id, created_at);")
 
+    for sql in (
+        "ALTER TABLE lead_hits ADD COLUMN lead_id INTEGER",
+    ):
+        try:
+            cursor.execute(sql)
+        except Exception:
+            pass
     conn.commit()
     conn.close()
 

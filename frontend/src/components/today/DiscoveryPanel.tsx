@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FC, FormEvent } from 'react';
 import { Play, ChevronDown, ChevronRight } from 'lucide-react';
-import { Button, Card, Badge, field } from '../ui';
+import { Button, Card, Badge, Select, field } from '../ui';
 import { ErrorBanner } from '../shared/ErrorBanner';
 import { send } from '../../lib/hooks';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
+import { ScheduledAutopilot } from './ScheduledAutopilot';
 
 interface Skipped { name: string; reason: string }
 interface RunLead { lead_id: number; company_name: string; domain: string; outcome: string; band?: string; priority?: number; reason?: string }
@@ -80,9 +81,7 @@ export const DiscoveryPanel: FC<{ onDone: () => void; onOpenClient: (leadId: num
       </div>
       <form onSubmit={run} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
         <label className="text-xs text-slate-400 space-y-1 lg:col-span-2">Where to look
-          <select className={field} value={channel} onChange={(e) => setChannel(e.target.value)}>
-            {CHANNELS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-          </select>
+          <Select aria-label="Where to look" value={channel} onChange={setChannel} options={CHANNELS.map((c) => ({ value: c.id, label: c.label }))} />
         </label>
         {def.query && (
           <label className="text-xs text-slate-400 space-y-1">{def.id === 'local' ? 'Business type' : 'Keyword'}
@@ -95,7 +94,7 @@ export const DiscoveryPanel: FC<{ onDone: () => void; onOpenClient: (leadId: num
           </label>
         )}
         <label className="text-xs text-slate-400 space-y-1">How many
-          <select className={field} value={limit} onChange={(e) => setLimit(Number(e.target.value))}>{[3, 5, 10, 20].map((n) => <option key={n}>{n}</option>)}</select>
+          <Select aria-label="How many" value={limit} onChange={(v) => setLimit(Number(v))} options={[3, 5, 10, 20].map((n) => ({ value: n, label: String(n) }))} />
         </label>
         <Button variant="primary" disabled={busy}><Play className="h-3.5 w-3.5" />{busy ? 'Running…' : 'Run'}</Button>
       </form>
@@ -147,6 +146,7 @@ export const DiscoveryPanel: FC<{ onDone: () => void; onOpenClient: (leadId: num
           )}
         </div>
       )}
+      <ScheduledAutopilot />
     </Card>
   );
 };

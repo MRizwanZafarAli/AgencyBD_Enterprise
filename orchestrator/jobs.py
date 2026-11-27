@@ -38,6 +38,10 @@ def _worker(run_id: str, org_id: str, params: Dict[str, Any], user: str) -> None
             from radar.engine import OpportunityRadarEngine
             found = OpportunityRadarEngine().scan_all_sources(limit_per_source=10, org_id=org_id, progress=report)
             result = {"channel": "radar_scan", "stored": len(found)}
+        elif params.get("channel") == "social":
+            from connectors.social_radar import scan_social_intent
+            found = scan_social_intent(query=params.get("query") or None, limit=int(params.get("limit", 20)))
+            result = {"channel": "social", "stored": len(found), "signals": found}
         else:
             result = DiscoveryRun().run(org_id, params["channel"], params.get("query", ""), params.get("location", ""), params.get("limit", 5), user=user, progress=report)
         _finish(run_id, "done", result_json=json.dumps(result, default=str))
@@ -46,8 +50,8 @@ def _worker(run_id: str, org_id: str, params: Dict[str, Any], user: str) -> None
 
 
 def start(org_id: str, params: Dict[str, Any], user: str) -> Dict[str, Any]:
-    if params.get("channel") not in ("hiring", "sec_edgar", "local", "radar_scan"):
-        raise ValueError("channel must be hiring, sec_edgar, local or radar_scan")
+    if params.get("channel") not in ("hiring", "sec_edgar", "local", "radar_scan", "social"):
+        raise ValueError("channel must be hiring, sec_edgar, local, social or radar_scan")
     with get_db() as db:
         running = db.execute("SELECT id FROM discovery_runs WHERE org_id = ? AND status = 'running' AND started_at > datetime('now', '-15 minutes')", (org_id,)).fetchone()
         if running:

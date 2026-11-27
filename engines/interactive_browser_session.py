@@ -73,6 +73,24 @@ class InteractiveBrowserSession:
         dom_data = self.browser_service.render_spa_dom(target_url)
         self.dom_state = dom_data
 
+        if dom_data.get("status") == "unreachable":
+            self.status = "unreachable"
+            return {
+                "status": "unreachable",
+                "session_id": self.session_id,
+                "current_url": self.current_url,
+                "current_domain": self.current_domain,
+                "title": dom_data.get("title", clean_host),
+                "error": dom_data.get("error", "Site could not be reached."),
+                "detected_stack": [],
+                "emails": [],
+                "phones": [],
+                "viewport_screenshot": None,
+                "challenge_detected": False,
+                "challenge_type": None,
+                "mode": "viewer",
+            }
+
         # 2. Capture Viewport Screenshot
         shot_data = self.browser_service.capture_screenshot(target_url, viewport=viewport)
         if shot_data.get("status") == "success":

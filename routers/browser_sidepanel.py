@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from engines.universal_scraper import universal_scraper, ScrapeResult
 from engines.interactive_browser_session import get_browser_session
+from net.fetcher import SSRFSecurityError
 from security.auth import Principal, get_current_principal, require_permission
 from database.db import get_db
 
@@ -60,6 +61,8 @@ def execute_universal_scrape(
             "ok": True,
             "result": res.model_dump(),
         }
+    except SSRFSecurityError as exc:
+        raise HTTPException(status_code=400, detail=f"Blocked target: {exc}")
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Scraper error: {exc}")
 
@@ -86,6 +89,119 @@ def get_fit_markdown(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+_BULK_SCRAPE_JOBS: Dict[str, Dict[str, Any]] = {}
+
+
+class BulkScrapeItem(BaseModel):
+    id: str
+    url: str
+    name: Optional[str] = None
+
+
+class BulkScrapeRequest(BaseModel):
+    items: List[BulkScrapeItem] = Field(..., min_length=1, max_length=50)
+    mode: str = "local_audit"
+
+
+@router.post("/bulk-scrape")
+def start_bulk_scrape(
+    req: BulkScrapeRequest,
+    principal: Principal = Depends(get_current_principal),
+) -> Dict[str, Any]:
+    """Queues an async background bulk-scrape job and returns job_id immediately."""
+    import secrets as _sec
+    import threading as _th
+
+    job_id = _sec.token_hex(6)
+    items_state: Dict[str, Dict[str, Any]] = {
+        it.id: {"status": "queued", "url": it.url, "name": it.name} for it in req.items
+    }
+    _BULK_SCRAPE_JOBS[job_id] = {
+        "job_id": job_id,
+        "org_id": principal.org_id,
+        "total": len(req.items),
+        "completed": 0,
+        "done": False,
+        "items": items_state,
+    }
+
+    def _worker() -> None:
+        job = _BULK_SCRAPE_JOBS[job_id]
+        for it in req.items:
+            job["items"][it.id]["status"] = "running"
+            try:
+                res = universal_scraper.scrape_url(
+                    target=it.url, mode=req.mode, org_id=principal.org_id
+                )
+                job["items"][it.id]["status"] = "done"
+                job["items"][it.id]["title"] = res.title
+            except Exception as exc:
+                job["items"][it.id]["status"] = "error"
+                job["items"][it.id]["error"] = str(exc)[:120]
+            job["completed"] += 1
+        job["done"] = True
+
+    _th.Thread(target=_worker, daemon=True).start()
+    return {"job_id": job_id, "total": len(req.items)}
+
+
+@router.get("/bulk-scrape/{job_id}")
+def get_bulk_scrape_status(
+    job_id: str,
+    principal: Principal = Depends(get_current_principal),
+) -> Dict[str, Any]:
+    job = _BULK_SCRAPE_JOBS.get(job_id)
+    if not job or job.get("org_id") != principal.org_id:
+        raise HTTPException(status_code=404, detail="Bulk scrape job not found")
+    return job
+
+
+@router.get("/scraped")
+def get_saved_scrape(
+    domain: str = Query(..., description="Domain or URL to look up saved scrape"),
+    principal: Principal = Depends(get_current_principal),
+) -> Dict[str, Any]:
+    """Returns the latest persisted site scrape for a specific domain/site."""
+    import json
+    from urllib.parse import urlparse
+
+    raw = domain.strip().lower()
+    if "://" in raw:
+        raw = urlparse(raw).hostname or raw
+    clean = raw.split(":")[0].removeprefix("www.")
+    with get_db() as conn:
+        row = conn.execute(
+            """
+            SELECT id, url, domain, title, fit_markdown, extracted_json, status, created_at
+            FROM scraped_pages
+            WHERE org_id = ? AND (LOWER(domain) = ? OR LOWER(domain) = ?)
+            ORDER BY created_at DESC, id DESC LIMIT 1
+            """,
+            (principal.org_id, clean, f"www.{clean}"),
+        ).fetchone()
+    if not row:
+        return {"found": False, "scrape": None}
+    extracted = {}
+    try:
+        extracted = json.loads(row["extracted_json"] or "{}")
+    except Exception:
+        extracted = {}
+    return {
+        "found": True,
+        "scrape": {
+            "id": row["id"],
+            "url": row["url"],
+            "domain": row["domain"],
+            "title": row["title"],
+            "fit_markdown": row["fit_markdown"] or "",
+            "extracted_data": extracted,
+            "developer_audit": extracted.get("developer_audit", {}),
+            "status": row["status"],
+            "created_at": row["created_at"],
+        },
+    }
+
+
 @router.post("/session/navigate")
 def navigate_browser_sidepanel(
     req: BrowserNavigateRequest,
@@ -102,6 +218,8 @@ def navigate_browser_sidepanel(
             "ok": True,
             "navigation": nav_res,
         }
+    except SSRFSecurityError as exc:
+        raise HTTPException(status_code=400, detail=f"Blocked target: {exc}")
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Navigation failed: {exc}")
 
@@ -231,3 +349,56 @@ def list_session_vault(
             }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+class CapturedLeadItem(BaseModel):
+    company_name: str = Field(..., min_length=1, max_length=120)
+    domain: str = ""
+    contact_name: str = ""
+    contact_title: str = ""
+    linkedin_url: str = ""
+    email: str = ""
+
+
+class CaptureLeadsRequest(BaseModel):
+    leads: List[CapturedLeadItem] = Field(..., min_length=1, max_length=50)
+    source: str = "sales_nav_companion"
+
+
+@router.post("/session/capture-leads")
+def capture_sales_nav_leads(
+    req: CaptureLeadsRequest,
+    principal: Principal = Depends(require_permission("leads:write")),
+) -> Dict[str, Any]:
+    """
+    Sales Navigator Companion Capture:
+    Saves leads captured from an authenticated human Chrome session into CRM `leads` & `decision_makers`.
+    """
+    from database.models import ContactRepository, LeadRepository
+
+    saved = []
+    for item in req.leads:
+        dom = (item.domain or "").strip() or f"{item.company_name.lower().replace(' ', '')[:24]}.invalid"
+        lead = LeadRepository.create_or_get_lead(
+            company_name=item.company_name.strip(),
+            domain=dom,
+            source_channel=req.source,
+            notes=f"Captured via Sales Navigator Companion ({item.linkedin_url})" if item.linkedin_url else "Captured via Sales Navigator Companion",
+            org_id=principal.org_id,
+        )
+        if item.contact_name.strip() and item.email.strip():
+            parts = item.contact_name.strip().split(" ", 1)
+            first_n = parts[0]
+            last_n = parts[1] if len(parts) > 1 else ""
+            ContactRepository.add_decision_maker(
+                lead_id=lead["id"],
+                first_name=first_n,
+                last_name=last_n,
+                title=item.contact_title.strip() or "Decision Maker",
+                email=item.email.strip(),
+                linkedin_url=item.linkedin_url.strip() or None,
+                org_id=principal.org_id,
+            )
+        saved.append({"lead_id": lead["id"], "company_name": lead["company_name"], "domain": lead["domain"]})
+
+    return {"ok": True, "captured_count": len(saved), "leads": saved}

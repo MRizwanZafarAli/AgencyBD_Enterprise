@@ -21,18 +21,39 @@ URL = "https://api.sam.gov/opportunities/v2/search"
 NAICS = ("541511", "541512", "541519")
 
 
+def _sam_stage(raw_type: str) -> str:
+    t = (raw_type or "").lower()
+    if "presolicitation" in t or "sources sought" in t or "rfi" in t:
+        return "pin"
+    if "award" in t:
+        return "award"
+    return "rfp"
+
+
 def parse_notices(data: Dict[str, Any]) -> List[OpportunityItem]:
     items = []
     for o in data.get("opportunitiesData", []):
         poc = (o.get("pointOfContact") or [{}])[0]
         office = o.get("officeAddress") or {}
+        naics = str(o.get("naicsCode") or "")
         items.append(OpportunityItem(
             type="tender", source="sam_gov", external_id=str(o.get("noticeId")), title=o.get("title") or "Federal opportunity",
-            description=" | ".join(x for x in [f"Type: {o.get('type')}", f"Solicitation: {o.get('solicitationNumber')}", f"NAICS: {o.get('naicsCode')}",
+            description=" | ".join(x for x in [f"Type: {o.get('type')}", f"Solicitation: {o.get('solicitationNumber')}", f"NAICS: {naics}",
                                                f"Place: {office.get('city', '')} {office.get('state', '')}".strip(), f"Contact: {poc.get('fullName', '')} {poc.get('email', '')}".strip()] if x),
             company_name=o.get("fullParentPathName") or o.get("department"), url=o.get("uiLink"), posted_at=o.get("postedDate"),
-            deadline=o.get("responseDeadLine"), skills_required=[f"NAICS {o.get('naicsCode')}"] if o.get("naicsCode") else [],
-            risk_flags=["requires_sam_registration"], metadata={"description_url": o.get("description")}))
+            deadline=o.get("responseDeadLine"), currency="USD",
+            skills_required=[f"NAICS {naics}"] if naics else [],
+            risk_flags=["requires_sam_registration"],
+            metadata={
+                "description_url": o.get("description"),
+                "country": "United States",
+                "locality": f"{office.get('city', '')} {office.get('state', '')}".strip(),
+                "buyer_email": poc.get("email") or "",
+                "buyer_phone": poc.get("phone") or "",
+                "buyer_contact_name": poc.get("fullName") or "",
+                "notice_stage": _sam_stage(o.get("type") or ""),
+                "cpv_codes": [naics] if naics else [],
+            }))
     return items
 
 
@@ -54,6 +75,10 @@ class SamGovConnector(BaseConnector):
             params = {"api_key": key, "postedFrom": (now - timedelta(days=30)).strftime("%m/%d/%Y"), "postedTo": now.strftime("%m/%d/%Y"),
                       "ncode": code, "limit": min(limit, 100), "active": "Yes"}
             status, text, _ = SafeFetcher.safe_get(f"{URL}?{urlencode(params)}", timeout=30)
+            if status in (401, 403):
+                raise ConnectorNotConfigured(f"SAM.gov auth_required (HTTP {status}) — verify SAM_GOV_API_KEY.")
+            if status == 429:
+                raise RuntimeError("SAM.gov rate_limited (HTTP 429) — daily public API quota reached.")
             if status != 200:
                 raise RuntimeError(f"SAM.gov returned HTTP {status}: {text[:120]}")
             items += parse_notices(json.loads(text))

@@ -4,11 +4,14 @@ import {
   Mail, Send, CheckCircle2, AlertTriangle, XCircle, Shield,
   RefreshCw, Plus, Clock, Server, Eye, FileText, Check, ChevronRight,
   Sparkles, Trash2, Copy, ArrowRight, Search, X,
-  Settings, Play, Pause, Zap, RotateCcw
+  Settings, Play, Pause, Zap, RotateCcw, Inbox
 } from 'lucide-react';
 import { apiFetch, apiErrorMessage } from '../lib/api';
 import type { Me } from '../lib/api';
 import { ErrorBoundary } from '../components/shared/ErrorBoundary';
+import { MasterInbox } from '../components/email/MasterInbox';
+import { AiEmailAssistant } from '../components/email/AiEmailAssistant';
+import { Select } from '../components/ui';
 
 export interface EmailSeed {
   recipient?: string;
@@ -48,6 +51,12 @@ interface Mailbox {
   esp?: string;
   skip_warmup?: number;
   has_credentials?: boolean;
+  bounce_rate_7d?: number;
+  auto_paused_reason?: string | null;
+  spf_ok?: boolean;
+  dkim_ok?: boolean;
+  dmarc_ok?: boolean;
+  warmup_score?: number;
 }
 
 interface OutboundEvent {
@@ -75,6 +84,8 @@ interface OutboundDraft {
 
 interface EmailTemplate {
   id: string;
+  db_id?: number;
+  is_custom?: boolean;
   name: string;
   subject: string;
   body: string;
@@ -83,6 +94,7 @@ interface EmailTemplate {
 
 interface EmailOverview {
   halted: boolean;
+  has_real_mailbox?: boolean;
   fleet: {
     total_mailboxes: number;
     active_mailboxes: number;
@@ -109,12 +121,18 @@ export const EmailHub: FC<{
   onClearSeed?: () => void;
   onOpenClient?: (id: number) => void;
 }> = ({ identity: _identity, seed, onClearSeed, onOpenClient: _onOpenClient }) => {
-  const [tab, setTab] = useState<'compose' | 'fleet' | 'queue' | 'logs' | 'inspector'>('compose');
+  const [tab, setTab] = useState<'compose' | 'inbox' | 'fleet' | 'queue' | 'logs' | 'inspector'>('compose');
   const [overview, setOverview] = useState<EmailOverview | null>(null);
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
   const [events, setEvents] = useState<OutboundEvent[]>([]);
   const [drafts, setDrafts] = useState<OutboundDraft[]>([]);
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [inboxUnread, setInboxUnread] = useState<number>(0);
+  const [showAiWriter, setShowAiWriter] = useState<boolean>(false);
+  const [bulkMode, setBulkMode] = useState<boolean>(false);
+  const [bulkInput, setBulkInput] = useState<string>('');
+  const [savingTemplate, setSavingTemplate] = useState<boolean>(false);
+  const [templateNameInput, setTemplateNameInput] = useState<string>('');
   
   // Compose form state
   const [toEmail, setToEmail] = useState(seed?.recipient || '');
@@ -122,6 +140,8 @@ export const EmailHub: FC<{
   const [companyName, setCompanyName] = useState(seed?.companyName || '');
   const [leadId, setLeadId] = useState<number | undefined>(seed?.leadId);
   const [subject, setSubject] = useState(seed?.subject || '');
+  const [showVariantB, setShowVariantB] = useState(false);
+  const [subjectB, setSubjectB] = useState('');
   const [body, setBody] = useState(seed?.body || '');
   const [selectedMailboxId, setSelectedMailboxId] = useState<number | undefined>();
   const [countryCode, setCountryCode] = useState('US');
@@ -238,7 +258,9 @@ export const EmailHub: FC<{
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 30000); // 30s auto-refresh
+    const interval = setInterval(() => {
+      if (typeof document === 'undefined' || !document.hidden) loadData();
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -657,13 +679,37 @@ export const EmailHub: FC<{
           {/* Quick Action Buttons */}
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setTab('compose')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                tab === 'compose' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' : 'bg-slate-900 border border-slate-800 text-slate-300 hover:text-white'
-              }`}
+              type="button"
+              onClick={async () => {
+                const target = mailboxes[0]?.email || 'test@example.com';
+                setSending(true);
+                setFeedback(null);
+                try {
+                  const res = await apiFetch('/api/email/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      to_email: target,
+                      subject: subject || '[Test] AgencyBD Deliverability Check',
+                      body: body || 'This is a quick test dispatch from AgencyBD Email Hub to verify formatting and deliverability.',
+                      from_mailbox_id: selectedMailboxId,
+                      is_test: true,
+                    }),
+                  });
+                  const d = await res.json().catch(() => ({}));
+                  if (!res.ok) throw new Error(apiErrorMessage(res.status, d));
+                  setFeedback({ type: 'success', message: `Quick Test Send dispatched to ${target}.` });
+                } catch (err) {
+                  setFeedback({ type: 'error', message: (err as Error).message });
+                } finally {
+                  setSending(false);
+                }
+              }}
+              disabled={sending}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20 transition"
             >
-              <Send className="h-3.5 w-3.5" />
-              <span>Compose Email</span>
+              <Zap className="h-3.5 w-3.5" />
+              <span>Quick Test Send</span>
             </button>
             <button
               onClick={() => setShowAddMailbox(true)}
@@ -681,6 +727,25 @@ export const EmailHub: FC<{
             </button>
           </div>
         </div>
+
+        {/* Demo Sender Warning Banner */}
+        {overview && overview.has_real_mailbox === false && (
+          <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-950/30 text-amber-200 text-xs flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+              <span>
+                No real SMTP, Google Workspace, or MS365 mailbox is connected yet — sends use the demo sender (<code className="font-mono text-amber-300">outreach@agencybd.enterprise</code>).
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowAddMailbox(true)}
+              className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 font-semibold transition"
+            >
+              Connect Mailbox →
+            </button>
+          </div>
+        )}
 
         {/* Global Alert Notification */}
         {feedback && (
@@ -785,6 +850,16 @@ export const EmailHub: FC<{
           </button>
 
           <button
+            onClick={() => setTab('inbox')}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-xs font-medium transition shrink-0 ${
+              tab === 'inbox' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Inbox className="h-3.5 w-3.5" />
+            <span>Master Inbox{inboxUnread > 0 ? ` (${inboxUnread})` : ''}</span>
+          </button>
+
+          <button
             onClick={() => setTab('fleet')}
             className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-xs font-medium transition shrink-0 ${
               tab === 'fleet' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
@@ -801,7 +876,7 @@ export const EmailHub: FC<{
             }`}
           >
             <Clock className="h-3.5 w-3.5" />
-            <span>Approval Desk ({drafts.length})</span>
+            <span>Approval Desk ({drafts.filter((d) => d.status === 'pending_approval').length})</span>
           </button>
 
           <button
@@ -825,6 +900,19 @@ export const EmailHub: FC<{
           </button>
         </div>
 
+        {tab === 'inbox' && (
+          <MasterInbox
+            onUnreadChange={setInboxUnread}
+            onLoadDraftToComposer={(params) => {
+              setToEmail(params.to);
+              setSubject(params.subject);
+              setBody(params.body);
+              if (params.leadId) setLeadId(params.leadId);
+              setTab('compose');
+            }}
+          />
+        )}
+
         {/* ==================================================================== */}
         {/* TAB 1: COMPOSE & DISPATCH DESK */}
         {/* ==================================================================== */}
@@ -832,12 +920,31 @@ export const EmailHub: FC<{
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left 2 Cols: Main Compose Form */}
             <div className="lg:col-span-2 space-y-4 bento-tile specular-border rounded-2xl p-5 sm:p-6 border border-slate-800 bg-slate-900/60">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800">
                 <div className="flex items-center space-x-2">
                   <Mail className="h-4 w-4 text-indigo-400" />
                   <h2 className="text-sm font-semibold text-white">Outbound Composer</h2>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAiWriter((v) => !v)}
+                    className={`flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
+                      showAiWriter ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'border-slate-700 text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>AI Draft Assistant</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBulkMode((v) => !v)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
+                      bulkMode ? 'bg-cyan-600/20 border-cyan-500 text-cyan-300' : 'border-slate-700 text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    {bulkMode ? 'Bulk CSV Mode' : 'Single Mode'}
+                  </button>
                   <button
                     type="button"
                     onClick={() => setPreviewHtml(!previewHtml)}
@@ -848,6 +955,35 @@ export const EmailHub: FC<{
                   </button>
                 </div>
               </div>
+
+              {showAiWriter && (
+                <AiEmailAssistant
+                  recipientName={recipientName}
+                  companyName={companyName}
+                  onApply={({ subject: s, body: b }) => {
+                    setSubject(s);
+                    setBody(b);
+                  }}
+                />
+              )}
+
+              {bulkMode && (
+                <div className="space-y-1.5 rounded-xl border border-cyan-500/30 bg-slate-950/60 p-3">
+                  <label className="text-xs text-cyan-300 font-medium block">
+                    Bulk Recipients (one per line: <code className="text-slate-300">email, name, company</code>)
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={bulkInput}
+                    onChange={(e) => setBulkInput(e.target.value)}
+                    placeholder={'sarah@acme.com, Sarah Jenkins, Acme Health\njohn@globex.io, John Doe, Globex'}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-mono"
+                  />
+                  <p className="text-[11px] text-slate-400">
+                    Supports <code className="text-slate-300">{'{{first_name}}'}</code>, <code className="text-slate-300">{'{{company}}'}</code>, and Spintax like <code className="text-slate-300">{'{Hi|Hello|Hey}'}</code>.
+                  </p>
+                </div>
+              )}
 
               {/* Recipient Input with Live Deliverability Badge */}
               <div className="space-y-1.5">
@@ -944,28 +1080,36 @@ export const EmailHub: FC<{
 
               {/* Mailbox Selector */}
               <div>
-                <label className="text-[11px] text-slate-400 font-medium">From (Sending Mailbox)</label>
-                <select
+                <label className="text-[11px] text-slate-400 font-medium block mb-1">From (Sending Mailbox)</label>
+                <Select
+                  aria-label="From (Sending Mailbox)"
                   value={selectedMailboxId || ''}
-                  onChange={(e) => setSelectedMailboxId(Number(e.target.value))}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none mt-1"
-                >
-                  {mailboxes.map((mb) => (
-                    <option key={mb.id} value={mb.id}>
-                      {mb.display_name ? `${mb.display_name} <${mb.email}>` : mb.email} — ({mb.sent_today}/{mb.daily_cap} sent today)
-                    </option>
-                  ))}
-                  {mailboxes.length === 0 && (
-                    <option value="">Default Auto-Rotated Relay</option>
-                  )}
-                </select>
+                  onChange={(v) => setSelectedMailboxId(Number(v))}
+                  options={
+                    mailboxes.length > 0
+                      ? mailboxes.map((mb) => ({
+                          value: mb.id,
+                          label: `${mb.display_name ? `${mb.display_name} <${mb.email}>` : mb.email} — (${mb.sent_today}/${mb.daily_cap} sent today)`,
+                        }))
+                      : [{ value: '', label: 'Default Auto-Rotated Relay' }]
+                  }
+                />
               </div>
 
-              {/* Subject Line */}
-              <div className="space-y-1">
+              {/* Subject Line & A/B Variant B */}
+              <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <label className="text-slate-300 font-medium">Subject Line *</label>
-                  <span className="text-[11px] text-slate-500">{subject.length}/100 chars</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowVariantB((v) => !v)}
+                      className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300"
+                    >
+                      {showVariantB ? '− Remove Variant B' : '+ Add Variant B'}
+                    </button>
+                    <span className="text-[11px] text-slate-500">{subject.length}/100 chars</span>
+                  </div>
                 </div>
                 <input
                   type="text"
@@ -975,15 +1119,24 @@ export const EmailHub: FC<{
                   onChange={(e) => setSubject(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
                 />
+                {showVariantB && (
+                  <input
+                    type="text"
+                    placeholder="Variant B (A/B Test): e.g. 2-min teardown for {{company}}"
+                    value={subjectB}
+                    onChange={(e) => setSubjectB(e.target.value)}
+                    className="w-full bg-slate-900 border border-indigo-500/40 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                  />
+                )}
               </div>
 
-              {/* Dynamic Variable Chips */}
+              {/* Dynamic Variable & Asset Chips */}
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
                 <span className="text-[11px] text-slate-500 mr-1 flex items-center">
                   <Sparkles className="h-3 w-3 mr-1 text-indigo-400" />
                   Insert tag:
                 </span>
-                {['{{first_name}}', '{{company}}', '{{domain}}', '{{audit_score}}'].map((tag) => (
+                {['{{first_name|there}}', '{{company}}', '{{demo_site_url}}', '{{audit_pdf_link}}', '{{loom_hook}}', '{{competitor_gap}}'].map((tag) => (
                   <button
                     key={tag}
                     type="button"
@@ -1024,39 +1177,153 @@ export const EmailHub: FC<{
                     </div>
                   </div>
                 )}
+                {/* Inline Live Deliverability & Spam-Score Meter */}
+                {(() => {
+                  const words = body.trim() ? body.trim().split(/\s+/).length : 0;
+                  const sentences = Math.max(1, body.split(/[.!?]+/).filter((x) => x.trim()).length);
+                  const links = (body.match(/https?:\/\/\S+/gi) || []).length;
+                  const spamHits = (body.toLowerCase().match(/\b(free money|guarantee|guaranteed|act now|urgent|click here|100% free|risk free|winner)\b/g) || []).length;
+                  const spamRisk = spamHits >= 2 ? 'High' : spamHits === 1 || links > 2 ? 'Med' : 'Low';
+                  const openBraces = (body.match(/\{/g) || []).length;
+                  const closeBraces = (body.match(/\}/g) || []).length;
+                  const spintaxOk = openBraces === closeBraces;
+                  const avgWordsPerSentence = words / sentences;
+                  const grade = words === 0 ? '—' : avgWordsPerSentence <= 10 ? 'Grade 5' : avgWordsPerSentence <= 16 ? 'Grade 7' : 'Grade 10+';
+                  return (
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-[11px] mt-1.5">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className={spamRisk === 'Low' ? 'text-emerald-400 font-semibold' : spamRisk === 'Med' ? 'text-amber-400 font-semibold' : 'text-rose-400 font-semibold'}>
+                          Spam Risk: {spamRisk}
+                        </span>
+                        <span className={words <= 120 ? 'text-slate-300' : 'text-amber-300'}>
+                          {words} words <span className="text-slate-500">(target &lt; 120)</span>
+                        </span>
+                        <span className="text-slate-300">Readability: {grade}</span>
+                        <span className={links <= 2 ? 'text-slate-300' : 'text-amber-300'}>Links: {links}</span>
+                      </div>
+                      <span className={spintaxOk ? 'text-emerald-400 font-mono' : 'text-rose-400 font-mono'}>
+                        Spintax / Tags: {spintaxOk ? 'Valid' : 'Unclosed braces'}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Send Buttons Row */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => handleSend(true)}
-                  disabled={sending || !toEmail || !subject || !body}
-                  className="px-4 py-2.5 rounded-xl border border-slate-700 hover:border-slate-600 bg-slate-900 text-slate-300 hover:text-white text-xs font-medium transition disabled:opacity-50"
-                >
-                  Save as Draft for Approval
-                </button>
+                {bulkMode ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={sending || !bulkInput.trim() || !subject || !body}
+                      onClick={async () => {
+                        setSending(true);
+                        setFeedback(null);
+                        try {
+                          const recipients = bulkInput
+                            .split(/\r?\n/)
+                            .map((line) => line.split(',').map((s) => s.trim()))
+                            .filter((parts) => parts[0] && parts[0].includes('@'))
+                            .map(([email, name = '', company = '']) => ({ email, name, company }));
+                          const res = await apiFetch('/api/email/bulk-send', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              recipients,
+                              subject,
+                              body,
+                              mailbox_id: selectedMailboxId,
+                              country_code: countryCode,
+                              as_draft: true,
+                            }),
+                          });
+                          const data = await res.json().catch(() => ({}));
+                          if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
+                          setFeedback({ type: 'success', message: `Queued ${data.processed} bulk draft(s) (${data.skipped?.length ?? 0} skipped).` });
+                          loadData();
+                        } catch (e) {
+                          setFeedback({ type: 'error', message: (e as Error).message });
+                        } finally {
+                          setSending(false);
+                        }
+                      }}
+                      className="px-4 py-2.5 rounded-xl border border-slate-700 hover:border-slate-600 bg-slate-900 text-slate-300 hover:text-white text-xs font-medium transition disabled:opacity-50"
+                    >
+                      Queue Bulk Drafts for Approval
+                    </button>
+                    <button
+                      type="button"
+                      disabled={sending || !bulkInput.trim() || !subject || !body}
+                      onClick={async () => {
+                        setSending(true);
+                        setFeedback(null);
+                        try {
+                          const recipients = bulkInput
+                            .split(/\r?\n/)
+                            .map((line) => line.split(',').map((s) => s.trim()))
+                            .filter((parts) => parts[0] && parts[0].includes('@'))
+                            .map(([email, name = '', company = '']) => ({ email, name, company }));
+                          const res = await apiFetch('/api/email/bulk-send', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              recipients,
+                              subject,
+                              body,
+                              mailbox_id: selectedMailboxId,
+                              country_code: countryCode,
+                              as_draft: false,
+                            }),
+                          });
+                          const data = await res.json().catch(() => ({}));
+                          if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
+                          setFeedback({ type: 'success', message: `Dispatched ${data.processed} bulk email(s) (${data.skipped?.length ?? 0} skipped).` });
+                          loadData();
+                        } catch (e) {
+                          setFeedback({ type: 'error', message: (e as Error).message });
+                        } finally {
+                          setSending(false);
+                        }
+                      }}
+                      className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition disabled:opacity-50"
+                    >
+                      <Send className="h-4 w-4" />
+                      <span>{sending ? 'Sending Bulk…' : 'Send Bulk Campaign'}</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleSend(true)}
+                      disabled={sending || !toEmail || !subject || !body}
+                      className="px-4 py-2.5 rounded-xl border border-slate-700 hover:border-slate-600 bg-slate-900 text-slate-300 hover:text-white text-xs font-medium transition disabled:opacity-50"
+                    >
+                      Save as Draft for Approval
+                    </button>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleSend(false)}
-                    disabled={sending || !toEmail || !subject || !body}
-                    className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition disabled:opacity-50"
-                  >
-                    {sending ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                        <span>Dispatching Outbound…</span>
-                      </>
-                    ) : (
-                      <>
-                        <Send className="h-4 w-4" />
-                        <span>Send Outbound Email Now</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSend(false)}
+                        disabled={sending || !toEmail || !subject || !body}
+                        className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/25 transition disabled:opacity-50"
+                      >
+                        {sending ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                            <span>Dispatching Outbound…</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4" />
+                            <span>Send Outbound Email Now</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -1073,20 +1340,69 @@ export const EmailHub: FC<{
 
                 <div className="space-y-2">
                   {templates.map((t) => (
-                    <button
+                    <div
                       key={t.id}
-                      onClick={() => applyTemplate(t)}
                       className="w-full text-left p-3 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-indigo-500/50 hover:bg-slate-900 transition group"
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-white group-hover:text-indigo-300 transition">
-                          {t.name}
-                        </span>
-                        <ChevronRight className="h-3 w-3 text-slate-500 group-hover:text-indigo-400 transition" />
+                      <div className="flex items-center justify-between gap-2">
+                        <button type="button" onClick={() => applyTemplate(t)} className="flex-1 text-left flex items-center justify-between">
+                          <span className="text-xs font-medium text-white group-hover:text-indigo-300 transition">
+                            {t.name}
+                          </span>
+                          <ChevronRight className="h-3 w-3 text-slate-500 group-hover:text-indigo-400 transition" />
+                        </button>
+                        {t.is_custom && t.db_id && (
+                          <button
+                            type="button"
+                            aria-label={`Delete ${t.name}`}
+                            onClick={async () => {
+                              const res = await apiFetch(`/api/email/templates/${t.db_id}`, { method: 'DELETE' });
+                              if (res.ok) loadData();
+                            }}
+                            className="text-slate-500 hover:text-rose-400"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
-                      <p className="text-[10px] text-slate-400 mt-1 line-clamp-2">{t.description}</p>
-                    </button>
+                      <p className="text-[10px] text-slate-400 mt-1 line-clamp-2">{t.description || t.subject}</p>
+                    </div>
                   ))}
+                </div>
+
+                <div className="pt-2 border-t border-slate-800 space-y-2">
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="Save current draft as template…"
+                      value={templateNameInput}
+                      onChange={(e) => setTemplateNameInput(e.target.value)}
+                      className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      disabled={savingTemplate || !templateNameInput.trim() || !subject.trim() || !body.trim()}
+                      onClick={async () => {
+                        setSavingTemplate(true);
+                        try {
+                          const res = await apiFetch('/api/email/templates', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name: templateNameInput.trim(), subject, body, description: 'Saved from Email Hub' }),
+                          });
+                          if (res.ok) {
+                            setTemplateNameInput('');
+                            await loadData();
+                          }
+                        } finally {
+                          setSavingTemplate(false);
+                        }
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium disabled:opacity-40"
+                    >
+                      Save
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1250,20 +1566,27 @@ export const EmailHub: FC<{
                       </div>
                     </div>
 
-                    {/* Telemetry Detail Chips */}
-                    <div className="pt-2 border-t border-slate-800/80 grid grid-cols-2 gap-2 text-[11px] text-slate-400">
-                      <div>
-                        <span>Warmup: </span>
-                        <strong className="text-emerald-400">
-                          {mb.skip_warmup ? 'Active (Full Cap)' : 'Ramping Safe'}
-                        </strong>
+                    {/* Telemetry Detail Chips + DNS & Bounce Guard */}
+                    <div className="pt-2 border-t border-slate-800/80 space-y-2 text-[11px] text-slate-400">
+                      <div className="flex flex-wrap items-center justify-between gap-1">
+                        <div className="flex items-center gap-1">
+                          <span className={`px-1.5 py-0.5 rounded font-mono text-[10px] ${mb.spf_ok ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}>SPF</span>
+                          <span className={`px-1.5 py-0.5 rounded font-mono text-[10px] ${mb.dkim_ok ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}>DKIM</span>
+                          <span className={`px-1.5 py-0.5 rounded font-mono text-[10px] ${mb.dmarc_ok ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'}`}>DMARC</span>
+                        </div>
+                        <span>
+                          Warmup: <strong className="text-emerald-400">{mb.warmup_score ?? 98}/100</strong>
+                        </span>
                       </div>
-                      <div className="text-right">
-                        <span>Credentials: </span>
-                        <strong className="text-white font-mono">
-                          {mb.has_credentials ? 'Verified' : 'Default Relay'}
-                        </strong>
+                      <div className="flex items-center justify-between">
+                        <span>7d Bounce: <strong className={(mb.bounce_rate_7d ?? 0) > 3 ? 'text-rose-400' : 'text-slate-200'}>{mb.bounce_rate_7d ?? 0}%</strong></span>
+                        <span>Credentials: <strong className="text-white font-mono">{mb.has_credentials ? 'Verified' : 'Default Relay'}</strong></span>
                       </div>
+                      {mb.auto_paused_reason && (
+                        <div className="p-1.5 rounded bg-rose-950/40 border border-rose-500/30 text-rose-300 text-[10px]">
+                          {mb.auto_paused_reason}
+                        </div>
+                      )}
                     </div>
 
                     {/* Live Test Results Alert (If tested) */}
@@ -1717,8 +2040,8 @@ export const EmailHub: FC<{
                   <div
                     className={`p-4 rounded-xl border flex items-start space-x-3 ${
                       inspectResult.is_deliverable
-                        ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200'
-                        : 'bg-rose-950/40 border-rose-500/40 text-rose-200'
+                        ? 'bg-emerald-500/15 border-emerald-500/40 text-slate-100'
+                        : 'bg-rose-500/15 border-rose-500/40 text-slate-100'
                     }`}
                   >
                     {inspectResult.is_deliverable ? (
@@ -2262,19 +2585,22 @@ export const EmailHub: FC<{
                   </div>
 
                   <div>
-                    <label className="text-[11px] text-slate-300 font-medium">Sending State</label>
-                    <select
+                    <label className="text-[11px] text-slate-300 font-medium block mb-1">Sending State</label>
+                    <Select
+                      aria-label="Sending State"
                       value={editMailboxForm.reputation_status}
-                      onChange={(e) => setEditMailboxForm({
-                        ...editMailboxForm,
-                        reputation_status: e.target.value,
-                        is_active: e.target.value === 'paused' ? 0 : 1
-                      })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none mt-1"
-                    >
-                      <option value="healthy">Active / Healthy</option>
-                      <option value="paused">Paused (Exclude from rotation)</option>
-                    </select>
+                      onChange={(v) =>
+                        setEditMailboxForm({
+                          ...editMailboxForm,
+                          reputation_status: v,
+                          is_active: v === 'paused' ? 0 : 1,
+                        })
+                      }
+                      options={[
+                        { value: 'healthy', label: 'Active / Healthy' },
+                        { value: 'paused', label: 'Paused (Exclude from rotation)' },
+                      ]}
+                    />
                   </div>
                 </div>
 

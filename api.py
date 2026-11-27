@@ -896,6 +896,7 @@ class LocalHuntProbeRequest(BaseModel):
 class DealStageUpdateRequest(BaseModel):
     lead_id: int
     new_stage: str
+    lost_reason: Optional[str] = None
 
 
 class DealCreateRequest(BaseModel):
@@ -914,6 +915,84 @@ def local_hunt_probe_presence(req: LocalHuntProbeRequest, principal: Principal =
     return local_hunt.probe_presence_live(req.name, req.city, req.website, org_id=principal.org_id)
 
 
+_DEMO_SITES: Dict[str, Dict[str, Any]] = {}
+DEMO_TTL_SECONDS = 14 * 24 * 3600
+
+
+class DemoSiteRequest(BaseModel):
+    name: str
+    category: str = "Local Business"
+    city: str = ""
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    offer: str = "web_design"
+
+
+@app.post("/api/hunt/local/demo_site")
+def create_local_demo_site(req: DemoSiteRequest, principal: Principal = Depends(require_permission("pipeline:run"))):
+    """Generates a live 1-page interactive mockup URL with noindex guardrails and 14-day TTL."""
+    import html as _html
+    import re as _re
+    import secrets as _sec
+    import time as _time
+    slug = f"{_re.sub(r'[^a-z0-9]+', '-', req.name.lower()).strip('-')[:32] or 'demo'}-{_sec.token_hex(3)}"
+    n = _html.escape(req.name)
+    cat = _html.escape(req.category or "Local Specialist")
+    cty = _html.escape(req.city or "Your Area")
+    addr = _html.escape(req.address or cty)
+    ph = _html.escape(req.phone or "(Call for appointment)")
+    tel_href = _re.sub(r"[^\d+]", "", req.phone or "")
+    _DEMO_SITES[slug] = {
+        "expires_at": _time.time() + DEMO_TTL_SECONDS,
+        "html": f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="robots" content="noindex, nofollow"/>
+<title>{n} — Preview Mockup</title>
+<style>
+body{{margin:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;background:#0f172a;color:#f8fafc;line-height:1.5}}
+.bar{{position:sticky;top:0;z-index:20;background:rgba(15,118,110,.95);backdrop-filter:blur(8px);color:#fff;padding:10px 20px;font-size:13px;text-align:center;font-weight:600;border-bottom:1px solid rgba(255,255,255,.15)}}
+.hero{{max-width:920px;margin:48px auto;padding:0 24px}}
+.pill{{display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(45,212,191,.15);color:#5eead4;font-size:12px;font-weight:600}}
+h1{{font-size:clamp(2rem,4vw,3.1rem);margin:14px 0 12px;line-height:1.1}}
+p{{color:#cbd5e1;max-width:620px;font-size:16px}}
+.cta{{display:flex;flex-wrap:wrap;gap:12px;margin-top:24px}}
+.btn{{padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:600;font-size:14px}}
+.btn-p{{background:#14b8a6;color:#04211f}}.btn-s{{border:1px solid #334155;color:#f8fafc}}
+.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:40px}}
+.card{{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:18px}}
+</style></head><body>
+<div class="bar">Concept preview prepared for {n} — Book a 5-min walkthrough</div>
+<section class="hero">
+<span class="pill">{cat} · {cty}</span>
+<h1>{n}</h1>
+<p>Modern mobile-first website &amp; instant booking experience built for {n} in {cty}. Fast load speed, SSL secured, and click-to-book ready.</p>
+<div class="cta">
+{"<a class='btn btn-p' href='tel:" + tel_href + "'>Call " + ph + "</a>" if tel_href else "<span class='btn btn-p'>Book Online Now</span>"}
+<a class="btn btn-s" href="#details">Location &amp; Hours</a>
+</div>
+<div id="details" class="grid">
+<div class="card"><strong>Fast Mobile Booking</strong><p style="font-size:13px;margin:6px 0 0">Turn local map searches into confirmed appointments in under 30 seconds.</p></div>
+<div class="card"><strong>Verified Local Trust</strong><p style="font-size:13px;margin:6px 0 0">Showcase reviews, services, and clear pricing right above the fold.</p></div>
+<div class="card"><strong>Visit Us</strong><p style="font-size:13px;margin:6px 0 0">{addr}<br/>{ph}</p></div>
+</div></section></body></html>""",
+    }
+    return {"slug": slug, "demo_url": f"/api/demo/{slug}", "expires_in_days": 14}
+
+
+@app.get("/api/demo/{slug}")
+def view_local_demo_site(slug: str):
+    """Serves a generated local business preview mockup with X-Robots-Tag noindex and TTL check."""
+    import time as _time
+    from fastapi.responses import HTMLResponse
+    entry = _DEMO_SITES.get(slug)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Demo mockup not found or expired")
+    if _time.time() > entry["expires_at"]:
+        _DEMO_SITES.pop(slug, None)
+        raise HTTPException(status_code=410, detail="Demo mockup has expired")
+    return HTMLResponse(content=entry["html"], headers={"X-Robots-Tag": "noindex, nofollow"})
+
+
 @app.get("/api/pipeline/deals")
 def get_pipeline_deals(principal: Principal = Depends(require_permission("leads:read"))):
     """Returns structured CRM pipeline deals grouped by stage with live revenue forecasting."""
@@ -923,7 +1002,7 @@ def get_pipeline_deals(principal: Principal = Depends(require_permission("leads:
 @app.post("/api/pipeline/deals/stage")
 def update_pipeline_deal_stage(req: DealStageUpdateRequest, principal: Principal = Depends(require_permission("leads:create"))):
     """Updates deal stage in the CRM pipeline with audit logging."""
-    res = LeadRepository.update_deal_stage(req.lead_id, req.new_stage, org_id=principal.org_id)
+    res = LeadRepository.update_deal_stage(req.lead_id, req.new_stage, org_id=principal.org_id, lost_reason=req.lost_reason)
     if not res:
         raise HTTPException(status_code=404, detail="Lead not found in this organization")
     if req.new_stage.lower() == "won":
@@ -989,16 +1068,172 @@ def delete_pipeline_deal(lead_id: int, principal: Principal = Depends(require_pe
 
 @app.post("/api/pipeline/deals/clean_junk")
 def clean_junk_deals(principal: Principal = Depends(require_permission("leads:create"))):
-    """Purges scrapings with synthetic/invalid domains from the active CRM pipeline."""
+    """Purges scrapings with synthetic/invalid domains or raw HN question titles from the active CRM pipeline."""
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "DELETE FROM leads WHERE org_id = ? AND (domain LIKE '%.sec-edgar.gov' OR domain LIKE '%arxiv.org' OR domain LIKE '%.invalid')",
+            "DELETE FROM leads WHERE org_id = ? AND ("
+            "domain LIKE '%.sec-edgar.gov' OR domain LIKE '%arxiv.org' OR domain LIKE '%.invalid' OR domain LIKE '%.local' "
+            "OR company_name LIKE 'Does anyone%' OR company_name LIKE 'Ask HN:%')",
             (principal.org_id,)
         )
         count = cursor.rowcount
         conn.commit()
     return {"status": "cleaned", "deleted_count": count}
+
+
+class DealValueUpdateRequest(BaseModel):
+    deal_value: Optional[float] = Field(None, ge=0)
+
+
+class BulkDealsRequest(BaseModel):
+    lead_ids: List[int] = Field(default_factory=list)
+    action: str = Field(..., pattern="^(stage|delete)$")
+    stage: Optional[str] = None
+
+
+class MergeDealsRequest(BaseModel):
+    keep_id: int
+    remove_id: int
+
+
+@app.post("/api/pipeline/deals/{lead_id}/value")
+def update_pipeline_deal_value(lead_id: int, req: DealValueUpdateRequest, principal: Principal = Depends(require_permission("leads:create"))):
+    """Inline-updates EST VALUE: $N on a lead's notes."""
+    import re as _re
+    with get_db() as conn:
+        row = conn.execute("SELECT id, notes FROM leads WHERE id = ? AND org_id = ?", (lead_id, principal.org_id)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Lead not found")
+        notes = _re.sub(r"EST VALUE:\s*\$[0-9,]+\s*(\|\s*)?", "", row["notes"] or "").strip(" | ")
+        if req.deal_value is not None and req.deal_value > 0:
+            prefix = f"EST VALUE: ${req.deal_value:,.0f}"
+            notes = f"{prefix} | {notes}" if notes else prefix
+        conn.execute("UPDATE leads SET notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND org_id = ?", (notes, lead_id, principal.org_id))
+        conn.commit()
+    return {"lead_id": lead_id, "deal_value": req.deal_value}
+
+
+@app.post("/api/pipeline/deals/bulk")
+def bulk_pipeline_deals(req: BulkDealsRequest, principal: Principal = Depends(require_permission("leads:create"))):
+    """Bulk stage change or bulk delete for selected leads."""
+    ids = [int(i) for i in req.lead_ids[:100]]
+    if not ids:
+        return {"updated": 0}
+    if req.action == "stage":
+        if not req.stage:
+            raise HTTPException(status_code=422, detail="stage is required")
+        updated = 0
+        for lid in ids:
+            if LeadRepository.update_deal_stage(lid, req.stage, org_id=principal.org_id):
+                updated += 1
+        return {"updated": updated}
+    with get_db() as conn:
+        q_marks = ",".join("?" for _ in ids)
+        cur = conn.execute(f"DELETE FROM leads WHERE org_id = ? AND id IN ({q_marks})", (principal.org_id, *ids))
+        conn.commit()
+        return {"deleted": cur.rowcount}
+
+
+@app.get("/api/pipeline/deals/hygiene")
+def pipeline_hygiene_scan(principal: Principal = Depends(require_permission("leads:read"))):
+    """Scans CRM for duplicate domains, synthetic/non-company records, and missing deal values."""
+    with get_db() as conn:
+        rows = [dict(r) for r in conn.execute("SELECT id, company_name, domain, notes, status FROM leads WHERE org_id = ? ORDER BY id DESC", (principal.org_id,)).fetchall()]
+    by_dom: Dict[str, List[Dict[str, Any]]] = {}
+    junk: List[Dict[str, Any]] = []
+    unvalued: List[Dict[str, Any]] = []
+    for r in rows:
+        dom = (r.get("domain") or "").lower().strip()
+        cname = (r.get("company_name") or "").strip()
+        if dom:
+            by_dom.setdefault(dom, []).append(r)
+        if dom.endswith((".local", ".invalid", ".sec-edgar.gov")) or "arxiv.org" in dom or cname.startswith(("Does anyone", "Ask HN:", "How do ")) or cname.endswith("?"):
+            junk.append({"id": r["id"], "company_name": cname, "domain": dom, "reason": "Test domain or raw social question"})
+        if "EST VALUE:" not in (r.get("notes") or "") and (r.get("status") or "sourced") != "lost":
+            unvalued.append({"id": r["id"], "company_name": cname, "domain": dom, "suggested_value": 5000})
+    duplicates = [{"domain": dom, "records": recs} for dom, recs in by_dom.items() if len(recs) > 1]
+    return {"duplicates": duplicates, "junk": junk, "unvalued_count": len(unvalued), "unvalued_sample": unvalued[:10]}
+
+
+@app.post("/api/pipeline/deals/merge")
+def merge_pipeline_deals(req: MergeDealsRequest, principal: Principal = Depends(require_permission("leads:create"))):
+    """Merges remove_id into keep_id, re-parenting all child records before deleting the duplicate."""
+    import sqlite3 as _sqlite3
+    if req.keep_id == req.remove_id:
+        raise HTTPException(status_code=422, detail="Cannot merge a lead with itself")
+    with get_db() as conn:
+        keep_row = conn.execute("SELECT id, notes FROM leads WHERE id = ? AND org_id = ?", (req.keep_id, principal.org_id)).fetchone()
+        rem_row = conn.execute("SELECT id, notes FROM leads WHERE id = ? AND org_id = ?", (req.remove_id, principal.org_id)).fetchone()
+        if not keep_row or not rem_row:
+            raise HTTPException(status_code=404, detail="One or both leads not found in this organization")
+
+        reparented: Dict[str, int] = {}
+        lead_child_tables = (
+            "decision_makers",
+            "tech_audits",
+            "outreach_sequences",
+            "inbound_replies",
+            "meeting_bookings",
+            "audit_trail",
+            "financial_ledger",
+            "outreach_events",
+            "outbound_drafts",
+            "sequence_enrollments",
+            "lead_scores",
+            "client_notes",
+            "lead_hits",
+            "inbox_messages",
+            "smart_link_events",
+            "interactive_proposals",
+        )
+        for tbl in lead_child_tables:
+            try:
+                cur = conn.execute(
+                    f"UPDATE {tbl} SET lead_id = ? WHERE lead_id = ? AND org_id = ?",
+                    (req.keep_id, req.remove_id, principal.org_id),
+                )
+                if cur.rowcount:
+                    reparented[tbl] = cur.rowcount
+            except _sqlite3.IntegrityError:
+                conn.execute(f"DELETE FROM {tbl} WHERE lead_id = ? AND org_id = ?", (req.remove_id, principal.org_id))
+
+        for etbl in ("work_items", "evidence"):
+            try:
+                cur = conn.execute(
+                    f"UPDATE {etbl} SET entity_id = ? WHERE entity_type = 'lead' AND entity_id = ? AND org_id = ?",
+                    (req.keep_id, req.remove_id, principal.org_id),
+                )
+                if cur.rowcount:
+                    reparented[etbl] = cur.rowcount
+            except _sqlite3.IntegrityError:
+                conn.execute(
+                    f"DELETE FROM {etbl} WHERE entity_type = 'lead' AND entity_id = ? AND org_id = ?",
+                    (req.remove_id, principal.org_id),
+                )
+
+        keep_notes = (keep_row["notes"] or "").strip()
+        rem_notes = (rem_row["notes"] or "").strip()
+        if rem_notes and rem_notes not in keep_notes:
+            merged_notes = f"{keep_notes} | {rem_notes}" if keep_notes else rem_notes
+            conn.execute(
+                "UPDATE leads SET notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND org_id = ?",
+                (merged_notes, req.keep_id, principal.org_id),
+            )
+        else:
+            conn.execute("UPDATE leads SET updated_at = CURRENT_TIMESTAMP WHERE id = ? AND org_id = ?", (req.keep_id, principal.org_id))
+
+        from database.db import log_audit_trail as _log_audit
+        _log_audit(
+            req.keep_id,
+            "CRM_Pipeline",
+            "LEAD_MERGED",
+            {"merged_from": req.remove_id, "reparented": reparented, "org_id": principal.org_id},
+            conn=conn,
+        )
+        conn.execute("DELETE FROM leads WHERE id = ? AND org_id = ?", (req.remove_id, principal.org_id))
+        conn.commit()
+    return {"merged_into": req.keep_id, "removed": req.remove_id, "reparented": reparented}
 
 
 
@@ -1096,10 +1331,48 @@ class DecideApprovalRequest(BaseModel):
     reason: Optional[str] = None
 
 @app.get("/api/opportunities")
-def list_opportunities_endpoint(source: Optional[str] = None, limit: int = 50, principal: Principal = Depends(require_permission("leads:read"))):
+def list_opportunities_endpoint(source: Optional[str] = None, type: Optional[str] = None, limit: int = 50, principal: Principal = Depends(require_permission("leads:read"))):
     org = principal.org_id
     """Read-only. Fetching from the internet happens only via POST /api/radar/scan."""
-    return OpportunityRepository.list_opportunities(source=source, limit=min(limit, 200), org_id=org)
+    items = OpportunityRepository.list_opportunities(source=source, opp_type=type, limit=min(limit, 200), org_id=org)
+    try:
+        from database.db import get_db
+        with get_db() as conn:
+            fb_rows = conn.execute("SELECT opportunity_id, vote FROM opportunity_feedback WHERE org_id = ?", (org,)).fetchall()
+            votes = {r["opportunity_id"]: r["vote"] for r in fb_rows}
+            lead_rows = conn.execute("SELECT id, company_name, deal_stage, status FROM leads WHERE org_id = ?", (org,)).fetchall()
+            leads_by_name = {(r["company_name"] or "").strip().lower(): {"lead_id": r["id"], "deal_stage": r["deal_stage"] or r["status"]} for r in lead_rows if r["company_name"]}
+        for it in items:
+            it["user_vote"] = votes.get(it["id"])
+            cname = (it.get("company_name") or "").strip().lower()
+            it["crm_status"] = leads_by_name.get(cname) if cname else None
+    except Exception:
+        pass
+    return items
+
+
+class OpportunityFeedbackBody(BaseModel):
+    vote: str = Field(..., pattern="^(up|down|clear)$")
+
+
+@app.post("/api/opportunities/{opportunity_id}/feedback")
+def set_opportunity_feedback(opportunity_id: int, req: OpportunityFeedbackBody, principal: Principal = Depends(require_permission("leads:write"))):
+    """Stores thumbs up/down fit training feedback for an opportunity."""
+    from database.db import get_db
+    with get_db() as conn:
+        if req.vote == "clear":
+            conn.execute("DELETE FROM opportunity_feedback WHERE org_id = ? AND opportunity_id = ?", (principal.org_id, opportunity_id))
+        else:
+            conn.execute(
+                """
+                INSERT INTO opportunity_feedback (org_id, opportunity_id, vote)
+                VALUES (?, ?, ?)
+                ON CONFLICT(org_id, opportunity_id) DO UPDATE SET vote = excluded.vote, created_at = CURRENT_TIMESTAMP
+                """,
+                (principal.org_id, opportunity_id, req.vote),
+            )
+        conn.commit()
+    return {"ok": True, "opportunity_id": opportunity_id, "vote": None if req.vote == "clear" else req.vote}
 
 @app.post("/api/opportunities/{opportunity_id}/related_read")
 def opportunity_related_read(opportunity_id: int, principal: Principal = Depends(require_permission("leads:read"))):
@@ -1364,6 +1637,10 @@ from routers.swarm import router as swarm_router
 app.include_router(swarm_router)
 from routers.browser_sidepanel import router as browser_sidepanel_router
 app.include_router(browser_sidepanel_router)
+from routers.proposals_smartlinks import router as proposals_smartlinks_router
+app.include_router(proposals_smartlinks_router)
+from routers.tenders import router as tenders_router
+app.include_router(tenders_router)
 
 # ==================== Autopilot, priority, inbox, reports, assistant ====================
 from orchestrator.autopilot import DiscoveryRun
@@ -1651,6 +1928,68 @@ def compare_sites(req: CompareRequest, principal: Principal = Depends(require_pe
         raise _fail(e)
 
 
+@app.get("/api/tools/overview")
+def tools_overview(principal: Principal = Depends(require_permission("leads:read"))):
+    """Returns live telemetry for Autonomous Agent Swarm / Autopilot Prospector and recent tool runs."""
+    org = principal.org_id
+    with get_db() as conn:
+        active_swarm = conn.execute(
+            "SELECT COUNT(*) FROM agent_runs WHERE org_id = ? AND status = 'running'",
+            (org,),
+        ).fetchone()[0]
+        queued_discovery = conn.execute(
+            "SELECT COUNT(*) FROM discovery_runs WHERE org_id = ? AND status IN ('queued', 'running')",
+            (org,),
+        ).fetchone()[0]
+        audits = [
+            dict(r)
+            for r in conn.execute(
+                "SELECT id, domain, overall_score, status, created_at FROM audit_runs WHERE org_id = ? ORDER BY id DESC LIMIT 10",
+                (org,),
+            ).fetchall()
+        ]
+        proposals = [
+            dict(r)
+            for r in conn.execute(
+                "SELECT id, title, token, status, created_at FROM interactive_proposals WHERE org_id = ? ORDER BY id DESC LIMIT 5",
+                (org,),
+            ).fetchall()
+        ]
+    recent_runs = []
+    for a in audits:
+        dom = a["domain"]
+        recent_runs.append({
+            "id": f"audit-{a['id']}",
+            "kind": "Site Clinic",
+            "target": dom,
+            "score": a.get("overall_score"),
+            "status": a.get("status") or "completed",
+            "share_url": f"/api/reports/view/report_{org}_{dom.replace('.', '_')}.html",
+            "pdf_url": f"/api/reports/view/report_{org}_{dom.replace('.', '_')}.pdf",
+            "created_at": a.get("created_at"),
+        })
+    for p in proposals:
+        recent_runs.append({
+            "id": f"prop-{p['id']}",
+            "kind": "Interactive SOW",
+            "target": p["title"],
+            "score": None,
+            "status": p.get("status") or "draft",
+            "share_url": f"/p/{p['token']}",
+            "pdf_url": None,
+            "created_at": p.get("created_at"),
+        })
+    recent_runs.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
+    return {
+        "telemetry": {
+            "swarm_agents": 8,
+            "active_swarm_runs": active_swarm,
+            "queued_discovery_runs": queued_discovery,
+        },
+        "recent_runs": recent_runs[:12],
+    }
+
+
 class ClientReportRequest(BaseModel):
     domain: str
     competitor_domain: Optional[str] = None
@@ -1679,15 +2018,21 @@ def export_executive_deck(req: ClientReportRequest, principal: Principal = Depen
 
 @app.get("/api/reports/view/{filename}")
 def view_client_report(filename: str, principal: Principal = Depends(require_permission("leads:read"))):
+    import re as _re
     name = os.path.basename(filename)
     if not (name.startswith(f"report_{principal.org_id}_") or name.startswith(f"deck_{principal.org_id}_")):      # tenants only see their own reports & decks
         raise HTTPException(status_code=404, detail="Report not found")
     path = client_report.storage_dir / name
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Report not found")
+    sec_headers = {"X-Robots-Tag": "noindex, nofollow"}
     if name.endswith(".html"):
-        return HTMLResponse(content=path.read_text(encoding="utf-8"))
-    return FileResponse(path=str(path), media_type="application/pdf", filename=name)
+        raw_html = path.read_text(encoding="utf-8")
+        # Strip internal CRM notes / admin metadata before rendering for prospects
+        clean_html = _re.sub(r"<!--\s*INTERNAL_NOTES:.*?-->", "", raw_html, flags=_re.DOTALL | _re.IGNORECASE)
+        clean_html = _re.sub(r"(EST VALUE:\s*\$[0-9,]+|LOST REASON:[^<\n|]+)(\s*\|\s*)?", "", clean_html)
+        return HTMLResponse(content=clean_html, headers=sec_headers)
+    return FileResponse(path=str(path), media_type="application/pdf", filename=name, headers=sec_headers)
 
 
 class AssistantChatRequest(BaseModel):

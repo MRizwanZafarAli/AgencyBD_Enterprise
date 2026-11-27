@@ -9,6 +9,7 @@ import { openProtected } from '../../lib/api';
 import { send, useApi } from '../../lib/hooks';
 import { normalizeUrl } from '../../lib/urls';
 import { ClientNotes } from './ClientNotes';
+import { AccountIqAndProposals } from './AccountIqAndProposals';
 
 interface Detail {
   lead: { id: number; company_name: string; domain: string; phone: string | null; address: string | null; notes: string | null; reviews_count: number; rating: number };
@@ -260,6 +261,7 @@ export const ClientPage: FC<{
             </div>
           </Card>
 
+          <AccountIqAndProposals leadId={d.lead.id} companyName={d.lead.company_name} />
           <ClientNotes leadId={d.lead.id} />
         </div>
       )}

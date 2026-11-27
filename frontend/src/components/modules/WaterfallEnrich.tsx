@@ -136,7 +136,7 @@ export const WaterfallEnrich: FC<WaterfallEnrichProps> = ({
 
       {/* Header Banner */}
       <div className="border-b border-slate-800/80 pb-5">
-        <h1 className="text-xl font-semibold tracking-tight text-white">Find an email address</h1>
+        <h2 className="text-xl font-semibold tracking-tight text-white">Find an email address</h2>
         <p className="text-sm text-slate-400 mt-1 max-w-3xl leading-relaxed">
           Builds likely addresses for a person at a company and gathers evidence that one exists (DNS mail records, a mailbox handshake,
           Gravatar, OpenPGP keys, public Git commits). Evidence that an address exists is not proof it accepts mail: an address only counts as

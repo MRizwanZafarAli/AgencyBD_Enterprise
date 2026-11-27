@@ -133,12 +133,42 @@ class NativeBrowserService:
                     rendered_by = "safe_fetcher_fallback"
             except SSRFSecurityError:
                 raise
-            except Exception:
-                html = SafeFetcher.safe_fetch(target_url, timeout=5).text
-                rendered_by = "safe_fetcher_fallback"
+            except Exception as exc:
+                try:
+                    html = SafeFetcher.safe_fetch(target_url, timeout=5).text
+                    rendered_by = "safe_fetcher_fallback"
+                except Exception as fetch_exc:
+                    return {
+                        "status": "unreachable",
+                        "domain": clean_host,
+                        "rendered_by": "unreachable",
+                        "error": f"TLS/network error reaching {clean_host}: {fetch_exc or exc}",
+                        "title": clean_host,
+                        "meta_description": "",
+                        "detected_stack": [],
+                        "emails": [],
+                        "phones": [],
+                        "links_count": 0,
+                        "text_snippet": "",
+                    }
         else:
-            html = SafeFetcher.safe_fetch(target_url, timeout=5).text
-            rendered_by = "safe_fetcher_direct"
+            try:
+                html = SafeFetcher.safe_fetch(target_url, timeout=5).text
+                rendered_by = "safe_fetcher_direct"
+            except Exception as fetch_exc:
+                return {
+                    "status": "unreachable",
+                    "domain": clean_host,
+                    "rendered_by": "unreachable",
+                    "error": f"TLS/network error reaching {clean_host}: {fetch_exc}",
+                    "title": clean_host,
+                    "meta_description": "",
+                    "detected_stack": [],
+                    "emails": [],
+                    "phones": [],
+                    "links_count": 0,
+                    "text_snippet": "",
+                }
 
         return self._extract_dom_intelligence(html, clean_host, rendered_by)
 

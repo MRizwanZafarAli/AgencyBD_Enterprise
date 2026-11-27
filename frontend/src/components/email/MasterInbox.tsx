@@ -1,0 +1,340 @@
+import { useCallback, useEffect, useState } from 'react';
+import type { FC } from 'react';
+import { Archive, Check, Inbox, Mail, RefreshCw, Send, Sparkles } from 'lucide-react';
+import { Badge, Button, Card, Select, field } from '../ui';
+import { apiFetch, apiErrorMessage } from '../../lib/api';
+
+export interface InboxMessage {
+  id: number;
+  org_id: string;
+  lead_id: number | null;
+  company_name?: string | null;
+  direction: string;
+  sender_email: string;
+  recipient_email: string;
+  subject: string;
+  body: string;
+  category: string;
+  sentiment: string;
+  auto_reply_draft: string;
+  status: 'unread' | 'read' | 'replied' | 'archived';
+  received_at: string;
+}
+
+export const MasterInbox: FC<{
+  onLoadDraftToComposer?: (params: { to: string; subject: string; body: string; leadId?: number }) => void;
+  onUnreadChange?: (count: number) => void;
+}> = ({ onLoadDraftToComposer, onUnreadChange }) => {
+  const [messages, setMessages] = useState<InboxMessage[]>([]);
+  const [selected, setSelected] = useState<InboxMessage | null>(null);
+  const [filter, setFilter] = useState<string>('all');
+  const [loading, setLoading] = useState(false);
+  const [syncOpen, setSyncOpen] = useState(false);
+  const [imapForm, setImapForm] = useState(() => {
+    try {
+      return {
+        imap_host: localStorage.getItem('agencybd.imap.host') || '',
+        imap_port: localStorage.getItem('agencybd.imap.port') || '993',
+        username: localStorage.getItem('agencybd.imap.user') || '',
+        password: '',
+      };
+    } catch {
+      return { imap_host: '', imap_port: '993', username: '', password: '' };
+    }
+  });
+  const [replyText, setReplyText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+  const [statusMsg, setStatusMsg] = useState('');
+  const [error, setError] = useState('');
+
+  const selectMessage = (m: InboxMessage) => {
+    setSelected(m);
+    setReplyText(m.auto_reply_draft || '');
+  };
+
+  const loadInbox = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await apiFetch(`/api/email/inbox?status=${encodeURIComponent(filter)}`);
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(apiErrorMessage(res.status, body));
+      const list: InboxMessage[] = body.messages || [];
+      setMessages(list);
+      if (typeof body.unread_count === 'number') onUnreadChange?.(body.unread_count);
+      if (list.length > 0 && !selected) {
+        setSelected(list[0]);
+        setReplyText(list[0].auto_reply_draft || '');
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [filter, selected, onUnreadChange]);
+
+  useEffect(() => {
+    loadInbox();
+  }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const categoryLabel = (cat: string) => {
+    const map: Record<string, string> = {
+      interested: '🔥 Interested',
+      meeting_request: '📅 Meeting Request',
+      objection: '🤔 Objection',
+      out_of_office: '✈️ Out of Office',
+      unsubscribe: '🚫 Unsubscribe',
+    };
+    return map[cat?.toLowerCase()] ?? cat;
+  };
+
+  const markInterested = async (msgId: number) => {
+    const res = await apiFetch(`/api/email/inbox/${msgId}/mark-interested`, { method: 'POST' });
+    if (res.ok) {
+      setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, status: 'replied', category: 'interested' } : m)));
+      if (selected?.id === msgId) setSelected({ ...selected, status: 'replied', category: 'interested' });
+      setStatusMsg('Marked Interested — sequences paused & deal advanced in Clients CRM.');
+    }
+  };
+
+  const updateStatus = async (msgId: number, status: 'read' | 'replied' | 'archived') => {
+    const res = await apiFetch(`/api/email/inbox/${msgId}/status?status=${status}`, { method: 'POST' });
+    if (res.ok) {
+      setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, status } : m)));
+      if (selected?.id === msgId) setSelected({ ...selected, status });
+    }
+  };
+
+  const syncImap = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatusMsg('');
+    setError('');
+    setLoading(true);
+    try {
+      const res = await apiFetch('/api/email/inbox/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imap_host: imapForm.imap_host.trim(),
+          imap_port: Number(imapForm.imap_port) || 993,
+          username: imapForm.username.trim(),
+          password: imapForm.password,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(apiErrorMessage(res.status, body));
+      try {
+        localStorage.setItem('agencybd.imap.host', imapForm.imap_host.trim());
+        localStorage.setItem('agencybd.imap.port', imapForm.imap_port.trim() || '993');
+        localStorage.setItem('agencybd.imap.user', imapForm.username.trim());
+      } catch { /* ignore storage errors */ }
+      setStatusMsg(`Synced ${body.synced_count ?? 0} unread email(s) from IMAP.`);
+      setSyncOpen(false);
+      await loadInbox();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+              <Inbox className="h-4 w-4 text-indigo-400" />
+              Unified Two-Way Master Inbox
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Incoming prospect replies automatically pause active sequences, classify intent, and draft contextual replies.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              small
+              aria-label="Filter messages"
+              className="w-36"
+              value={filter}
+              onChange={setFilter}
+              options={[
+                { value: 'all', label: 'All Messages' },
+                { value: 'unread', label: 'Unread' },
+                { value: 'read', label: 'Read' },
+                { value: 'replied', label: 'Replied' },
+                { value: 'archived', label: 'Archived' },
+              ]}
+            />
+            <Button small onClick={() => setSyncOpen((v) => !v)}>
+              <Mail className="h-3.5 w-3.5" />
+              IMAP Sync
+            </Button>
+            <Button small onClick={loadInbox} disabled={loading}>
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
+        </div>
+
+        {syncOpen && (
+          <form onSubmit={syncImap} className="mt-4 pt-4 border-t border-slate-800 grid gap-2 sm:grid-cols-4">
+            <input className={field} required placeholder="imap.gmail.com" value={imapForm.imap_host} onChange={(e) => setImapForm({ ...imapForm, imap_host: e.target.value })} />
+            <input className={field} required placeholder="Username / Email" value={imapForm.username} onChange={(e) => setImapForm({ ...imapForm, username: e.target.value })} />
+            <input className={field} required type="password" placeholder="App Password" value={imapForm.password} onChange={(e) => setImapForm({ ...imapForm, password: e.target.value })} />
+            <Button type="submit" variant="primary" disabled={loading}>Poll Unread IMAP</Button>
+          </form>
+        )}
+
+        {statusMsg && <p className="text-xs text-emerald-400 mt-2">{statusMsg}</p>}
+        {error && <p className="text-xs text-rose-400 mt-2">{error}</p>}
+      </Card>
+
+      {messages.length === 0 ? (
+        <Card>
+          <p className="text-xs text-slate-400">
+            No inbound messages in Master Inbox yet. Click <strong>IMAP Sync</strong> to pull replies from your mailbox or connect your ESP inbound webhook.
+          </p>
+        </Card>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-[380px_1fr]">
+          {/* Left Split-Pane Thread List */}
+          <Card className="!p-2 max-h-[600px] overflow-y-auto space-y-1">
+            {messages.map((m) => {
+              const active = selected?.id === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => {
+                    selectMessage(m);
+                    if (m.status === 'unread') updateStatus(m.id, 'read');
+                  }}
+                  className={`w-full text-left p-3 rounded-xl border transition ${
+                    active ? 'bg-indigo-500/15 border-indigo-500/50' : 'bg-slate-900/40 border-slate-800/80 hover:bg-slate-900'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="text-xs font-semibold text-white truncate">{m.sender_email}</span>
+                    <Badge tone={m.category === 'interested' ? 'good' : m.category === 'unsubscribe' ? 'bad' : 'accent'}>
+                      {categoryLabel(m.category)}
+                    </Badge>
+                  </div>
+                  <div className="text-xs text-slate-200 truncate">{m.subject || '(no subject)'}</div>
+                  <div className="text-[11px] text-slate-400 mt-1 flex items-center justify-between">
+                    <span>{m.company_name || 'Prospect'}</span>
+                    <span>{m.status}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </Card>
+
+          {/* Right Split-Pane Thread Reader & AI Draft Reply */}
+          <Card>
+            {selected ? (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">{selected.subject || '(no subject)'}</h3>
+                    <div className="text-xs text-slate-400 font-mono mt-0.5">
+                      From: {selected.sender_email} → {selected.recipient_email}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge tone={selected.sentiment === 'positive' ? 'good' : selected.sentiment === 'negative' ? 'bad' : 'neutral'}>
+                      {selected.sentiment}
+                    </Badge>
+                    <Button small variant="primary" onClick={() => markInterested(selected.id)}>
+                      🔥 Interested
+                    </Button>
+                    <Button small onClick={() => updateStatus(selected.id, 'replied')}>
+                      <Check className="h-3.5 w-3.5 text-emerald-400" /> Mark Replied
+                    </Button>
+                    <Button small onClick={() => updateStatus(selected.id, 'archived')}>
+                      <Archive className="h-3.5 w-3.5" /> Archive
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 whitespace-pre-wrap leading-relaxed">
+                  {selected.body}
+                </div>
+
+                <div className="p-4 rounded-xl bg-indigo-950/30 border border-indigo-500/40 space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
+                      Quick Inline Reply
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {onLoadDraftToComposer && (
+                        <Button
+                          small
+                          onClick={() =>
+                            onLoadDraftToComposer({
+                              to: selected.sender_email,
+                              subject: selected.subject.startsWith('Re:') ? selected.subject : `Re: ${selected.subject}`,
+                              body: replyText,
+                              leadId: selected.lead_id ?? undefined,
+                            })
+                          }
+                        >
+                          Open in Composer
+                        </Button>
+                      )}
+                      <Button
+                        small
+                        variant="primary"
+                        disabled={sendingReply || !replyText.trim()}
+                        onClick={async () => {
+                          setSendingReply(true);
+                          setError('');
+                          setStatusMsg('');
+                          try {
+                            const subj = selected.subject.startsWith('Re:') ? selected.subject : `Re: ${selected.subject}`;
+                            const res = await apiFetch('/api/email/send', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                to_email: selected.sender_email,
+                                subject: subj,
+                                body: replyText,
+                                lead_id: selected.lead_id ?? undefined,
+                                as_draft: false,
+                              }),
+                            });
+                            const data = await res.json().catch(() => ({}));
+                            if (!res.ok) throw new Error(apiErrorMessage(res.status, data));
+                            await updateStatus(selected.id, 'replied');
+                            setStatusMsg(`Reply sent to ${selected.sender_email}.`);
+                          } catch (e) {
+                            setError((e as Error).message);
+                          } finally {
+                            setSendingReply(false);
+                          }
+                        }}
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        {sendingReply ? 'Sending…' : 'Send Reply'}
+                      </Button>
+                    </div>
+                  </div>
+                  <textarea
+                    className={field}
+                    rows={5}
+                    placeholder="Write or refine your reply here..."
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                  />
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400">Select a reply on the left to inspect and respond.</p>
+            )}
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+};

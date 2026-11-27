@@ -67,6 +67,7 @@ def test_endpoint_is_tenant_scoped_and_refuses_businesses_without_a_website(clie
     h = make_key("growth_lead", "org_cf")
     res = client.post(f"/api/clients/{lead['id']}/find_contacts", headers=h)
     assert res.status_code == 200 and {c["name"] for c in res.json()["candidates"][:2]} == {"Jane Doe", "Mia Chen"}   # both rank 100
-    assert client.post(f"/api/clients/{nosite['id']}/find_contacts", headers=h).status_code == 422
+    nosite_res = client.post(f"/api/clients/{nosite['id']}/find_contacts", headers=h)
+    assert nosite_res.status_code == 200 and nosite_res.json()["candidates"] == []
     assert client.post(f"/api/clients/{lead['id']}/find_contacts", headers=make_key("growth_lead", "org_cf_other")).status_code in (403, 404)
     assert client.post(f"/api/clients/{lead['id']}/find_contacts", headers=make_key("auditor", "org_cf")).status_code == 403

@@ -30,7 +30,7 @@ TABLES_TO_CLEAR = [
     "tech_audits", "leads", "suppression_vault", "audit_trail", "access_passwords", "login_attempts",
     "financial_ledger", "ab_test_cohorts", "task_queue", "portfolio_assets", "proposals", "approvals", "opportunities", "policies", "policy_decisions", "agent_runs", "mailboxes", "outreach_events",
     "work_items", "lead_scores", "channel_records", "client_notes", "agency_profile", "alert_settings", "alert_state", "client_messages", "alert_attempts", "lead_searches", "lead_hits", "partners", "partner_events", "integration_keys", "vuln_cache", "job_runs", "org_controls", "discovery_runs", "mailbox_credentials", "email_verifications", "outbound_drafts", "sequences", "sequence_enrollments", "webhook_secrets",
-    "audit_runs", "audit_findings", "evidence", "companies", "people", "signals", "services", "tech_audits",
+    "audit_runs", "audit_findings", "evidence", "companies", "people", "signals", "services", "tech_audits", "email_templates", "opportunity_feedback",
 ]
 
 
@@ -59,12 +59,16 @@ def web(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def clean_test_database():
-    """Ensures each test has an isolated, clean database state."""
+    """Ensures each test has an isolated, clean database state and event bus."""
+    from core.hooks import event_bus
+    event_bus.clear()
     init_db()
     with get_db() as conn:
         for table in TABLES_TO_CLEAR:
             conn.execute(f"DELETE FROM {table}")
         conn.commit()
+    yield
+    event_bus.clear()
 
 
 @pytest.fixture
