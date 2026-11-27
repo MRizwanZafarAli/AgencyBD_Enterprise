@@ -661,7 +661,7 @@ def overview(org_id: str) -> Dict[str, Any]:
         s = summary(org_id, pid)
         spend_usd = s["native"]["spend_usd"]
         won_val = s["pipeline"]["value_won"]
-        net_roi_pct = round(((won_val - spend_usd) / spend_usd) * 100, 1) if spend_usd > 0 else (100.0 if won_val > 0 else None)
+        net_roi_pct = round(((won_val - spend_usd) / spend_usd) * 100, 1) if spend_usd > 0 else None
         out.append({
             "platform": pid,
             "label": p["label"],
@@ -698,26 +698,73 @@ def overview(org_id: str) -> Dict[str, Any]:
     return {"platforms": out, "alerts": alerts}
 
 
+def _normalize_job_url(raw_url: str) -> str:
+    if not raw_url:
+        return ""
+    p = urlparse(raw_url.strip())
+    host = (p.hostname or "").lower()
+    port = f":{p.port}" if p.port else ""
+    path = (p.path or "").rstrip("/")
+    return f"{p.scheme.lower()}://{host}{port}{path}" + (f"?{p.query}" if p.query else "")
+
+
 def capture_from_sidepanel(org_id: str, platform: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-    """1-click Side-Panel Auto-Capture: logs into native channel table AND creates/links a CRM lead."""
+    """1-click Side-Panel Auto-Capture: idempotent on normalized job_url, updates channel_bids + CRM lead."""
     pmeta = _check_platform(platform, org_id)
     spec = get_channel_spec(platform, pmeta.get("archetype"))
     title = _text(payload.get("title") or payload.get("job_title"), "title", 180)
-    url = _url(payload.get("url") or payload.get("job_url"), False) or ""
+    raw_url = _url(payload.get("url") or payload.get("job_url"), False) or ""
+    url = _normalize_job_url(raw_url)
     client_name = _text(payload.get("client_name") or payload.get("company_name"), "client_name", 120, False) or ""
     budget = float(payload.get("budget") or payload.get("bid_amount") or 0)
     currency_spent = float(payload.get("currency_spent") or 0)
     hook_id = _text(payload.get("hook_template_id"), "hook_template_id", 100, False) or ""
     notes = _text(payload.get("notes"), "notes", 1000, False) or ""
+    curr_name = (spec.get("native_currency") or {}).get("name") or ""
 
     from database.models import LeadRepository
-    domain = ""
-    if url:
-        parsed = urlparse(url if "://" in url else f"https://{url}")
-        domain = (parsed.hostname or "").lower()
-    if not domain:
-        slug = re.sub(r"[^a-z0-9]+", "-", (client_name or title).lower()).strip("-")[:32] or "lead"
-        domain = f"{slug}.{platform}.channel"
+
+    with get_db() as db:
+        existing_bid = None
+        if url:
+            existing_bid = db.execute(
+                "SELECT * FROM channel_bids WHERE org_id = ? AND platform = ? AND lower(rtrim(job_url, '/')) = lower(rtrim(?, '/')) ORDER BY id ASC LIMIT 1",
+                (org_id, platform, url),
+            ).fetchone()
+
+        if existing_bid:
+            bid_id = existing_bid["id"]
+            db.execute(
+                """UPDATE channel_bids SET
+                     job_url = ?, title = ?,
+                     client_name = CASE WHEN ? != '' THEN ? ELSE client_name END,
+                     bid_amount = CASE WHEN ? > 0 THEN ? ELSE bid_amount END,
+                     currency_spent = CASE WHEN ? > 0 THEN ? ELSE currency_spent END,
+                     boosted = ?,
+                     hook_template_id = CASE WHEN ? != '' THEN ? ELSE hook_template_id END,
+                     notes = CASE WHEN ? != '' THEN ? ELSE notes END,
+                     updated_at = CURRENT_TIMESTAMP
+                   WHERE id = ? AND org_id = ?""",
+                (
+                    url, title, client_name, client_name, budget, budget,
+                    currency_spent, currency_spent, 1 if payload.get("boosted") else 0,
+                    hook_id, hook_id, notes, notes, bid_id, org_id,
+                ),
+            )
+            crm_lead_id = existing_bid["crm_lead_id"]
+            lead = LeadRepository.get_lead(crm_lead_id, org_id) if crm_lead_id else None
+            if lead and budget > 0:
+                new_notes = re.sub(r"EST VALUE:\s*\$[0-9,]+\s*(\|\s*)?", "", lead.get("notes") or "").strip(" | ")
+                prefix = f"EST VALUE: ${budget:,.0f}"
+                merged_notes = f"{prefix} | {new_notes}" if new_notes else prefix
+                db.execute("UPDATE leads SET notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND org_id = ?", (merged_notes, lead["id"], org_id))
+                lead["notes"] = merged_notes
+            db.commit()
+            bid = dict(db.execute("SELECT * FROM channel_bids WHERE id = ?", (bid_id,)).fetchone())
+            return {"bid": bid, "lead": lead, "deduplicated": True}
+
+    slug = re.sub(r"[^a-z0-9]+", "-", (client_name or title).lower()).strip("-")[:32] or "lead"
+    domain = f"{slug}.{platform}.channel"
     lead = LeadRepository.create_or_get_lead(
         company_name=(client_name or title)[:120],
         domain=domain,
@@ -727,7 +774,6 @@ def capture_from_sidepanel(org_id: str, platform: str, payload: Dict[str, Any]) 
         org_id=org_id,
     )
 
-    curr_name = (spec.get("native_currency") or {}).get("name") or ""
     with get_db() as db:
         cur = db.execute(
             """INSERT INTO channel_bids
@@ -746,7 +792,7 @@ def capture_from_sidepanel(org_id: str, platform: str, payload: Dict[str, Any]) 
         )
         db.commit()
         bid = dict(db.execute("SELECT * FROM channel_bids WHERE id = ?", (cur.lastrowid,)).fetchone())
-    return {"bid": bid, "lead": lead}
+    return {"bid": bid, "lead": lead, "deduplicated": False}
 
 
 def add_bid(org_id: str, platform: str, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -918,7 +964,8 @@ def create_custom_channel(org_id: str, label: str, archetype: str, home_url: str
     if archetype not in ARCHETYPES:
         raise ValueError(f"archetype must be one of {list(ARCHETYPES.keys())}")
     slug = re.sub(r"[^a-z0-9]+", "_", clean_label.lower()).strip("_")[:32]
-    if not slug or slug in PLATFORMS:
+    reserved = {"all", "overview", "platforms", "preferences", "custom", "parse", "parse_date"}
+    if not slug or slug in PLATFORMS or slug in reserved:
         slug = f"custom_{slug or 'channel'}"
     url = _url(home_url, False) or ""
     with get_db() as db:

@@ -742,3 +742,30 @@ def test_channels_archetype_registry_capture_gigs_reviews_and_overview():
     assert pref.status_code == 200 and "guru" in pref.json()["hidden_platforms"]
     ov2 = client.get("/api/channels/overview", headers=hdrs).json()
     assert not any(r["platform"] == "guru" for r in ov2["platforms"])
+
+    # 6. QA Check 1: Idempotent 1-click capture (trailing slash / repeat URL deduplicates)
+    cap2 = client.post(
+        "/api/channels/upwork/capture",
+        headers=hdrs,
+        json={"title": "Next.js SaaS Redesign v2", "url": "https://upwork.com/jobs/novahealth/", "budget": 9500},
+    )
+    assert cap2.status_code == 200
+    assert cap2.json()["deduplicated"] is True
+    assert cap2.json()["bid"]["id"] == cap.json()["bid"]["id"]
+    assert cap2.json()["bid"]["bid_amount"] == 9500
+
+    # 7. QA Check 2: Zero-spend channel returns net_roi_pct=None (never Infinity/NaN)
+    fiverr_row = next(r for r in ov2["platforms"] if r["platform"] == "fiverr")
+    assert fiverr_row["spend_usd"] == 0
+    assert fiverr_row["net_roi_pct"] is None
+
+    # 8. QA Check 3: Custom channel slug collision guard + org_id preference isolation
+    cc1 = client.post("/api/channels/custom", headers=hdrs, json={"label": "Upwork", "archetype": "custom"})
+    cc2 = client.post("/api/channels/custom", headers=hdrs, json={"label": "All", "archetype": "custom"})
+    assert cc1.status_code == 200 and cc1.json()["slug"] == "custom_upwork"
+    assert cc2.status_code == 200 and cc2.json()["slug"] == "custom_all"
+
+    other_hdrs = _headers("growth_lead", "org_channels_isolated_b")
+    other_plats = client.get("/api/channels/platforms", headers=other_hdrs).json()
+    assert "guru" not in other_plats["hidden_platforms"]
+    assert not any(p["id"] == "custom_upwork" for p in other_plats["platforms"])

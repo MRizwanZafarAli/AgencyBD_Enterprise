@@ -323,9 +323,13 @@ export const Channels: FC<{
                       <td className="py-2.5 px-3 tabular font-semibold text-emerald-400">{r.value_won ? usd(r.value_won) : '—'}</td>
                       <td className="py-2.5 px-3 tabular text-slate-300">{r.spend_usd ? `$${r.spend_usd.toFixed(2)}` : '—'}</td>
                       <td className="py-2.5 px-3 tabular">
-                        {r.net_roi_pct != null ? (
+                        {r.net_roi_pct != null && Number.isFinite(r.net_roi_pct) ? (
                           <Badge tone={r.net_roi_pct >= 0 ? 'good' : 'bad'}>{r.net_roi_pct}%</Badge>
-                        ) : '—'}
+                        ) : (r.value_won ?? 0) > 0 && !(r.spend_usd ?? 0) ? (
+                          <Badge tone="good">Organic</Badge>
+                        ) : (
+                          '—'
+                        )}
                       </td>
                       <td className="py-2.5 px-3 tabular text-slate-300">{r.win_rate_percent != null ? `${r.win_rate_percent}%` : '—'}</td>
                       <td className="py-2.5 pl-3 tabular text-slate-400">{fmtMinutes(r.average_minutes ?? null)}</td>
