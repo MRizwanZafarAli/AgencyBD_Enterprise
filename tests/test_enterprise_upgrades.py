@@ -769,3 +769,58 @@ def test_channels_archetype_registry_capture_gigs_reviews_and_overview():
     other_plats = client.get("/api/channels/platforms", headers=other_hdrs).json()
     assert "guru" not in other_plats["hidden_platforms"]
     assert not any(p["id"] == "custom_upwork" for p in other_plats["platforms"])
+
+
+def test_email_hub_and_tools_enterprise_upgrades():
+    from database.db import get_db
+    from database.models import LeadRepository
+    from api import app
+
+    org = "org_email_tools_qa"
+    client = TestClient(app)
+    hdrs = _headers("super_admin", org)
+
+    # 1. Unified Email Hub overview: sent_today <= metrics_7d.sent
+    ov = client.get("/api/email/overview", headers=hdrs).json()
+    assert ov["fleet"]["sent_today"] <= ov["metrics_7d"]["sent"]
+    assert "has_real_mailbox" in ov
+
+    # 2. Mailbox >3% bounce guard auto-pauses mailbox
+    mb = client.post("/api/email/mailboxes", headers=hdrs, json={"email": "sender@acme.io", "display_name": "Acme Sender"}).json()
+    with get_db() as conn:
+        for i in range(6):
+            conn.execute(
+                "INSERT INTO outreach_events (org_id, mailbox_id, recipient_email, event_type) VALUES (?, ?, ?, 'sent')",
+                (org, mb["id"], f"r{i}@example.com"),
+            )
+        conn.execute(
+            "INSERT INTO outreach_events (org_id, mailbox_id, recipient_email, event_type) VALUES (?, ?, 'r0@example.com', 'bounced')",
+            (org, mb["id"]),
+        )
+        conn.commit()
+    boxes = client.get("/api/email/mailboxes", headers=hdrs).json()
+    box = next(b for b in boxes if b["id"] == mb["id"])
+    assert box["bounce_rate_7d"] > 3.0
+    assert box["is_active"] == 0
+    assert box["reputation_status"] == "paused"
+    assert box["auto_paused_reason"]
+
+    # 3. Master Inbox mark-interested advances deal to meeting_booked
+    lead = LeadRepository.create_or_get_lead(company_name="InboxLead", domain="inboxlead.io", source_channel="email", org_id=org)
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO inbox_messages (org_id, lead_id, direction, sender_email, recipient_email, subject, body, category, sentiment, status) "
+            "VALUES (?, ?, 'inbound', 'ceo@inboxlead.io', 'sender@acme.io', 'Re: Audit', 'Let us book a call', 'objection', 'positive', 'unread')",
+            (org, lead["id"]),
+        )
+        msg_id = cur.lastrowid
+        conn.commit()
+    mi = client.post(f"/api/email/inbox/{msg_id}/mark-interested", headers=hdrs)
+    assert mi.status_code == 200 and mi.json()["category"] == "interested"
+    assert LeadRepository.get_lead(lead["id"], org)["status"] == "meeting_booked"
+
+    # 4. Tools overview returns telemetry + recent_runs
+    t_ov = client.get("/api/tools/overview", headers=hdrs)
+    assert t_ov.status_code == 200
+    assert t_ov.json()["telemetry"]["swarm_agents"] == 8
+    assert isinstance(t_ov.json()["recent_runs"], list)

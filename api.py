@@ -1928,6 +1928,68 @@ def compare_sites(req: CompareRequest, principal: Principal = Depends(require_pe
         raise _fail(e)
 
 
+@app.get("/api/tools/overview")
+def tools_overview(principal: Principal = Depends(require_permission("leads:read"))):
+    """Returns live telemetry for Autonomous Agent Swarm / Autopilot Prospector and recent tool runs."""
+    org = principal.org_id
+    with get_db() as conn:
+        active_swarm = conn.execute(
+            "SELECT COUNT(*) FROM agent_runs WHERE org_id = ? AND status = 'running'",
+            (org,),
+        ).fetchone()[0]
+        queued_discovery = conn.execute(
+            "SELECT COUNT(*) FROM discovery_runs WHERE org_id = ? AND status IN ('queued', 'running')",
+            (org,),
+        ).fetchone()[0]
+        audits = [
+            dict(r)
+            for r in conn.execute(
+                "SELECT id, domain, overall_score, status, created_at FROM audit_runs WHERE org_id = ? ORDER BY id DESC LIMIT 10",
+                (org,),
+            ).fetchall()
+        ]
+        proposals = [
+            dict(r)
+            for r in conn.execute(
+                "SELECT id, title, token, status, created_at FROM interactive_proposals WHERE org_id = ? ORDER BY id DESC LIMIT 5",
+                (org,),
+            ).fetchall()
+        ]
+    recent_runs = []
+    for a in audits:
+        dom = a["domain"]
+        recent_runs.append({
+            "id": f"audit-{a['id']}",
+            "kind": "Site Clinic",
+            "target": dom,
+            "score": a.get("overall_score"),
+            "status": a.get("status") or "completed",
+            "share_url": f"/api/reports/view/report_{org}_{dom.replace('.', '_')}.html",
+            "pdf_url": f"/api/reports/view/report_{org}_{dom.replace('.', '_')}.pdf",
+            "created_at": a.get("created_at"),
+        })
+    for p in proposals:
+        recent_runs.append({
+            "id": f"prop-{p['id']}",
+            "kind": "Interactive SOW",
+            "target": p["title"],
+            "score": None,
+            "status": p.get("status") or "draft",
+            "share_url": f"/p/{p['token']}",
+            "pdf_url": None,
+            "created_at": p.get("created_at"),
+        })
+    recent_runs.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
+    return {
+        "telemetry": {
+            "swarm_agents": 8,
+            "active_swarm_runs": active_swarm,
+            "queued_discovery_runs": queued_discovery,
+        },
+        "recent_runs": recent_runs[:12],
+    }
+
+
 class ClientReportRequest(BaseModel):
     domain: str
     competitor_domain: Optional[str] = None

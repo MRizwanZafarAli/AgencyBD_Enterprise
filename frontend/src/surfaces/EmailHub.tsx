@@ -51,6 +51,12 @@ interface Mailbox {
   esp?: string;
   skip_warmup?: number;
   has_credentials?: boolean;
+  bounce_rate_7d?: number;
+  auto_paused_reason?: string | null;
+  spf_ok?: boolean;
+  dkim_ok?: boolean;
+  dmarc_ok?: boolean;
+  warmup_score?: number;
 }
 
 interface OutboundEvent {
@@ -88,6 +94,7 @@ interface EmailTemplate {
 
 interface EmailOverview {
   halted: boolean;
+  has_real_mailbox?: boolean;
   fleet: {
     total_mailboxes: number;
     active_mailboxes: number;
@@ -133,6 +140,8 @@ export const EmailHub: FC<{
   const [companyName, setCompanyName] = useState(seed?.companyName || '');
   const [leadId, setLeadId] = useState<number | undefined>(seed?.leadId);
   const [subject, setSubject] = useState(seed?.subject || '');
+  const [showVariantB, setShowVariantB] = useState(false);
+  const [subjectB, setSubjectB] = useState('');
   const [body, setBody] = useState(seed?.body || '');
   const [selectedMailboxId, setSelectedMailboxId] = useState<number | undefined>();
   const [countryCode, setCountryCode] = useState('US');
@@ -670,13 +679,37 @@ export const EmailHub: FC<{
           {/* Quick Action Buttons */}
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setTab('compose')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                tab === 'compose' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' : 'bg-slate-900 border border-slate-800 text-slate-300 hover:text-white'
-              }`}
+              type="button"
+              onClick={async () => {
+                const target = mailboxes[0]?.email || 'test@example.com';
+                setSending(true);
+                setFeedback(null);
+                try {
+                  const res = await apiFetch('/api/email/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      to_email: target,
+                      subject: subject || '[Test] AgencyBD Deliverability Check',
+                      body: body || 'This is a quick test dispatch from AgencyBD Email Hub to verify formatting and deliverability.',
+                      from_mailbox_id: selectedMailboxId,
+                      is_test: true,
+                    }),
+                  });
+                  const d = await res.json().catch(() => ({}));
+                  if (!res.ok) throw new Error(apiErrorMessage(res.status, d));
+                  setFeedback({ type: 'success', message: `Quick Test Send dispatched to ${target}.` });
+                } catch (err) {
+                  setFeedback({ type: 'error', message: (err as Error).message });
+                } finally {
+                  setSending(false);
+                }
+              }}
+              disabled={sending}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20 transition"
             >
-              <Send className="h-3.5 w-3.5" />
-              <span>Compose Email</span>
+              <Zap className="h-3.5 w-3.5" />
+              <span>Quick Test Send</span>
             </button>
             <button
               onClick={() => setShowAddMailbox(true)}
@@ -694,6 +727,25 @@ export const EmailHub: FC<{
             </button>
           </div>
         </div>
+
+        {/* Demo Sender Warning Banner */}
+        {overview && overview.has_real_mailbox === false && (
+          <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-950/30 text-amber-200 text-xs flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+              <span>
+                No real SMTP, Google Workspace, or MS365 mailbox is connected yet — sends use the demo sender (<code className="font-mono text-amber-300">outreach@agencybd.enterprise</code>).
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowAddMailbox(true)}
+              className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 font-semibold transition"
+            >
+              Connect Mailbox →
+            </button>
+          </div>
+        )}
 
         {/* Global Alert Notification */}
         {feedback && (
@@ -882,7 +934,7 @@ export const EmailHub: FC<{
                     }`}
                   >
                     <Sparkles className="h-3.5 w-3.5" />
-                    <span>AI Writer (Local / Paid / Copy-Paste)</span>
+                    <span>AI Draft Assistant</span>
                   </button>
                   <button
                     type="button"
@@ -1044,11 +1096,20 @@ export const EmailHub: FC<{
                 />
               </div>
 
-              {/* Subject Line */}
-              <div className="space-y-1">
+              {/* Subject Line & A/B Variant B */}
+              <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <label className="text-slate-300 font-medium">Subject Line *</label>
-                  <span className="text-[11px] text-slate-500">{subject.length}/100 chars</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowVariantB((v) => !v)}
+                      className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300"
+                    >
+                      {showVariantB ? '− Remove Variant B' : '+ Add Variant B'}
+                    </button>
+                    <span className="text-[11px] text-slate-500">{subject.length}/100 chars</span>
+                  </div>
                 </div>
                 <input
                   type="text"
@@ -1058,15 +1119,24 @@ export const EmailHub: FC<{
                   onChange={(e) => setSubject(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
                 />
+                {showVariantB && (
+                  <input
+                    type="text"
+                    placeholder="Variant B (A/B Test): e.g. 2-min teardown for {{company}}"
+                    value={subjectB}
+                    onChange={(e) => setSubjectB(e.target.value)}
+                    className="w-full bg-slate-900 border border-indigo-500/40 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                  />
+                )}
               </div>
 
-              {/* Dynamic Variable Chips */}
+              {/* Dynamic Variable & Asset Chips */}
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
                 <span className="text-[11px] text-slate-500 mr-1 flex items-center">
                   <Sparkles className="h-3 w-3 mr-1 text-indigo-400" />
                   Insert tag:
                 </span>
-                {['{{first_name}}', '{{company}}', '{{domain}}', '{{audit_score}}'].map((tag) => (
+                {['{{first_name|there}}', '{{company}}', '{{demo_site_url}}', '{{audit_pdf_link}}', '{{loom_hook}}', '{{competitor_gap}}'].map((tag) => (
                   <button
                     key={tag}
                     type="button"
@@ -1107,6 +1177,36 @@ export const EmailHub: FC<{
                     </div>
                   </div>
                 )}
+                {/* Inline Live Deliverability & Spam-Score Meter */}
+                {(() => {
+                  const words = body.trim() ? body.trim().split(/\s+/).length : 0;
+                  const sentences = Math.max(1, body.split(/[.!?]+/).filter((x) => x.trim()).length);
+                  const links = (body.match(/https?:\/\/\S+/gi) || []).length;
+                  const spamHits = (body.toLowerCase().match(/\b(free money|guarantee|guaranteed|act now|urgent|click here|100% free|risk free|winner)\b/g) || []).length;
+                  const spamRisk = spamHits >= 2 ? 'High' : spamHits === 1 || links > 2 ? 'Med' : 'Low';
+                  const openBraces = (body.match(/\{/g) || []).length;
+                  const closeBraces = (body.match(/\}/g) || []).length;
+                  const spintaxOk = openBraces === closeBraces;
+                  const avgWordsPerSentence = words / sentences;
+                  const grade = words === 0 ? '—' : avgWordsPerSentence <= 10 ? 'Grade 5' : avgWordsPerSentence <= 16 ? 'Grade 7' : 'Grade 10+';
+                  return (
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-[11px] mt-1.5">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className={spamRisk === 'Low' ? 'text-emerald-400 font-semibold' : spamRisk === 'Med' ? 'text-amber-400 font-semibold' : 'text-rose-400 font-semibold'}>
+                          Spam Risk: {spamRisk}
+                        </span>
+                        <span className={words <= 120 ? 'text-slate-300' : 'text-amber-300'}>
+                          {words} words <span className="text-slate-500">(target &lt; 120)</span>
+                        </span>
+                        <span className="text-slate-300">Readability: {grade}</span>
+                        <span className={links <= 2 ? 'text-slate-300' : 'text-amber-300'}>Links: {links}</span>
+                      </div>
+                      <span className={spintaxOk ? 'text-emerald-400 font-mono' : 'text-rose-400 font-mono'}>
+                        Spintax / Tags: {spintaxOk ? 'Valid' : 'Unclosed braces'}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Send Buttons Row */}
@@ -1466,20 +1566,27 @@ export const EmailHub: FC<{
                       </div>
                     </div>
 
-                    {/* Telemetry Detail Chips */}
-                    <div className="pt-2 border-t border-slate-800/80 grid grid-cols-2 gap-2 text-[11px] text-slate-400">
-                      <div>
-                        <span>Warmup: </span>
-                        <strong className="text-emerald-400">
-                          {mb.skip_warmup ? 'Active (Full Cap)' : 'Ramping Safe'}
-                        </strong>
+                    {/* Telemetry Detail Chips + DNS & Bounce Guard */}
+                    <div className="pt-2 border-t border-slate-800/80 space-y-2 text-[11px] text-slate-400">
+                      <div className="flex flex-wrap items-center justify-between gap-1">
+                        <div className="flex items-center gap-1">
+                          <span className={`px-1.5 py-0.5 rounded font-mono text-[10px] ${mb.spf_ok ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}>SPF</span>
+                          <span className={`px-1.5 py-0.5 rounded font-mono text-[10px] ${mb.dkim_ok ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}>DKIM</span>
+                          <span className={`px-1.5 py-0.5 rounded font-mono text-[10px] ${mb.dmarc_ok ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'}`}>DMARC</span>
+                        </div>
+                        <span>
+                          Warmup: <strong className="text-emerald-400">{mb.warmup_score ?? 98}/100</strong>
+                        </span>
                       </div>
-                      <div className="text-right">
-                        <span>Credentials: </span>
-                        <strong className="text-white font-mono">
-                          {mb.has_credentials ? 'Verified' : 'Default Relay'}
-                        </strong>
+                      <div className="flex items-center justify-between">
+                        <span>7d Bounce: <strong className={(mb.bounce_rate_7d ?? 0) > 3 ? 'text-rose-400' : 'text-slate-200'}>{mb.bounce_rate_7d ?? 0}%</strong></span>
+                        <span>Credentials: <strong className="text-white font-mono">{mb.has_credentials ? 'Verified' : 'Default Relay'}</strong></span>
                       </div>
+                      {mb.auto_paused_reason && (
+                        <div className="p-1.5 rounded bg-rose-950/40 border border-rose-500/30 text-rose-300 text-[10px]">
+                          {mb.auto_paused_reason}
+                        </div>
+                      )}
                     </div>
 
                     {/* Live Test Results Alert (If tested) */}

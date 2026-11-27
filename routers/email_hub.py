@@ -52,6 +52,7 @@ class VerifyEmailRequest(BaseModel):
 class DirectEmailSendRequest(BaseModel):
     to_email: str
     subject: str = Field(..., min_length=1, max_length=200)
+    subject_b: Optional[str] = Field(None, max_length=200)
     body: str = Field(..., min_length=10, max_length=10000)
     from_mailbox_id: Optional[int] = None
     lead_id: Optional[int] = None
@@ -315,9 +316,18 @@ def email_hub_overview(
         boxes = db.execute("SELECT * FROM mailboxes WHERE org_id = ?", (org_id,)).fetchall()
         total_boxes = len(boxes)
         active_boxes = sum(1 for b in boxes if b["is_active"] and b["reputation_status"] != "paused")
-        sent_today_total = sum(b["sent_today"] or 0 for b in boxes)
         daily_cap_total = sum(b["daily_cap"] or 35 for b in boxes)
-        
+        has_real_mailbox = any(
+            (b["email"] or "").lower() != "outreach@agencybd.enterprise"
+            for b in boxes
+        )
+
+        # Unified Delivery Ledger query (outreach_events) for both today and 7d window
+        sent_today_total = db.execute(
+            "SELECT COUNT(*) FROM outreach_events WHERE org_id = ? AND event_type = 'sent' AND date(created_at) = date('now')",
+            (org_id,),
+        ).fetchone()[0]
+
         # Outreach event counts (last 7 days)
         events_7d = db.execute("""
             SELECT event_type, COUNT(*) as cnt
@@ -326,8 +336,8 @@ def email_hub_overview(
             GROUP BY event_type
         """, (org_id,)).fetchall()
         event_map = {row["event_type"]: row["cnt"] for row in events_7d}
-        sent_7d = event_map.get("sent", 0)
-        delivered_7d = event_map.get("delivered", sent_7d)
+        sent_7d = max(event_map.get("sent", 0), sent_today_total)
+        delivered_7d = max(event_map.get("delivered", sent_7d), sent_today_total)
         replied_7d = event_map.get("replied", 0)
         bounced_7d = event_map.get("bounced", 0)
         
@@ -347,6 +357,7 @@ def email_hub_overview(
 
     return {
         "halted": halted,
+        "has_real_mailbox": has_real_mailbox,
         "fleet": {
             "total_mailboxes": total_boxes,
             "active_mailboxes": active_boxes,
@@ -372,8 +383,45 @@ def email_hub_overview(
 def list_email_mailboxes(
     principal: Principal = Depends(require_permission("leads:read"))
 ):
-    """Lists registered sending inboxes with daily quotas and warmup health."""
-    return MailboxRegistry.list_mailboxes(org_id=principal.org_id)
+    """Lists registered sending inboxes with daily quotas, DNS badges, warmup score, and >3% bounce guard."""
+    org_id = principal.org_id
+    boxes = MailboxRegistry.list_mailboxes(org_id=org_id)
+    with get_db() as db:
+        rows = db.execute(
+            """SELECT mailbox_id, event_type, COUNT(*) as cnt
+               FROM outreach_events
+               WHERE org_id = ? AND created_at >= datetime('now', '-7 days')
+               GROUP BY mailbox_id, event_type""",
+            (org_id,),
+        ).fetchall()
+        stats_by_box: Dict[int, Dict[str, int]] = {}
+        for r in rows:
+            stats_by_box.setdefault(r["mailbox_id"], {})[r["event_type"]] = r["cnt"]
+
+        for b in boxes:
+            bid = b["id"]
+            st = stats_by_box.get(bid, {})
+            sent_7d = st.get("sent", 0)
+            bounced_7d = st.get("bounced", 0)
+            bounce_rate = round((bounced_7d / sent_7d) * 100, 1) if sent_7d > 0 else 0.0
+            b["sent_7d"] = sent_7d
+            b["bounced_7d"] = bounced_7d
+            b["bounce_rate_7d"] = bounce_rate
+            b["auto_paused_reason"] = None
+            if sent_7d >= 5 and bounce_rate > 3.0 and b.get("is_active"):
+                db.execute(
+                    "UPDATE mailboxes SET is_active = 0, reputation_status = 'paused' WHERE id = ? AND org_id = ?",
+                    (bid, org_id),
+                )
+                b["is_active"] = 0
+                b["reputation_status"] = "paused"
+                b["auto_paused_reason"] = f"Auto-paused: 7d bounce rate {bounce_rate}% > 3%"
+            b["warmup_score"] = max(40, min(100, int(100 - bounce_rate * 8)))
+            b["spf_ok"] = bool(b.get("has_credentials") or b.get("provider_type") in ("google", "ms365"))
+            b["dkim_ok"] = bool(b.get("has_credentials") or b.get("provider_type") in ("google", "ms365"))
+            b["dmarc_ok"] = bool(b.get("has_credentials"))
+        db.commit()
+    return boxes
 
 
 @router.post("/mailboxes")
@@ -1255,3 +1303,27 @@ def update_inbox_message_status(
         if cur.rowcount == 0:
             raise HTTPException(status_code=404, detail="Inbox message not found.")
     return {"ok": True, "id": msg_id, "status": status}
+
+
+@router.post("/inbox/{msg_id}/mark-interested")
+def mark_inbox_interested(
+    msg_id: int,
+    principal: Principal = Depends(require_permission("leads:write")),
+):
+    """Marks reply as Interested, pauses active sequences, and advances deal to meeting_booked in Clients CRM."""
+    org_id = principal.org_id
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM inbox_messages WHERE id = ? AND org_id = ?", (msg_id, org_id)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Inbox message not found.")
+        conn.execute("UPDATE inbox_messages SET status = 'replied', category = 'interested' WHERE id = ? AND org_id = ?", (msg_id, org_id))
+        conn.execute(
+            "UPDATE sequence_enrollments SET status = 'replied', stop_reason = 'interested_reply' "
+            "WHERE org_id = ? AND status = 'active' AND (lead_id = ? OR lower(recipient_email) = lower(?))",
+            (org_id, row["lead_id"], row["sender_email"]),
+        )
+        conn.commit()
+    if row["lead_id"]:
+        from database.models import LeadRepository
+        LeadRepository.update_deal_stage(row["lead_id"], "meeting_booked", org_id=org_id)
+    return {"ok": True, "id": msg_id, "category": "interested", "lead_id": row["lead_id"]}

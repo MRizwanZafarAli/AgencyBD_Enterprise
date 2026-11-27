@@ -77,6 +77,26 @@ export const MasterInbox: FC<{
     loadInbox();
   }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const categoryLabel = (cat: string) => {
+    const map: Record<string, string> = {
+      interested: '🔥 Interested',
+      meeting_request: '📅 Meeting Request',
+      objection: '🤔 Objection',
+      out_of_office: '✈️ Out of Office',
+      unsubscribe: '🚫 Unsubscribe',
+    };
+    return map[cat?.toLowerCase()] ?? cat;
+  };
+
+  const markInterested = async (msgId: number) => {
+    const res = await apiFetch(`/api/email/inbox/${msgId}/mark-interested`, { method: 'POST' });
+    if (res.ok) {
+      setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, status: 'replied', category: 'interested' } : m)));
+      if (selected?.id === msgId) setSelected({ ...selected, status: 'replied', category: 'interested' });
+      setStatusMsg('Marked Interested — sequences paused & deal advanced in Clients CRM.');
+    }
+  };
+
   const updateStatus = async (msgId: number, status: 'read' | 'replied' | 'archived') => {
     const res = await apiFetch(`/api/email/inbox/${msgId}/status?status=${status}`, { method: 'POST' });
     if (res.ok) {
@@ -197,7 +217,7 @@ export const MasterInbox: FC<{
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <span className="text-xs font-semibold text-white truncate">{m.sender_email}</span>
                     <Badge tone={m.category === 'interested' ? 'good' : m.category === 'unsubscribe' ? 'bad' : 'accent'}>
-                      {m.category}
+                      {categoryLabel(m.category)}
                     </Badge>
                   </div>
                   <div className="text-xs text-slate-200 truncate">{m.subject || '(no subject)'}</div>
@@ -225,6 +245,9 @@ export const MasterInbox: FC<{
                     <Badge tone={selected.sentiment === 'positive' ? 'good' : selected.sentiment === 'negative' ? 'bad' : 'neutral'}>
                       {selected.sentiment}
                     </Badge>
+                    <Button small variant="primary" onClick={() => markInterested(selected.id)}>
+                      🔥 Interested
+                    </Button>
                     <Button small onClick={() => updateStatus(selected.id, 'replied')}>
                       <Check className="h-3.5 w-3.5 text-emerald-400" /> Mark Replied
                     </Button>
