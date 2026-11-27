@@ -471,6 +471,70 @@ export const SocialIntentRadar: FC<{
     });
   }, [signals, dismissedIds, platformFilter, intentFilter, sortBy]);
 
+  const queueList = useMemo(() => {
+    return visibleSignals.map((sig) => {
+      const key = `${sig.source}-${sig.external_id}`;
+      const active = selected && `${selected.source}-${selected.external_id}` === key;
+      const fresh = formatFreshness(sig.posted_at);
+      const comp = competitionBadge(sig.reply_count, fresh.ageHours);
+      const meta = INTENT_META[sig.intent_type || 'buying_request'];
+      const isSaved = savedIds[key];
+      const isReplied = repliedIds[key];
+
+      return (
+        <div
+          key={key}
+          className={`p-3 rounded-xl border transition ${
+            active
+              ? 'bg-indigo-500/15 border-indigo-500/50 text-white'
+              : 'bg-slate-900/40 border-slate-800/80 text-slate-300 hover:bg-slate-900'
+          }`}
+        >
+          <div className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              checked={!!checkedKeys[key]}
+              onChange={(e) => setCheckedKeys((p) => ({ ...p, [key]: e.target.checked }))}
+              className="mt-1 rounded border-slate-700"
+              aria-label={`Select ${sig.title}`}
+            />
+            <button
+              type="button"
+              onClick={() => setSelected(sig)}
+              className="flex-1 text-left min-w-0"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1">
+                <div className="flex flex-wrap items-center gap-1">
+                  <Badge tone="accent">{sig.platform}</Badge>
+                  <Badge tone={meta.tone}>{meta.badge}</Badge>
+                  {sig.is_comment && <Badge tone="neutral">Comment Mine</Badge>}
+                </div>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                  {sig.intent_score ?? 65}/100
+                </span>
+              </div>
+              <div className="text-xs font-semibold line-clamp-2 text-white">{sig.title}</div>
+              {sig.trigger_sentence && (
+                <div className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded-lg px-2 py-1 mt-1.5 line-clamp-2 font-medium">
+                  &ldquo;{sig.trigger_sentence}&rdquo;
+                </div>
+              )}
+              <div className="text-[11px] text-slate-400 mt-1.5 flex flex-wrap items-center justify-between gap-1">
+                <span>{sig.author ? (sig.platform === 'Reddit' ? `u/${sig.author}` : `@${sig.author}`) : sig.community}</span>
+                <div className="flex items-center gap-1.5">
+                  {isSaved && <span className="text-emerald-400 font-medium">In CRM</span>}
+                  {isReplied && <span className="text-indigo-300 font-medium">Replied</span>}
+                  <span className={comp.tone === 'good' ? 'text-emerald-300' : ''}>{sig.reply_count ?? 0} replies</span>
+                  <span>· {fresh.label}</span>
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+      );
+    });
+  }, [visibleSignals, selected, savedIds, repliedIds, checkedKeys]);
+
   const checkedCount = Object.values(checkedKeys).filter(Boolean).length;
   const discoveredWebsite = resolvedAuthor?.website_url || selected?.external_urls?.[0] || '';
 
@@ -824,67 +888,7 @@ export const SocialIntentRadar: FC<{
         <div className="grid gap-4 lg:grid-cols-[430px_1fr] items-start">
           {/* Left Split-Pane Queue */}
           <Card className="!p-2 max-h-[680px] overflow-y-auto space-y-1.5">
-            {visibleSignals.map((sig) => {
-              const key = sigKey(sig);
-              const active = selected && sigKey(selected) === key;
-              const fresh = formatFreshness(sig.posted_at);
-              const comp = competitionBadge(sig.reply_count, fresh.ageHours);
-              const meta = INTENT_META[sig.intent_type || 'buying_request'];
-              const isSaved = savedIds[key];
-              const isReplied = repliedIds[key];
-
-              return (
-                <div
-                  key={key}
-                  className={`p-3 rounded-xl border transition ${
-                    active
-                      ? 'bg-indigo-500/15 border-indigo-500/50 text-white'
-                      : 'bg-slate-900/40 border-slate-800/80 text-slate-300 hover:bg-slate-900'
-                  }`}
-                >
-                  <div className="flex items-start gap-2">
-                    <input
-                      type="checkbox"
-                      checked={!!checkedKeys[key]}
-                      onChange={(e) => setCheckedKeys((p) => ({ ...p, [key]: e.target.checked }))}
-                      className="mt-1 rounded border-slate-700"
-                      aria-label={`Select ${sig.title}`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setSelected(sig)}
-                      className="flex-1 text-left min-w-0"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-1.5 mb-1">
-                        <div className="flex flex-wrap items-center gap-1">
-                          <Badge tone="accent">{sig.platform}</Badge>
-                          <Badge tone={meta.tone}>{meta.badge}</Badge>
-                          {sig.is_comment && <Badge tone="neutral">Comment Mine</Badge>}
-                        </div>
-                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                          {sig.intent_score ?? 65}/100
-                        </span>
-                      </div>
-                      <div className="text-xs font-semibold line-clamp-2 text-white">{sig.title}</div>
-                      {sig.trigger_sentence && (
-                        <div className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded-lg px-2 py-1 mt-1.5 line-clamp-2 font-medium">
-                          &ldquo;{sig.trigger_sentence}&rdquo;
-                        </div>
-                      )}
-                      <div className="text-[11px] text-slate-400 mt-1.5 flex flex-wrap items-center justify-between gap-1">
-                        <span>{sig.author ? (sig.platform === 'Reddit' ? `u/${sig.author}` : `@${sig.author}`) : sig.community}</span>
-                        <div className="flex items-center gap-1.5">
-                          {isSaved && <span className="text-emerald-400 font-medium">In CRM</span>}
-                          {isReplied && <span className="text-indigo-300 font-medium">Replied</span>}
-                          <span className={comp.tone === 'good' ? 'text-emerald-300' : ''}>{sig.reply_count ?? 0} replies</span>
-                          <span>· {fresh.label}</span>
-                        </div>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+            {queueList}
           </Card>
 
           {/* Right Buyer Intelligence & Reply Studio */}

@@ -193,35 +193,45 @@ export const FindTenders: FC<{
     return Array.from(set).sort();
   }, [rows]);
 
-  const filtered = useMemo(() => {
-    return rows.filter((r) => {
-      if (sourceFilter !== 'all' && r.source !== sourceFilter) return false;
+  const enrichedRows = useMemo(() => {
+    return rows.map((r) => {
       const stage = r.metadata?.notice_stage || 'rfp';
-      if (stageFilter !== 'all' && stage !== stageFilter) return false;
-      if (hideExpired && stageFilter !== 'award' && stage !== 'award') {
-        const dl = deadlineCountdown(r.deadline, stage);
-        if (dl.isExpired) return false;
-      }
+      const dl = deadlineCountdown(r.deadline, stage);
+      const translatedTitle = translateEuTitleLocal(r.title);
+      const gbpVal = toGbp(r.budget_max, r.currency);
+      return {
+        ...r,
+        _stage: stage,
+        _dl: dl,
+        _translatedTitle: translatedTitle,
+        _gbpVal: gbpVal,
+        _searchHay: `${r.title} ${translatedTitle} ${r.company_name || ''} ${r.description || ''}`.toLowerCase(),
+      };
+    });
+  }, [rows]);
+
+  const filtered = useMemo(() => {
+    const lowQ = q.trim().toLowerCase();
+    return enrichedRows.filter((r) => {
+      if (sourceFilter !== 'all' && r.source !== sourceFilter) return false;
+      if (stageFilter !== 'all' && r._stage !== stageFilter) return false;
+      if (hideExpired && stageFilter !== 'award' && r._stage !== 'award' && r._dl.isExpired) return false;
       if (countryFilter !== 'all' && (r.metadata?.country || '') !== countryFilter) return false;
       if (cpvFilter !== 'all') {
         const codes = (r.metadata?.cpv_codes || r.skills_required || []).join(' ');
         if (!codes.includes(cpvFilter)) return false;
       }
       if (valueTier !== 'all') {
-        const gbp = toGbp(r.budget_max, r.currency);
+        const gbp = r._gbpVal;
         if (gbp === null || gbp <= 0) return false;
         if (valueTier === 'sme' && gbp >= 100_000) return false;
         if (valueTier === 'mid' && (gbp < 100_000 || gbp > 1_000_000)) return false;
         if (valueTier === 'enterprise' && gbp <= 1_000_000) return false;
       }
-      if (q.trim()) {
-        const low = q.trim().toLowerCase();
-        const hay = `${r.title} ${autoTranslate ? translateEuTitleLocal(r.title) : ''} ${r.company_name || ''} ${r.description || ''}`.toLowerCase();
-        if (!hay.includes(low)) return false;
-      }
+      if (lowQ && !r._searchHay.includes(lowQ)) return false;
       return true;
     });
-  }, [rows, sourceFilter, stageFilter, hideExpired, countryFilter, cpvFilter, valueTier, q, autoTranslate]);
+  }, [enrichedRows, sourceFilter, stageFilter, hideExpired, countryFilter, cpvFilter, valueTier, q]);
 
   return (
     <div className="space-y-4">
@@ -422,11 +432,11 @@ export const FindTenders: FC<{
               </thead>
               <tbody className="divide-y divide-slate-800/70">
                 {filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((t) => {
-                  const stage = t.metadata?.notice_stage || 'rfp';
-                  const dl = deadlineCountdown(t.deadline, stage);
-                  const gbpVal = toGbp(t.budget_max, t.currency);
+                  const stage = t._stage;
+                  const dl = t._dl;
+                  const gbpVal = t._gbpVal;
                   const isMega = gbpVal !== null && gbpVal >= 2_000_000;
-                  const displayTitle = autoTranslate ? translateEuTitleLocal(t.title) : t.title;
+                  const displayTitle = autoTranslate ? t._translatedTitle : t.title;
                   return (
                     <tr key={t.id} className="hover:bg-slate-900/50 transition">
                       <td className="py-3 px-3 align-top whitespace-nowrap space-y-1">
