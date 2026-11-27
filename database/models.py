@@ -178,6 +178,11 @@ class LeadRepository:
             if angle_match:
                 pitch_angle = angle_match.group(1).strip()
 
+            lost_reason = None
+            lost_match = re.search(r"LOST REASON:\s*([^|]+)", notes)
+            if lost_match:
+                lost_reason = lost_match.group(1).strip()
+
             dm_info = contacts_by_lead.get(r["id"], {})
             days_idle = 0
             upd = r.get("updated_at") or r.get("created_at")
@@ -203,6 +208,7 @@ class LeadRepository:
                 "deal_stage": st,
                 "deal_value": deal_val,
                 "pitch_angle": pitch_angle,
+                "lost_reason": lost_reason,
                 "primary_contact": dm_info.get("name"),
                 "contact_email": dm_info.get("email"),
                 "days_idle": days_idle,
@@ -260,8 +266,13 @@ class LeadRepository:
         }
 
     @staticmethod
-    def update_deal_stage(lead_id: int, new_stage: str, org_id: str = "org_default") -> Optional[Dict[str, Any]]:
-        """Updates lead stage with audit trail logging."""
+    def update_deal_stage(
+        lead_id: int,
+        new_stage: str,
+        org_id: str = "org_default",
+        lost_reason: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Updates lead stage with activity timestamp refresh and audit trail logging."""
         stage_aliases = {
             "closed_won": "won",
             "outreach_active": "sequence_active",
@@ -275,11 +286,29 @@ class LeadRepository:
 
         with get_db() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT id FROM leads WHERE id = ? AND org_id = ?", (lead_id, org_id))
-            if not cursor.fetchone():
+            cursor.execute("SELECT id, notes FROM leads WHERE id = ? AND org_id = ?", (lead_id, org_id))
+            existing = cursor.fetchone()
+            if not existing:
                 return None
-            cursor.execute("UPDATE leads SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (clean_stage, lead_id))
-            log_audit_trail(lead_id, "CRM_Pipeline", "STAGE_UPDATED", {"new_stage": clean_stage, "org_id": org_id}, conn=conn)
+
+            audit_meta: Dict[str, Any] = {"new_stage": clean_stage, "org_id": org_id}
+            if clean_stage == "lost" and lost_reason and lost_reason.strip():
+                import re as _re
+                clean_reason = lost_reason.strip()
+                notes = _re.sub(r"LOST REASON:\s*[^|]+(\|\s*)?", "", existing["notes"] or "").strip(" | ")
+                notes = f"LOST REASON: {clean_reason} | {notes}" if notes else f"LOST REASON: {clean_reason}"
+                cursor.execute(
+                    "UPDATE leads SET status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    (clean_stage, notes, lead_id),
+                )
+                audit_meta["lost_reason"] = clean_reason
+            else:
+                cursor.execute(
+                    "UPDATE leads SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    (clean_stage, lead_id),
+                )
+
+            log_audit_trail(lead_id, "CRM_Pipeline", "STAGE_UPDATED", audit_meta, conn=conn)
             conn.commit()
             cursor.execute("SELECT * FROM leads WHERE id = ?", (lead_id,))
             row = dict(cursor.fetchone())

@@ -122,6 +122,7 @@ export const PipelineBoard: FC<{
 
   // Drag & Drop state
   const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [lostPrompt, setLostPrompt] = useState<{ id: number; name: string } | null>(null);
 
   // Bulk Selection state
   const [selectedIds, setSelectedIds] = useState<Record<number, boolean>>({});
@@ -135,10 +136,17 @@ export const PipelineBoard: FC<{
   const d = pipe.data;
   const inboxLeads = d?.stages?.sourced?.leads ?? [];
 
-  const move = async (id: number, stage: string) => {
+  const move = async (id: number, stage: string, lostReason?: string) => {
     setError('');
     try {
-      await send('/api/pipeline/deals/stage', 'POST', { lead_id: id, new_stage: stage });
+      await send('/api/pipeline/deals/stage', 'POST', {
+        lead_id: id,
+        new_stage: stage,
+        ...(lostReason ? { lost_reason: lostReason } : {}),
+      });
+      if (stage === 'lost' && lostReason) {
+        setSuccess(`Marked Lost (${lostReason}).`);
+      }
       pipe.reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not move client');
@@ -584,7 +592,11 @@ export const PipelineBoard: FC<{
               </div>
               <div
                 onDragOver={(e) => e.preventDefault()}
-                onDrop={() => { move(draggingId, 'lost'); setDraggingId(null); }}
+                onDrop={() => {
+                  const target = allTableLeads.find((x) => x.id === draggingId);
+                  setLostPrompt({ id: draggingId, name: target?.company_name || `Deal #${draggingId}` });
+                  setDraggingId(null);
+                }}
                 className="px-5 py-2.5 rounded-xl border-2 border-dashed border-amber-500/60 bg-amber-500/15 text-amber-300 text-xs font-semibold flex items-center gap-1.5"
               >
                 <XCircle className="h-4 w-4" /> Drop to Mark Lost
@@ -772,6 +784,56 @@ export const PipelineBoard: FC<{
         <FollowupsPanel onOpenClient={onOpen} />
         <ChasePanel onOpenClient={onOpen} />
       </div>
+
+      {/* Lost Reason 1-Click Capture Modal */}
+      {lostPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <Card className="w-full max-w-md space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                <XCircle className="h-4 w-4 text-amber-400" /> Why was {lostPrompt.name} lost?
+              </h3>
+              <button type="button" onClick={() => setLostPrompt(null)} aria-label="Close lost reason modal">
+                <X className="h-4 w-4 text-slate-400 hover:text-white" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              Select a 1-click reason so your agency win/loss analytics stay accurate.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {(['No Budget', 'Chose Competitor', 'Ghosting / No Reply', 'Bad Timing'] as const).map((reason) => (
+                <Button
+                  key={reason}
+                  variant="secondary"
+                  onClick={() => {
+                    const id = lostPrompt.id;
+                    setLostPrompt(null);
+                    move(id, 'lost', reason);
+                  }}
+                >
+                  {reason}
+                </Button>
+              ))}
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+              <Button small variant="ghost" onClick={() => setLostPrompt(null)}>
+                Cancel
+              </Button>
+              <Button
+                small
+                variant="secondary"
+                onClick={() => {
+                  const id = lostPrompt.id;
+                  setLostPrompt(null);
+                  move(id, 'lost');
+                }}
+              >
+                Skip reason
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* Smart Clean Data (AI Hygiene & Dedupe Modal) */}
       {hygieneOpen && (

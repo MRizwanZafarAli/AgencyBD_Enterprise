@@ -896,6 +896,7 @@ class LocalHuntProbeRequest(BaseModel):
 class DealStageUpdateRequest(BaseModel):
     lead_id: int
     new_stage: str
+    lost_reason: Optional[str] = None
 
 
 class DealCreateRequest(BaseModel):
@@ -1001,7 +1002,7 @@ def get_pipeline_deals(principal: Principal = Depends(require_permission("leads:
 @app.post("/api/pipeline/deals/stage")
 def update_pipeline_deal_stage(req: DealStageUpdateRequest, principal: Principal = Depends(require_permission("leads:create"))):
     """Updates deal stage in the CRM pipeline with audit logging."""
-    res = LeadRepository.update_deal_stage(req.lead_id, req.new_stage, org_id=principal.org_id)
+    res = LeadRepository.update_deal_stage(req.lead_id, req.new_stage, org_id=principal.org_id, lost_reason=req.lost_reason)
     if not res:
         raise HTTPException(status_code=404, detail="Lead not found in this organization")
     if req.new_stage.lower() == "won":
@@ -1157,14 +1158,82 @@ def pipeline_hygiene_scan(principal: Principal = Depends(require_permission("lea
 
 @app.post("/api/pipeline/deals/merge")
 def merge_pipeline_deals(req: MergeDealsRequest, principal: Principal = Depends(require_permission("leads:create"))):
-    """Merges remove_id into keep_id (re-links decision_makers & deletes duplicate)."""
+    """Merges remove_id into keep_id, re-parenting all child records before deleting the duplicate."""
+    import sqlite3 as _sqlite3
     if req.keep_id == req.remove_id:
         raise HTTPException(status_code=422, detail="Cannot merge a lead with itself")
     with get_db() as conn:
-        conn.execute("UPDATE decision_makers SET lead_id = ? WHERE lead_id = ? AND org_id = ?", (req.keep_id, req.remove_id, principal.org_id))
+        keep_row = conn.execute("SELECT id, notes FROM leads WHERE id = ? AND org_id = ?", (req.keep_id, principal.org_id)).fetchone()
+        rem_row = conn.execute("SELECT id, notes FROM leads WHERE id = ? AND org_id = ?", (req.remove_id, principal.org_id)).fetchone()
+        if not keep_row or not rem_row:
+            raise HTTPException(status_code=404, detail="One or both leads not found in this organization")
+
+        reparented: Dict[str, int] = {}
+        lead_child_tables = (
+            "decision_makers",
+            "tech_audits",
+            "outreach_sequences",
+            "inbound_replies",
+            "meeting_bookings",
+            "audit_trail",
+            "financial_ledger",
+            "outreach_events",
+            "outbound_drafts",
+            "sequence_enrollments",
+            "lead_scores",
+            "client_notes",
+            "lead_hits",
+            "inbox_messages",
+            "smart_link_events",
+            "interactive_proposals",
+        )
+        for tbl in lead_child_tables:
+            try:
+                cur = conn.execute(
+                    f"UPDATE {tbl} SET lead_id = ? WHERE lead_id = ? AND org_id = ?",
+                    (req.keep_id, req.remove_id, principal.org_id),
+                )
+                if cur.rowcount:
+                    reparented[tbl] = cur.rowcount
+            except _sqlite3.IntegrityError:
+                conn.execute(f"DELETE FROM {tbl} WHERE lead_id = ? AND org_id = ?", (req.remove_id, principal.org_id))
+
+        for etbl in ("work_items", "evidence"):
+            try:
+                cur = conn.execute(
+                    f"UPDATE {etbl} SET entity_id = ? WHERE entity_type = 'lead' AND entity_id = ? AND org_id = ?",
+                    (req.keep_id, req.remove_id, principal.org_id),
+                )
+                if cur.rowcount:
+                    reparented[etbl] = cur.rowcount
+            except _sqlite3.IntegrityError:
+                conn.execute(
+                    f"DELETE FROM {etbl} WHERE entity_type = 'lead' AND entity_id = ? AND org_id = ?",
+                    (req.remove_id, principal.org_id),
+                )
+
+        keep_notes = (keep_row["notes"] or "").strip()
+        rem_notes = (rem_row["notes"] or "").strip()
+        if rem_notes and rem_notes not in keep_notes:
+            merged_notes = f"{keep_notes} | {rem_notes}" if keep_notes else rem_notes
+            conn.execute(
+                "UPDATE leads SET notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND org_id = ?",
+                (merged_notes, req.keep_id, principal.org_id),
+            )
+        else:
+            conn.execute("UPDATE leads SET updated_at = CURRENT_TIMESTAMP WHERE id = ? AND org_id = ?", (req.keep_id, principal.org_id))
+
+        from database.db import log_audit_trail as _log_audit
+        _log_audit(
+            req.keep_id,
+            "CRM_Pipeline",
+            "LEAD_MERGED",
+            {"merged_from": req.remove_id, "reparented": reparented, "org_id": principal.org_id},
+            conn=conn,
+        )
         conn.execute("DELETE FROM leads WHERE id = ? AND org_id = ?", (req.remove_id, principal.org_id))
         conn.commit()
-    return {"merged_into": req.keep_id, "removed": req.remove_id}
+    return {"merged_into": req.keep_id, "removed": req.remove_id, "reparented": reparented}
 
 
 

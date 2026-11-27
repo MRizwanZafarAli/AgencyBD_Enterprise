@@ -583,3 +583,95 @@ def test_clients_pipeline_inline_value_bulk_and_hygiene():
     # 4. Clean junk purges .local / raw HN question
     c_res = client.post("/api/pipeline/deals/clean_junk", headers=hdrs)
     assert c_res.status_code == 200 and c_res.json()["deleted_count"] >= 1
+
+
+def test_clients_pipeline_qa_merge_rotting_reset_and_lost_reason():
+    from database.db import get_db
+    from database.models import LeadRepository
+    from api import app
+
+    org = "org_clients_qa_3checks"
+    client = TestClient(app)
+    hdrs = _headers("growth_lead", org)
+
+    # Create two leads (using direct SQL for the duplicate so we can test merge re-parenting)
+    keep = LeadRepository.create_or_get_lead(company_name="KeepCo", domain="keepco.io", source_channel="map_osm", org_id=org)
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO leads (org_id, company_name, domain, source_channel, status) VALUES (?, ?, ?, ?, ?)",
+            (org, "KeepCo Dup", "www.keepco.io", "social_hacker_news", "sequence_active"),
+        )
+        dup_id = cur.lastrowid
+        # Attach child records to dup_id across decision_makers, tech_audits, client_notes, outbound_drafts, work_items
+        conn.execute(
+            "INSERT INTO decision_makers (org_id, lead_id, first_name, last_name, title, email) VALUES (?, ?, 'Jane', 'Doe', 'CEO', 'jane@keepco.io')",
+            (org, dup_id),
+        )
+        conn.execute(
+            "INSERT INTO tech_audits (org_id, lead_id, load_time_ms, ttfb_ms, lcp_score, mobile_responsive) VALUES (?, ?, 1200, 300, 3.1, 1)",
+            (org, dup_id),
+        )
+        conn.execute(
+            "INSERT INTO client_notes (org_id, lead_id, kind, body) VALUES (?, ?, 'note', 'Met at conference')",
+            (org, dup_id),
+        )
+        conn.execute(
+            "INSERT INTO outbound_drafts (org_id, lead_id, recipient_email, country_code, subject, body, status) VALUES (?, ?, 'jane@keepco.io', 'US', 'Hi', 'Body', 'pending')",
+            (org, dup_id),
+        )
+        conn.execute(
+            "INSERT INTO work_items (org_id, kind, title, entity_type, entity_id, status) VALUES (?, 'task', 'Follow up', 'lead', ?, 'open')",
+            (org, dup_id),
+        )
+        # Backdate keep's updated_at by 10 days in sequence_active so it is rotting
+        conn.execute(
+            "UPDATE leads SET status = 'sequence_active', updated_at = datetime('now', '-10 days') WHERE id = ?",
+            (keep["id"],),
+        )
+        conn.commit()
+
+    # Check 1: Merge re-parents all child records to keep["id"] before deleting dup_id
+    m_res = client.post("/api/pipeline/deals/merge", headers=hdrs, json={"keep_id": keep["id"], "remove_id": dup_id})
+    assert m_res.status_code == 200
+    reparented = m_res.json()["reparented"]
+    assert reparented.get("decision_makers") == 1
+    assert reparented.get("tech_audits") == 1
+    assert reparented.get("client_notes") == 1
+    assert reparented.get("outbound_drafts") == 1
+    assert reparented.get("work_items") == 1
+    with get_db() as conn:
+        assert conn.execute("SELECT id FROM leads WHERE id = ?", (dup_id,)).fetchone() is None
+        assert conn.execute("SELECT COUNT(*) FROM client_notes WHERE lead_id = ? AND org_id = ?", (keep["id"], org)).fetchone()[0] == 1
+
+    # Check 2: Backdate keep's updated_at by 10 days, verify rotting, then stage move resets days_idle to 0 and is_rotting to False
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE leads SET status = 'sequence_active', updated_at = datetime('now', '-10 days') WHERE id = ?",
+            (keep["id"],),
+        )
+        conn.commit()
+    p1 = client.get("/api/pipeline/deals", headers=hdrs).json()
+    seq_leads = [x for x in p1["stages"]["sequence_active"]["leads"] if x["id"] == keep["id"]]
+    assert len(seq_leads) == 1
+    assert seq_leads[0]["days_idle"] >= 10
+    assert seq_leads[0]["is_rotting"] is True
+
+    s_res = client.post("/api/pipeline/deals/stage", headers=hdrs, json={"lead_id": keep["id"], "new_stage": "meeting_booked"})
+    assert s_res.status_code == 200
+    p2 = client.get("/api/pipeline/deals", headers=hdrs).json()
+    mtg_leads = [x for x in p2["stages"]["meeting_booked"]["leads"] if x["id"] == keep["id"]]
+    assert len(mtg_leads) == 1
+    assert mtg_leads[0]["days_idle"] == 0
+    assert mtg_leads[0]["is_rotting"] is False
+
+    # Check 3: Lost-reason capture persists on lead and in pipeline response
+    l_res = client.post(
+        "/api/pipeline/deals/stage",
+        headers=hdrs,
+        json={"lead_id": keep["id"], "new_stage": "lost", "lost_reason": "No Budget"},
+    )
+    assert l_res.status_code == 200
+    p3 = client.get("/api/pipeline/deals", headers=hdrs).json()
+    lost_leads = [x for x in p3["stages"]["lost"]["leads"] if x["id"] == keep["id"]]
+    assert len(lost_leads) == 1
+    assert lost_leads[0]["lost_reason"] == "No Budget"
