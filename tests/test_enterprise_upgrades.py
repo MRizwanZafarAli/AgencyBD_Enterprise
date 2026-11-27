@@ -252,3 +252,43 @@ def test_local_demo_site_guardrails_and_bulk_scrape_queue():
     job_id = b_res.json()["job_id"]
     s_res = client.get(f"/api/v1/browser/bulk-scrape/{job_id}", headers=hdrs)
     assert s_res.status_code == 200 and s_res.json()["total"] == 1
+
+
+def test_find_jobs_qa_checks_stopwords_feedback_and_red_flags():
+    from database.models import OpportunityRepository
+    from radar.fit import apply_feedback_adjustment, feedback_profile, score_opportunity
+
+    org = "org_ent_jobs_qa"
+    profile = {"react", "python", "playwright", "core", "within"}
+    # Stop-words ('core', 'within') are filtered out; 'no agencies' triggers red flag
+    fit = score_opportunity(
+        "Senior React Engineer",
+        "Work within core workflows. No agencies or third-party recruiters.",
+        "hiring_signal",
+        None,
+        profile,
+    )
+    assert "no_agencies_red_flag" in fit.risk_flags
+    assert all("within" not in r and "core" not in r for r in fit.reasons)
+
+    # Persist thumbs-down feedback and confirm feedback_profile down-ranks future scans
+    opp = OpportunityRepository.create_opportunity(
+        opp_type="hiring_signal",
+        source="remoteok",
+        title="QA Automation Engineer",
+        description="Playwright testing",
+        external_id="qa_fb_1",
+        fit_score=0.7,
+        company_name="Upgrade",
+        org_id=org,
+    )
+    client = TestClient(app)
+    fb_res = client.post(
+        f"/api/opportunities/{opp['id']}/feedback",
+        headers=_headers("growth_lead", org),
+        json={"vote": "down"},
+    )
+    assert fb_res.status_code == 200
+    fb = feedback_profile(org)
+    adjusted = apply_feedback_adjustment(fit, "QA Automation Engineer", "Upgrade", fb)
+    assert adjusted.score is not None and adjusted.score < (fit.score or 1.0)

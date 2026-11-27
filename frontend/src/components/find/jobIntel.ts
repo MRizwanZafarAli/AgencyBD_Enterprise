@@ -77,9 +77,9 @@ export function detectNoAgenciesRedFlag(o: OppItem): string | null {
 }
 
 export function getFreshness(postedAt: string | null): { label: string; isStale: boolean; days: number | null } {
-  if (!postedAt) return { label: 'Recent', isStale: false, days: null };
+  if (!postedAt) return { label: 'Date unknown', isStale: false, days: null };
   const ts = Date.parse(postedAt);
-  if (Number.isNaN(ts)) return { label: 'Recent', isStale: false, days: null };
+  if (Number.isNaN(ts)) return { label: 'Date unknown', isStale: false, days: null };
   const diffMs = Math.max(0, Date.now() - ts);
   const hours = Math.floor(diffMs / 3600000);
   if (hours < 1) return { label: 'Just now', isStale: false, days: 0 };
