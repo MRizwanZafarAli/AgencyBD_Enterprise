@@ -693,7 +693,8 @@ class OpportunityRepository:
         source: Optional[str] = None,
         status: Optional[str] = None,
         limit: int = 50,
-        org_id: str = "org_default"
+        org_id: str = "org_default",
+        opp_type: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         with get_db() as conn:
             cursor = conn.cursor()
@@ -705,6 +706,9 @@ class OpportunityRepository:
             if status:
                 query += " AND status = ?"
                 params.append(status)
+            if opp_type:
+                query += " AND type = ?"
+                params.append(opp_type)
             query += " ORDER BY (fit_score IS NULL), fit_score DESC, id DESC LIMIT ?"
             params.append(limit)
             cursor.execute(query, tuple(params))

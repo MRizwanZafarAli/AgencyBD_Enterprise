@@ -83,10 +83,10 @@ export const FindTenders: FC<{
     setLoading(true);
     setError('');
     try {
-      const res = await apiFetch('/api/opportunities?limit=250');
-      const body = await res.json().catch(() => ({}));
+      const res = await apiFetch('/api/opportunities?type=tender&limit=200');
+      const body = await res.json().catch(() => []);
       if (!res.ok) throw new Error(apiErrorMessage(res.status, body));
-      const all: TenderOpportunity[] = body.opportunities || [];
+      const all: TenderOpportunity[] = Array.isArray(body) ? body : (body?.opportunities || []);
       setRows(all.filter((o) => o.type === 'tender' || ['ted', 'uk_fts', 'uk_cf', 'sam_gov', 'ungm'].includes(o.source)));
     } catch (e) {
       setError((e as Error).message);

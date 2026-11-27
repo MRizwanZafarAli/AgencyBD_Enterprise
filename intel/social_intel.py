@@ -180,7 +180,7 @@ def build_offer_queries(org_id: str) -> List[Dict[str, str]]:
                 queries.append({
                     "label": label,
                     "source_offer": offer[:100] or name,
-                    "boolean_query": f'({core_expr}) AND ("agency" OR "freelancer" OR "recommend" OR "looking for")',
+                    "boolean_query": f'({core_expr}) AND ("agency" OR "freelancer" OR "developer" OR "help" OR "looking for")',
                 })
     except Exception:
         pass

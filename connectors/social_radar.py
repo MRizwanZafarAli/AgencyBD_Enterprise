@@ -14,7 +14,7 @@ import logging
 import os
 import re
 from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import quote_plus, urlparse
+from urllib.parse import parse_qsl, quote_plus, urlencode, urlparse
 
 import defusedxml.ElementTree as ET
 import httpx
@@ -172,6 +172,9 @@ def _strip_html_entities(raw: str) -> str:
     return clean_html(html_lib.unescape(raw or ""))
 
 
+TRACKING_PARAMS = {"utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "ref", "fbclid", "gclid"}
+
+
 def _canonical_url(url: Optional[str]) -> str:
     if not url:
         return ""
@@ -179,7 +182,9 @@ def _canonical_url(url: Optional[str]) -> str:
         p = urlparse(url.strip())
         host = (p.hostname or "").lower().lstrip("www.")
         path = (p.path or "").rstrip("/").lower()
-        return f"{host}{path}" if host else ""
+        kept_qs = [(k, v) for k, v in parse_qsl(p.query) if k.lower() not in TRACKING_PARAMS]
+        qs = f"?{urlencode(kept_qs)}" if kept_qs else ""
+        return f"{host}{path}{qs}" if host else ""
     except Exception:
         return ""
 
@@ -268,13 +273,10 @@ def classify_intent(
 
     if not matched_type:
         if query and query.strip():
-            # If user explicitly queried something, allow high-signal question posts
-            if "?" in text or any(w in low for w in ("help", "need", "recommend", "looking", "issue", "problem")):
-                matched_type = "pain_point"
-                matched_phrase = query.strip()[:40]
-                base_score = 26
-            else:
-                return None
+            # Always return keyword-matched posts with a baseline intent_score instead of dropping to 0
+            matched_type = "buying_request" if "?" in text else "pain_point"
+            matched_phrase = _primary_search_term(query)[:40]
+            base_score = 22
         else:
             return None
 
@@ -322,7 +324,8 @@ def _primary_search_term(query: Optional[str]) -> str:
     cleaned = re.sub(r'[()"]', " ", query)
     cleaned = re.sub(r"\b(AND|OR)\b", " ", cleaned, flags=re.I)
     tokens = [t for t in cleaned.split() if len(t) > 1]
-    return " ".join(tokens[:4]) if tokens else "agency"
+    # Use the first 1-2 core terms for external APIs so boolean queries don't over-constrain results
+    return tokens[0] if len(tokens) > 2 else (" ".join(tokens) if tokens else "agency")
 
 
 class SocialIntentRadarConnector(BaseConnector):
@@ -894,6 +897,18 @@ class SocialIntentRadarConnector(BaseConnector):
                 seen_urls.add(canon)
             seen_ta.add(ta_hash)
             deduped.append(it)
+        if len(deduped) == 0 and query and (" AND " in query or " OR " in query):
+            # Fallback to primary core term so strict boolean AND never leaves a blank screen
+            fallback_term = _primary_search_term(query)
+            if fallback_term and fallback_term != query:
+                return self.fetch_all_with_health(
+                    query=fallback_term,
+                    limit=limit,
+                    time_window=time_window,
+                    communities=communities,
+                    competitors=competitors,
+                    include_comments=include_comments,
+                )
         return deduped[:limit], health
 
     def fetch(self, query: Optional[str] = None, limit: int = 30, org_id: Optional[str] = None) -> List[OpportunityItem]:

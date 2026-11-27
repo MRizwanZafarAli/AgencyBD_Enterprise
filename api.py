@@ -1174,10 +1174,10 @@ class DecideApprovalRequest(BaseModel):
     reason: Optional[str] = None
 
 @app.get("/api/opportunities")
-def list_opportunities_endpoint(source: Optional[str] = None, limit: int = 50, principal: Principal = Depends(require_permission("leads:read"))):
+def list_opportunities_endpoint(source: Optional[str] = None, type: Optional[str] = None, limit: int = 50, principal: Principal = Depends(require_permission("leads:read"))):
     org = principal.org_id
     """Read-only. Fetching from the internet happens only via POST /api/radar/scan."""
-    items = OpportunityRepository.list_opportunities(source=source, limit=min(limit, 200), org_id=org)
+    items = OpportunityRepository.list_opportunities(source=source, opp_type=type, limit=min(limit, 200), org_id=org)
     try:
         from database.db import get_db
         with get_db() as conn:
