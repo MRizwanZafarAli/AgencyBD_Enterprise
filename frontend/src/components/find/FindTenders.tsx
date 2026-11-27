@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FC } from 'react';
 import { BellPlus, Languages, RefreshCw, Search, ShieldCheck, Sparkles, Zap } from 'lucide-react';
-import { Badge, Button, Card, Select, field } from '../ui';
+import { Badge, Button, Card, Pager, Select, field } from '../ui';
 import { apiFetch, apiErrorMessage } from '../../lib/api';
 import { TENDER_SOURCE_LABELS, TenderDrawer } from './TenderDrawer';
 import type { TenderOpportunity } from './TenderDrawer';
@@ -43,6 +43,36 @@ interface PortalHealth {
   detail?: string;
 }
 
+const EU_GLOSSARY: [RegExp, string][] = [
+  [/procedura aperta/gi, 'Open Procedure'],
+  [/procedura ristretta/gi, 'Restricted Procedure'],
+  [/affidamento/gi, 'Contract Award'],
+  [/servizi di sviluppo/gi, 'Development Services'],
+  [/servizi informatici/gi, 'IT Services'],
+  [/servizi/gi, 'Services'],
+  [/manutenzione/gi, 'Maintenance'],
+  [/piattaforma/gi, 'Platform'],
+  [/sistema informativo/gi, 'Information System'],
+  [/appalto/gi, 'Public Contract'],
+  [/avviso di preinformazione/gi, 'Prior Information Notice (PIN)'],
+  [/avis de marché/gi, 'Contract Notice'],
+  [/services informatiques/gi, 'IT Services'],
+  [/développement/gi, 'Development'],
+  [/offene verfahren/gi, 'Open Procedure'],
+  [/it-dienstleistungen/gi, 'IT Services'],
+  [/softwareentwicklung/gi, 'Software Development'],
+  [/licitación/gi, 'Public Tender'],
+  [/servicios informáticos/gi, 'IT Services'],
+];
+
+function translateEuTitleLocal(title: string): string {
+  let out = title;
+  for (const [re, rep] of EU_GLOSSARY) {
+    out = out.replace(re, rep);
+  }
+  return out;
+}
+
 export const FindTenders: FC<{
   preset?: { q?: string; min_budget?: number | null; nonce?: number } | null;
   onOpenClient?: (leadId: number) => void;
@@ -67,7 +97,8 @@ export const FindTenders: FC<{
   const [autoTranslate, setAutoTranslate] = useState(true);
   const [hideExpired, setHideExpired] = useState(true);
   const [portalHealth, setPortalHealth] = useState<PortalHealth[]>([]);
-  const [translatedTitles, setTranslatedTitles] = useState<Record<number, string>>({});
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 20;
   const [selected, setSelected] = useState<TenderOpportunity | null>(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -103,22 +134,6 @@ export const FindTenders: FC<{
   useEffect(() => {
     if (preset?.q) setQ(preset.q);
   }, [preset]);
-
-  // Auto-translate non-English TED titles when enabled
-  useEffect(() => {
-    if (!autoTranslate) return;
-    const nonEng = rows.filter((r) => r.risk_flags?.includes('non_english_notice') && !translatedTitles[r.id]).slice(0, 15);
-    nonEng.forEach((r) => {
-      apiFetch(`/api/tenders/${r.id}/translate`, { method: 'POST' })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((d) => {
-          if (d?.translated && d.translated !== r.title) {
-            setTranslatedTitles((prev) => ({ ...prev, [r.id]: d.translated }));
-          }
-        })
-        .catch(() => {});
-    });
-  }, [autoTranslate, rows, translatedTitles]);
 
   const scanPortals = async () => {
     setScanning(true);
@@ -201,12 +216,12 @@ export const FindTenders: FC<{
       }
       if (q.trim()) {
         const low = q.trim().toLowerCase();
-        const hay = `${r.title} ${translatedTitles[r.id] || ''} ${r.company_name || ''} ${r.description || ''}`.toLowerCase();
+        const hay = `${r.title} ${autoTranslate ? translateEuTitleLocal(r.title) : ''} ${r.company_name || ''} ${r.description || ''}`.toLowerCase();
         if (!hay.includes(low)) return false;
       }
       return true;
     });
-  }, [rows, sourceFilter, stageFilter, hideExpired, countryFilter, cpvFilter, valueTier, q, translatedTitles]);
+  }, [rows, sourceFilter, stageFilter, hideExpired, countryFilter, cpvFilter, valueTier, q, autoTranslate]);
 
   return (
     <div className="space-y-4">
@@ -392,6 +407,7 @@ export const FindTenders: FC<{
             No matching tenders found. Click <strong>Scan Procurement Portals</strong> above to pull fresh notices.
           </div>
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-900/90 border-b border-slate-800 text-slate-400">
@@ -405,12 +421,12 @@ export const FindTenders: FC<{
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/70">
-                {filtered.map((t) => {
+                {filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((t) => {
                   const stage = t.metadata?.notice_stage || 'rfp';
                   const dl = deadlineCountdown(t.deadline, stage);
                   const gbpVal = toGbp(t.budget_max, t.currency);
                   const isMega = gbpVal !== null && gbpVal >= 2_000_000;
-                  const displayTitle = autoTranslate && translatedTitles[t.id] ? translatedTitles[t.id] : t.title;
+                  const displayTitle = autoTranslate ? translateEuTitleLocal(t.title) : t.title;
                   return (
                     <tr key={t.id} className="hover:bg-slate-900/50 transition">
                       <td className="py-3 px-3 align-top whitespace-nowrap space-y-1">
@@ -453,6 +469,10 @@ export const FindTenders: FC<{
               </tbody>
             </table>
           </div>
+          <div className="p-3 border-t border-slate-800/80">
+            <Pager page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
+          </div>
+          </>
         )}
       </Card>
 

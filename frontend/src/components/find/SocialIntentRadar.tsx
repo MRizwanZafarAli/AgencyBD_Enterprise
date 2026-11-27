@@ -142,14 +142,25 @@ export const SocialIntentRadar: FC<{
   const [communities, setCommunities] = useState(() => localStorage.getItem('social_communities') || 'smallbusiness, entrepreneur, SaaS, shopify');
   const [competitors, setCompetitors] = useState(() => localStorage.getItem('social_competitors') || 'Wix, HubSpot, Webflow');
 
-  const [signals, setSignals] = useState<SocialSignal[]>([]);
-  const [sourceHealth, setSourceHealth] = useState<SourceHealth[]>([]);
+  const [signals, setSignals] = useState<SocialSignal[]>(() => {
+    try { return JSON.parse(sessionStorage.getItem('social_cached_signals') || '[]'); } catch { return []; }
+  });
+  const [sourceHealth, setSourceHealth] = useState<SourceHealth[]>(() => {
+    try { return JSON.parse(sessionStorage.getItem('social_cached_health') || '[]'); } catch { return []; }
+  });
   const [offerQueries, setOfferQueries] = useState<OfferQuery[]>([]);
-  const [selected, setSelected] = useState<SocialSignal | null>(null);
+  const [selected, setSelected] = useState<SocialSignal | null>(() => {
+    try {
+      const cached = JSON.parse(sessionStorage.getItem('social_cached_signals') || '[]');
+      return cached[0] || null;
+    } catch { return null; }
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [hasScanned, setHasScanned] = useState(false);
+  const [hasScanned, setHasScanned] = useState(() => {
+    try { return JSON.parse(sessionStorage.getItem('social_cached_signals') || '[]').length > 0; } catch { return false; }
+  });
 
   // CRM & Triage state
   const [savedIds, setSavedIds] = useState<Record<string, boolean>>({});
@@ -209,6 +220,10 @@ export const SocialIntentRadar: FC<{
       const rows: SocialSignal[] = body.signals || [];
       setSignals(rows);
       setSourceHealth(body.source_health || []);
+      try {
+        sessionStorage.setItem('social_cached_signals', JSON.stringify(rows));
+        sessionStorage.setItem('social_cached_health', JSON.stringify(body.source_health || []));
+      } catch {}
       setSelected(rows[0] || null);
       setResolvedAuthor(null);
       setReplyDraft('');
@@ -222,9 +237,13 @@ export const SocialIntentRadar: FC<{
     }
   };
 
-  // Auto-generate reply draft when selecting a signal or changing tone
+  const selectedId = selected ? `${selected.source}-${selected.external_id}` : '';
+  const offerHint = offerQueries[0]?.label || '';
+
+  // Auto-generate reply draft when selecting a signal or changing tone (keyed by primitive IDs)
   useEffect(() => {
     if (!selected) return;
+    let cancelled = false;
     setResolvedAuthor(null);
     setCopiedReply(false);
     setDraftingReply(true);
@@ -239,19 +258,23 @@ export const SocialIntentRadar: FC<{
         intent_type: selected.intent_type || 'buying_request',
         trigger_sentence: selected.trigger_sentence || '',
         tone: replyTone,
-        offer_hint: offerQueries[0]?.label || '',
+        offer_hint: offerHint,
       }),
     })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (d) {
+        if (!cancelled && d) {
           setReplyDraft(d.draft || '');
           setGuardrail(d.guardrail || '');
         }
       })
       .catch(() => {})
-      .finally(() => setDraftingReply(false));
-  }, [selected, replyTone, offerQueries]);
+      .finally(() => {
+        if (!cancelled) setDraftingReply(false);
+      });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, replyTone, offerHint]);
 
   const resolveAuthor = async (sig: SocialSignal) => {
     setResolvingAuthor(true);
