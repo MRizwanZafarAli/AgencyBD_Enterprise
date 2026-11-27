@@ -180,9 +180,27 @@ def site_signals(org_id: str, params: Dict[str, Any]) -> List[Hit]:
     return out
 
 
+def social_intent(params: Dict[str, Any]) -> List[Dict[str, Any]]:
+    from connectors.social_radar import scan_social_intent
+    q = (params.get("q") or params.get("query") or "").strip() or None
+    rows = scan_social_intent(query=q, limit=25)
+    return [
+        {
+            "key": f"{r['source']}:{r['external_id']}",
+            "title": r["title"],
+            "detail": f"[{r['platform']}] {r.get('trigger_sentence') or r.get('intent_phrase') or ''}",
+            "url": r.get("url"),
+            "data": r,
+        }
+        for r in rows
+    ]
+
+
 SOURCES = {
     "hiring": {"label": "Jobs and projects", "run": hiring, "needs": None,
                "about": "Looks through the jobs, projects and hiring posts your scans have collected and keeps the ones that mention your words."},
+    "social_intent": {"label": "Social buying intent", "run": social_intent, "needs": None,
+                      "about": "Monitors Hacker News, Bluesky, Reddit, GitHub, Dev.to, and Lobsters for active buying requests and competitor complaints."},
     "new_companies": {"label": "Newly registered UK companies", "run": companies_house, "needs": "COMPANIES_HOUSE_API_KEY",
                       "about": "Companies registered in the last few days. They usually need a website, logo and email address soon. Free official register."},
     "new_companies_ie": {"label": "Newly registered Irish companies", "run": cro_ireland, "needs": None,

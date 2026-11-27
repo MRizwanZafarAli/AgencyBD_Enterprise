@@ -292,3 +292,80 @@ def test_find_jobs_qa_checks_stopwords_feedback_and_red_flags():
     fb = feedback_profile(org)
     adjusted = apply_feedback_adjustment(fit, "QA Automation Engineer", "Upgrade", fb)
     assert adjusted.score is not None and adjusted.score < (fit.score or 1.0)
+
+
+def test_social_intent_engine_classification_queries_and_reply_studio():
+    from connectors.social_radar import classify_intent, extract_external_urls
+    from intel.social_intel import build_offer_queries, draft_social_reply, resolve_author_identity
+    from api import app
+
+    # 1. Intent classification, boolean query, competitor complaint & trigger sentence
+    buying = classify_intent(
+        "Our Shopify store is slow. Looking for an agency to help redesign our checkout.",
+        query='("shopify" OR "ecommerce") AND ("agency" OR "redesign")',
+        reply_count=2,
+        is_comment=True,
+    )
+    assert buying is not None
+    assert buying["intent_type"] == "buying_request"
+    assert "Looking for an agency" in buying["trigger_sentence"]
+    assert buying["intent_score"] >= 60
+
+    comp = classify_intent(
+        "Honestly fed up with Wix, migrating off next week.",
+        competitors=["Wix", "HubSpot"],
+    )
+    assert comp is not None
+    assert comp["intent_type"] == "competitor_complaint"
+
+    noise = classify_intent("[For Hire] Junior dev looking for a job, check my resume")
+    assert noise is None
+
+    # 2. External URL extraction ignores social platforms and keeps business domains
+    urls = extract_external_urls("Check https://reddit.com/r/saas and our site https://acme-dental.io/book")
+    assert urls == ["https://acme-dental.io/book"]
+
+    # 3. Author identity extraction from post text (no external network required)
+    ident = resolve_author_identity(
+        platform="Reddit",
+        author="saas_founder99",
+        title="Need a Webflow agency",
+        description="Building AcmeFlow at https://acmeflow.io — connect on https://linkedin.com/in/saasfounder99",
+    )
+    assert ident["website_domain"] == "acmeflow.io"
+    assert ident["linkedin_url"] == "https://linkedin.com/in/saasfounder99"
+    assert ident["company_name"] == "AcmeFlow"
+
+    # 4. Offer-aware queries & reply studio endpoints
+    client = TestClient(app)
+    hdrs = _headers("growth_lead", "org_social_qa")
+    oq = client.get("/api/leadfinder/social/offer-queries", headers=hdrs)
+    assert oq.status_code == 200 and len(oq.json()["queries"]) >= 1
+
+    rep = client.post(
+        "/api/leadfinder/social/draft-reply",
+        headers=hdrs,
+        json={
+            "platform": "Reddit",
+            "community": "r/entrepreneur",
+            "title": "Need Shopify speed help",
+            "description": "Our store takes 6 seconds to load.",
+            "intent_type": "pain_point",
+            "trigger_sentence": "Our store takes 6 seconds to load.",
+            "tone": "value_first",
+        },
+    )
+    assert rep.status_code == 200
+    body = rep.json()
+    assert "draft" in body and len(body["draft"]) > 20
+    assert "No direct links" in body["guardrail"]
+    assert build_offer_queries("org_social_qa")
+    assert draft_social_reply(
+        platform="Hacker News",
+        community="Ask HN",
+        title="Need React audit",
+        description="",
+        intent_type="buying_request",
+        trigger_sentence="Need React audit",
+        tone="direct_dm",
+    )["tone"] == "direct_dm"

@@ -100,11 +100,11 @@ export const Find: FC<{
         <TabGuide
           id="social"
           title="Social intent"
-          note="Real-time buyers asking for help on Reddit & Hacker News"
+          note="Multi-source buying-intent engine across HN, Bluesky, Reddit, GitHub, Dev.to & Lobsters"
           steps={[
-            'Pick an intent topic chip (e.g. website, developer, seo) and scan.',
-            'Inspect the buyer post and intent phrase in the right-hand preview pane.',
-            'Open the thread to reply helpfully or Save to Clients.',
+            'Click an Offer-Aware Query chip or enter a boolean query, then Scan Social Intent.',
+            'Filter by Intent Type (Buying Request, Competitor Pain, Pain Point, Launch) & Time Window.',
+            'Resolve Author Identity for site audits or use the Human-First Reply Studio with anti-ban guardrails.',
           ]}
         />
       )}
