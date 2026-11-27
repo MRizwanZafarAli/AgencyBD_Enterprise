@@ -369,3 +369,39 @@ def test_social_intent_engine_classification_queries_and_reply_studio():
         trigger_sentence="Need React audit",
         tone="direct_dm",
     )["tone"] == "direct_dm"
+
+
+def test_social_radar_qa_bluesky_auth_hn_html_and_dedup(monkeypatch):
+    from connectors.social_radar import (
+        SocialIntentRadarConnector,
+        _canonical_url,
+        _strip_html_entities,
+        _title_author_hash,
+    )
+
+    # 1. Bluesky without credentials surfaces auth_required instead of 403
+    monkeypatch.delenv("BLUESKY_HANDLE", raising=False)
+    monkeypatch.delenv("BLUESKY_APP_PASSWORD", raising=False)
+    conn = SocialIntentRadarConnector()
+    bsky_items, bsky_health = conn.fetch_bluesky(query="shopify")
+    assert bsky_items == []
+    assert bsky_health["status"] == "auth_required"
+
+    # 2. HN HTML entity stripping before trigger_sentence + numericFilters passed to Algolia
+    cleaned = _strip_html_entities("<p>We&#x27;re looking for an agency &amp; dev.</p>")
+    assert "<p>" not in cleaned and "We're looking for an agency & dev." in cleaned
+
+    captured_urls = []
+    def fake_safe_get(url, timeout=8, headers=None):
+        captured_urls.append(url)
+        return 200, '{"hits": [{"objectID": "99", "comment_text": "<p>Looking for an agency &#x27;asap&#x27;.</p>", "story_title": "Ask HN: Agencies", "author": "alice", "created_at": "2026-11-27T08:00:00Z", "points": 3}]}', {}
+
+    monkeypatch.setattr("connectors.social_radar.SafeFetcher.safe_get", fake_safe_get)
+    hn_items, hn_health = conn.fetch_hn_comments(query="agency", time_window="24h")
+    assert hn_health["status"] == "ok" and len(hn_items) == 1
+    assert "<p>" not in hn_items[0].description
+    assert "numericFilters=created_at_i>=" in captured_urls[0]
+
+    # 3. Canonical URL & (title, author) deduplication
+    assert _canonical_url("https://www.reddit.com/r/SaaS/comments/abc/title/?utm_source=ddg") == "reddit.com/r/saas/comments/abc/title"
+    assert _title_author_hash("Need Shopify Dev!", "Bob_99") == _title_author_hash("need shopify dev", "bob99")

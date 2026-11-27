@@ -7,6 +7,8 @@ Dev.to, Lobsters, and IndieHackers for buyer-intent signals.
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
+import hashlib
+import html as html_lib
 import json
 import logging
 import os
@@ -15,6 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import quote_plus, urlparse
 
 import defusedxml.ElementTree as ET
+import httpx
 
 from connectors.base import BaseConnector, OpportunityItem
 from connectors.text import clean_html
@@ -156,6 +159,36 @@ def _within_window(posted_at: Optional[str], time_window: str) -> bool:
     if not hours:
         return True
     return (now - dt) <= timedelta(hours=hours)
+
+
+def _window_cutoff_unix(time_window: str) -> Optional[int]:
+    hours = {"24h": 24, "7d": 24 * 7, "30d": 24 * 30}.get(time_window or "all")
+    if not hours:
+        return None
+    return int((datetime.now(timezone.utc) - timedelta(hours=hours)).timestamp())
+
+
+def _strip_html_entities(raw: str) -> str:
+    return clean_html(html_lib.unescape(raw or ""))
+
+
+def _canonical_url(url: Optional[str]) -> str:
+    if not url:
+        return ""
+    try:
+        p = urlparse(url.strip())
+        host = (p.hostname or "").lower().lstrip("www.")
+        path = (p.path or "").rstrip("/").lower()
+        return f"{host}{path}" if host else ""
+    except Exception:
+        return ""
+
+
+def _title_author_hash(title: str, author: str) -> str:
+    norm_title = re.sub(r"[^a-z0-9]+", " ", (title or "").lower()).strip()
+    norm_author = re.sub(r"[^a-z0-9]+", "", (author or "").lower()).strip()
+    raw = f"{norm_title}::{norm_author}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
 def extract_external_urls(text: str) -> List[str]:
@@ -342,19 +375,25 @@ class SocialIntentRadarConnector(BaseConnector):
         )
 
     def fetch_hn_posts(
-        self, query: Optional[str] = None, competitors: Optional[List[str]] = None, limit: int = 15
+        self,
+        query: Optional[str] = None,
+        competitors: Optional[List[str]] = None,
+        time_window: str = "all",
+        limit: int = 15,
     ) -> Tuple[List[OpportunityItem], Dict[str, Any]]:
         items: List[OpportunityItem] = []
         try:
             q_param = f"&query={quote_plus(_primary_search_term(query))}" if query and query.strip() else ""
-            url = f"https://hn.algolia.com/api/v1/search_by_date?tags=(ask_hn,show_hn)&hitsPerPage=35{q_param}"
+            cutoff = _window_cutoff_unix(time_window)
+            nf_param = f"&numericFilters=created_at_i>={cutoff}" if cutoff else ""
+            url = f"https://hn.algolia.com/api/v1/search_by_date?tags=(ask_hn,show_hn)&hitsPerPage=35{q_param}{nf_param}"
             status, text, _ = SafeFetcher.safe_get(url, timeout=8, headers=UA)
             if status != 200 or not text:
                 return items, {"id": "hn_posts", "label": "HN Ask/Show", "status": "error", "hits": 0, "detail": f"HTTP {status}"}
             data = json.loads(text)
             for hit in data.get("hits", []):
-                title = (hit.get("title") or "").strip()
-                body = clean_html(hit.get("story_text") or "")
+                title = _strip_html_entities(hit.get("title") or "").strip()
+                body = _strip_html_entities(hit.get("story_text") or "")
                 reply_count = int(hit.get("num_comments") or 0)
                 upvotes = int(hit.get("points") or 0)
                 posted_at = hit.get("created_at")
@@ -394,19 +433,25 @@ class SocialIntentRadarConnector(BaseConnector):
             return items, {"id": "hn_posts", "label": "HN Ask/Show", "status": "error", "hits": 0, "detail": str(exc)[:60]}
 
     def fetch_hn_comments(
-        self, query: Optional[str] = None, competitors: Optional[List[str]] = None, limit: int = 12
+        self,
+        query: Optional[str] = None,
+        competitors: Optional[List[str]] = None,
+        time_window: str = "all",
+        limit: int = 12,
     ) -> Tuple[List[OpportunityItem], Dict[str, Any]]:
         items: List[OpportunityItem] = []
         try:
             term = _primary_search_term(query) if (query and query.strip()) else "looking for agency"
-            url = f"https://hn.algolia.com/api/v1/search_by_date?tags=comment&query={quote_plus(term)}&hitsPerPage=30"
+            cutoff = _window_cutoff_unix(time_window)
+            nf_param = f"&numericFilters=created_at_i>={cutoff}" if cutoff else ""
+            url = f"https://hn.algolia.com/api/v1/search_by_date?tags=comment&query={quote_plus(term)}&hitsPerPage=30{nf_param}"
             status, text, _ = SafeFetcher.safe_get(url, timeout=8, headers=UA)
             if status != 200 or not text:
                 return items, {"id": "hn_comments", "label": "HN Comments", "status": "error", "hits": 0, "detail": f"HTTP {status}"}
             data = json.loads(text)
             for hit in data.get("hits", []):
-                body = clean_html(hit.get("comment_text") or "")
-                story_title = (hit.get("story_title") or "HN Thread").strip()
+                body = _strip_html_entities(hit.get("comment_text") or "")
+                story_title = _strip_html_entities(hit.get("story_title") or "HN Thread").strip()
                 posted_at = hit.get("created_at")
                 intent = classify_intent(
                     f"{story_title}. {body[:700]}",
@@ -447,10 +492,37 @@ class SocialIntentRadarConnector(BaseConnector):
         self, query: Optional[str] = None, competitors: Optional[List[str]] = None, limit: int = 15
     ) -> Tuple[List[OpportunityItem], Dict[str, Any]]:
         items: List[OpportunityItem] = []
+        bsky_handle = os.getenv("BLUESKY_HANDLE", "").strip()
+        bsky_pw = os.getenv("BLUESKY_APP_PASSWORD", "").strip()
+        if not bsky_handle or not bsky_pw:
+            return items, {
+                "id": "bluesky",
+                "label": "Bluesky",
+                "status": "auth_required",
+                "hits": 0,
+                "detail": "Set BLUESKY_HANDLE & BLUESKY_APP_PASSWORD",
+            }
         try:
+            sess_res = httpx.post(
+                "https://bsky.social/xrpc/com.atproto.server.createSession",
+                json={"identifier": bsky_handle, "password": bsky_pw},
+                headers=UA,
+                timeout=8.0,
+            )
+            if sess_res.status_code in (401, 403):
+                return items, {"id": "bluesky", "label": "Bluesky", "status": "auth_required", "hits": 0, "detail": f"Session HTTP {sess_res.status_code}"}
+            if sess_res.status_code != 200:
+                return items, {"id": "bluesky", "label": "Bluesky", "status": "error", "hits": 0, "detail": f"Session HTTP {sess_res.status_code}"}
+            access_jwt = (sess_res.json() or {}).get("accessJwt")
+            if not access_jwt:
+                return items, {"id": "bluesky", "label": "Bluesky", "status": "auth_required", "hits": 0, "detail": "Missing accessJwt"}
+
             term = _primary_search_term(query) if (query and query.strip()) else "looking for agency"
-            url = f"https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?q={quote_plus(term)}&limit=25"
-            status, text, _ = SafeFetcher.safe_get(url, timeout=8, headers=UA)
+            url = f"https://bsky.social/xrpc/app.bsky.feed.searchPosts?q={quote_plus(term)}&limit=25"
+            headers = {**UA, "Authorization": f"Bearer {access_jwt}"}
+            status, text, _ = SafeFetcher.safe_get(url, timeout=8, headers=headers)
+            if status in (401, 403):
+                return items, {"id": "bluesky", "label": "Bluesky", "status": "auth_required", "hits": 0, "detail": f"HTTP {status}"}
             if status != 200 or not text:
                 return items, {"id": "bluesky", "label": "Bluesky", "status": "rate_limited" if status == 429 else "error", "hits": 0, "detail": f"HTTP {status}"}
             data = json.loads(text)
@@ -783,7 +855,7 @@ class SocialIntentRadarConnector(BaseConnector):
         include_comments: bool = True,
     ) -> Tuple[List[OpportunityItem], List[Dict[str, Any]]]:
         tasks = [
-            lambda: self.fetch_hn_posts(query=query, competitors=competitors, limit=15),
+            lambda: self.fetch_hn_posts(query=query, competitors=competitors, time_window=time_window, limit=15),
             lambda: self.fetch_bluesky(query=query, competitors=competitors, limit=15),
             lambda: self.fetch_reddit(query=query, communities=communities, competitors=competitors, limit=15),
             lambda: self.fetch_github(query=query, competitors=competitors, limit=12),
@@ -791,7 +863,7 @@ class SocialIntentRadarConnector(BaseConnector):
             lambda: self.fetch_lobsters(query=query, competitors=competitors, limit=10),
         ]
         if include_comments:
-            tasks.append(lambda: self.fetch_hn_comments(query=query, competitors=competitors, limit=12))
+            tasks.append(lambda: self.fetch_hn_comments(query=query, competitors=competitors, time_window=time_window, limit=12))
 
         all_items: List[OpportunityItem] = []
         health: List[Dict[str, Any]] = []
@@ -806,14 +878,22 @@ class SocialIntentRadarConnector(BaseConnector):
                     logger.debug(f"Social worker failed: {exc}")
 
         filtered = [it for it in all_items if _within_window(it.posted_at, time_window)]
-        # Deduplicate by (source, external_id) and sort by intent_score descending
-        seen = set()
+        # Deduplicate by (source, external_id), canonical URL, and normalized (title, author) hash
+        seen_ids = set()
+        seen_urls = set()
+        seen_ta = set()
         deduped: List[OpportunityItem] = []
         for it in sorted(filtered, key=lambda x: x.metadata.get("intent_score", 0), reverse=True):
             k = (it.source, it.external_id)
-            if k not in seen:
-                seen.add(k)
-                deduped.append(it)
+            canon = _canonical_url(it.url)
+            ta_hash = _title_author_hash(it.title, it.metadata.get("author", ""))
+            if k in seen_ids or (canon and canon in seen_urls) or ta_hash in seen_ta:
+                continue
+            seen_ids.add(k)
+            if canon:
+                seen_urls.add(canon)
+            seen_ta.add(ta_hash)
+            deduped.append(it)
         return deduped[:limit], health
 
     def fetch(self, query: Optional[str] = None, limit: int = 30, org_id: Optional[str] = None) -> List[OpportunityItem]:
