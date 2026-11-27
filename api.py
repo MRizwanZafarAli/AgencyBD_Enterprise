@@ -1177,7 +1177,45 @@ class DecideApprovalRequest(BaseModel):
 def list_opportunities_endpoint(source: Optional[str] = None, limit: int = 50, principal: Principal = Depends(require_permission("leads:read"))):
     org = principal.org_id
     """Read-only. Fetching from the internet happens only via POST /api/radar/scan."""
-    return OpportunityRepository.list_opportunities(source=source, limit=min(limit, 200), org_id=org)
+    items = OpportunityRepository.list_opportunities(source=source, limit=min(limit, 200), org_id=org)
+    try:
+        from database.db import get_db
+        with get_db() as conn:
+            fb_rows = conn.execute("SELECT opportunity_id, vote FROM opportunity_feedback WHERE org_id = ?", (org,)).fetchall()
+            votes = {r["opportunity_id"]: r["vote"] for r in fb_rows}
+            lead_rows = conn.execute("SELECT id, company_name, deal_stage, status FROM leads WHERE org_id = ?", (org,)).fetchall()
+            leads_by_name = {(r["company_name"] or "").strip().lower(): {"lead_id": r["id"], "deal_stage": r["deal_stage"] or r["status"]} for r in lead_rows if r["company_name"]}
+        for it in items:
+            it["user_vote"] = votes.get(it["id"])
+            cname = (it.get("company_name") or "").strip().lower()
+            it["crm_status"] = leads_by_name.get(cname) if cname else None
+    except Exception:
+        pass
+    return items
+
+
+class OpportunityFeedbackBody(BaseModel):
+    vote: str = Field(..., pattern="^(up|down|clear)$")
+
+
+@app.post("/api/opportunities/{opportunity_id}/feedback")
+def set_opportunity_feedback(opportunity_id: int, req: OpportunityFeedbackBody, principal: Principal = Depends(require_permission("leads:write"))):
+    """Stores thumbs up/down fit training feedback for an opportunity."""
+    from database.db import get_db
+    with get_db() as conn:
+        if req.vote == "clear":
+            conn.execute("DELETE FROM opportunity_feedback WHERE org_id = ? AND opportunity_id = ?", (principal.org_id, opportunity_id))
+        else:
+            conn.execute(
+                """
+                INSERT INTO opportunity_feedback (org_id, opportunity_id, vote)
+                VALUES (?, ?, ?)
+                ON CONFLICT(org_id, opportunity_id) DO UPDATE SET vote = excluded.vote, created_at = CURRENT_TIMESTAMP
+                """,
+                (principal.org_id, opportunity_id, req.vote),
+            )
+        conn.commit()
+    return {"ok": True, "opportunity_id": opportunity_id, "vote": None if req.vote == "clear" else req.vote}
 
 @app.post("/api/opportunities/{opportunity_id}/related_read")
 def opportunity_related_read(opportunity_id: int, principal: Principal = Depends(require_permission("leads:read"))):

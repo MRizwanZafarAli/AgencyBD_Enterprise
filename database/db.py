@@ -988,6 +988,16 @@ def init_db():
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_email_templates_org ON email_templates(org_id);
+
+    CREATE TABLE IF NOT EXISTS opportunity_feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL DEFAULT 'org_default',
+        opportunity_id INTEGER NOT NULL,
+        vote TEXT NOT NULL, -- 'up' | 'down'
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(org_id, opportunity_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_opp_feedback_org ON opportunity_feedback(org_id, opportunity_id);
     """)
     cursor.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS idx_opp_org_source_ext

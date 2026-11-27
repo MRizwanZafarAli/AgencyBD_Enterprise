@@ -16,13 +16,25 @@ from database.db import get_db
 import json
 
 WORD = re.compile(r"[a-z0-9][a-z0-9+#.\-]{1,}")
-STOP = {"the", "and", "for", "with", "that", "this", "our", "you", "your", "are", "from", "have", "will", "can", "has", "was",
-        "need", "looking", "work", "team", "build", "using", "use", "new", "help", "get", "all", "any", "not", "but", "more", "who"}
+STOP = {
+    "the", "and", "for", "with", "that", "this", "our", "you", "your", "are", "from", "have", "will", "can", "has", "was",
+    "need", "looking", "work", "team", "build", "using", "use", "new", "help", "get", "all", "any", "not", "but", "more", "who",
+    "within", "into", "about", "across", "between", "through", "during", "before", "after", "around", "under", "over", "such",
+    "their", "there", "these", "those", "other", "which", "where", "while", "would", "should", "could", "being", "having",
+    "making", "working", "every", "first", "great", "high", "well", "also", "able", "must", "only", "very", "just", "like",
+    "make", "made", "many", "most", "much", "some", "time", "year", "years", "both", "each", "than", "then", "they", "them",
+    "what", "when", "how", "why", "its", "per", "via", "etc",
+}
 # Words so common in every tech job post that matching them says nothing about fit
-GENERIC = {"development", "developer", "developers", "engineer", "engineers", "engineering", "software", "web", "services", "service",
-           "solutions", "senior", "junior", "full", "stack", "fullstack", "remote", "applications", "application", "design", "systems",
-           "platform", "company", "projects", "project", "experience", "strong", "skills", "technology", "technologies", "digital",
-           "business", "client", "clients", "custom", "modern", "audit", "technical", "analysis", "reporting", "fixes"}
+GENERIC = {
+    "development", "developer", "developers", "engineer", "engineers", "engineering", "software", "web", "services", "service",
+    "solutions", "senior", "junior", "full", "stack", "fullstack", "remote", "applications", "application", "design", "systems",
+    "platform", "company", "projects", "project", "experience", "strong", "skills", "technology", "technologies", "digital",
+    "business", "client", "clients", "custom", "modern", "audit", "technical", "analysis", "reporting", "fixes", "core",
+    "role", "position", "opportunity", "seeking", "required", "preferred", "including", "based", "support", "ensure",
+    "manage", "create", "deliver", "process", "quality", "product", "products", "feature", "features", "growth", "scale",
+    "best", "good", "fast", "workflows", "workflow", "performance", "database", "databases", "tools", "tool",
+}
 
 RISK_PATTERNS = {
     "off_platform_contact": re.compile(r"\b(whatsapp|telegram|skype id|contact me (at|on)|pay(ment)? outside|outside (of )?(upwork|the platform))\b", re.I),
@@ -30,9 +42,10 @@ RISK_PATTERNS = {
     "unrealistic_timeline": re.compile(r"\b(within (24|48) hours|by tomorrow|in (1|one|2|two) days?|overnight)\b", re.I),
     "scam_signals": re.compile(r"\b(guaranteed returns|crypto airdrop|investment opportunity|wire transfer|gift cards?|send (us )?your (id|passport))\b", re.I),
     "requires_local_presence": re.compile(r"\b(must (be )?(located|based|reside)|on-?site only|us citizens? only|security clearance)\b", re.I),
+    "no_agencies_red_flag": re.compile(r"\b(no agencies|no staffing|direct hire only|w2 only|no c2c|no third[- ]party|no recruiters|corp-to-corp not)\b", re.I),
 }
 RISK_PENALTY = {"off_platform_contact": 0.3, "unpaid_or_equity_only": 0.4, "unrealistic_timeline": 0.15, "scam_signals": 0.6,
-                "requires_local_presence": 0.2, "vague_scope": 0.1, "below_budget_floor": 0.25}
+                "requires_local_presence": 0.2, "no_agencies_red_flag": 0.25, "vague_scope": 0.1, "below_budget_floor": 0.25}
 
 
 @dataclass

@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from engines.universal_scraper import universal_scraper, ScrapeResult
 from engines.interactive_browser_session import get_browser_session
+from net.fetcher import SSRFSecurityError
 from security.auth import Principal, get_current_principal, require_permission
 from database.db import get_db
 
