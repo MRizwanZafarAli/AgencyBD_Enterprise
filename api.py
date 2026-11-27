@@ -1482,6 +1482,8 @@ from routers.browser_sidepanel import router as browser_sidepanel_router
 app.include_router(browser_sidepanel_router)
 from routers.proposals_smartlinks import router as proposals_smartlinks_router
 app.include_router(proposals_smartlinks_router)
+from routers.tenders import router as tenders_router
+app.include_router(tenders_router)
 
 # ==================== Autopilot, priority, inbox, reports, assistant ====================
 from orchestrator.autopilot import DiscoveryRun

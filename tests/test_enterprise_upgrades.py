@@ -405,3 +405,79 @@ def test_social_radar_qa_bluesky_auth_hn_html_and_dedup(monkeypatch):
     # 3. Canonical URL & (title, author) deduplication
     assert _canonical_url("https://www.reddit.com/r/SaaS/comments/abc/title/?utm_source=ddg") == "reddit.com/r/saas/comments/abc/title"
     assert _title_author_hash("Need Shopify Dev!", "Bob_99") == _title_author_hash("need shopify dev", "bob99")
+
+
+def test_tenders_enterprise_connectors_scorecard_and_bid_studio():
+    from connectors.ted import parse_notices as parse_ted
+    from connectors.uk_fts import parse_releases as parse_uk_fts
+    from database.models import OpportunityRepository
+    from api import app
+
+    # 1. TED parses buyer_email, country, and notice_stage
+    ted_items = parse_ted({
+        "notices": [{
+            "publication-number": "123456-2026",
+            "notice-title": {"ita": "PROCEDURA APERTA - Servizi informatici"},
+            "description-lot": {"ita": "Sviluppo piattaforma cloud"},
+            "buyer-name": {"ita": "Comune di Milano"},
+            "buyer-email": {"ita": "appalti@comune.milano.it"},
+            "buyer-country": {"ita": "ITA"},
+            "notice-type": {"ita": "cn-standard"},
+            "classification-cpv": ["72200000"],
+            "estimated-value-lot": [350000],
+            "deadline-receipt-tender-date-lot": ["2026-12-20T12:00:00Z"],
+        }]
+    })
+    assert len(ted_items) == 1
+    assert ted_items[0].metadata["buyer_email"] == "appalti@comune.milano.it"
+    assert ted_items[0].metadata["country"] == "ITA"
+    assert ted_items[0].metadata["notice_stage"] == "rfp"
+
+    # 2. UK FTS parses contactPoint email & award incumbent
+    uk_items = parse_uk_fts({
+        "releases": [{
+            "id": "ocds-1",
+            "ocid": "ocds-b5fd17-1",
+            "tag": ["award"],
+            "buyer": {"id": "b1", "name": "NHS Digital"},
+            "parties": [{"id": "b1", "roles": ["buyer"], "contactPoint": {"email": "procure@nhs.uk", "telephone": "+44 20 7946 0000"}, "address": {"countryName": "United Kingdom"}}],
+            "tender": {"title": "Cloud Portal", "description": "ISO 27001 required. 60% Technical 40% Price.", "classification": {"id": "72200000"}, "value": {"amount": 5000000, "currency": "GBP"}},
+            "awards": [{"date": "2024-01-10", "suppliers": [{"name": "Tier1 Prime Ltd"}]}],
+        }]
+    })
+    assert len(uk_items) == 1
+    assert uk_items[0].metadata["buyer_email"] == "procure@nhs.uk"
+    assert uk_items[0].metadata["incumbent"] == "Tier1 Prime Ltd"
+
+    # 3. Tender Scorecard, Compliance Matrix, Bid Studio, Translate & Rescore APIs
+    org = "org_tenders_qa"
+    opp = OpportunityRepository.create_opportunity(
+        opp_type="tender",
+        source="uk_fts",
+        title="PROCEDURA APERTA Digital Platform",
+        description="ISO 27001 mandatory. 60% Technical 40% Price. Max 2000 words.",
+        external_id="tnd_qa_1",
+        budget_max=5_000_000,
+        company_name="ECMWF",
+        org_id=org,
+    )
+    client = TestClient(app)
+    hdrs = _headers("growth_lead", org)
+
+    sc = client.post(f"/api/tenders/{opp['id']}/scorecard", headers=hdrs)
+    assert sc.status_code == 200
+    sc_data = sc.json()
+    assert sc_data["verdict"] in ("GO", "CONDITIONAL", "NO-GO")
+    assert sc_data["mega_tender_teaming"]["is_mega"] is True
+
+    cm = client.post(f"/api/tenders/{opp['id']}/compliance-matrix", headers=hdrs)
+    assert cm.status_code == 200 and cm.json()["count"] >= 3
+
+    ba = client.post(f"/api/tenders/{opp['id']}/bid-actions", headers=hdrs, json={"action": "clarification_qa"})
+    assert ba.status_code == 200 and "Clarification" in ba.json()["title"]
+
+    tr = client.post(f"/api/tenders/{opp['id']}/translate", headers=hdrs)
+    assert tr.status_code == 200 and "Open Procedure" in tr.json()["translated"]
+
+    rs = client.post("/api/tenders/rescore", headers=hdrs)
+    assert rs.status_code == 200 and rs.json()["rescored"] >= 1

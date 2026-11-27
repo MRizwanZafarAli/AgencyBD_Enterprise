@@ -5,6 +5,7 @@ import { FindLocal } from '../components/find/FindLocal';
 import type { LocalPreset } from '../components/find/FindLocal';
 import { FindJobs } from '../components/find/FindJobs';
 import type { JobsPreset } from '../components/find/FindJobs';
+import { FindTenders } from '../components/find/FindTenders';
 import { LeadFinder } from '../components/leadfinder/LeadFinder';
 import { SmartSearch } from '../components/find/SmartSearch';
 import type { SearchRun } from '../components/find/SmartSearch';
@@ -112,11 +113,11 @@ export const Find: FC<{
         <TabGuide
           id="tenders"
           title="Government & public tenders"
-          note="Official procurement notices from SAM.gov, TED EU & UK FTS"
+          note="Official procurement notices from TED (EU), UK Find a Tender, UK Contracts Finder & SAM.gov (US)"
           steps={[
-            'Filter by procurement portal (TED EU, UK FTS, SAM.gov) and budget.',
-            'Click "Agency & Tender Details" to inspect scope and procuring body.',
-            'Use "Scrape Job Specs" on the official portal notice for full RFP requirements.',
+            'Filter by Portal, Notice Stage (Pre-Market PIN, Live RFP, Framework, Award), CPV/NAICS & Value Tier.',
+            'Click "Bid / No-Go Studio" for the 4-point Scorecard, Authority contacts & Mega-Tender Teaming strategy.',
+            'Parse Tender Docs for the Compliance Matrix, generate a Bid Outline, or Watch Authority/CPV.',
           ]}
         />
       )}
@@ -152,13 +153,10 @@ export const Find: FC<{
         />
       )}
       {!isGrowthLead && tab === 'tenders' && (
-        <FindJobs
-          mode="tender"
-          types={['tender']}
+        <FindTenders
           preset={tenders}
           onSendEmail={onSendEmail}
           onOpenClient={onOpenClient}
-          onOpenScraper={onOpenScraper}
         />
       )}
       {tab === 'social' && <SocialIntentRadar onOpenScraper={onOpenScraper} />}

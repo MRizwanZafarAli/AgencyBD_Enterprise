@@ -17,6 +17,7 @@ from connectors.reddit import RedditConnector
 from connectors.remoteok import RemoteOKConnector
 from connectors.sam_gov import SamGovConnector
 from connectors.ted import TedConnector
+from connectors.uk_contracts_finder import UkContractsFinderConnector
 from connectors.uk_fts import UkFindATenderConnector
 from connectors.upwork import UpworkConnector
 from connectors.wwr import WeWorkRemotelyConnector
@@ -31,7 +32,29 @@ UPWORK_CACHE_HOURS = 24  # Upwork API terms: do not cache API data longer than t
 
 def default_connectors() -> List[BaseConnector]:
     return [UpworkConnector(), HackerNewsConnector(), RemoteOKConnector(), WeWorkRemotelyConnector(), TedConnector(),
-            UkFindATenderConnector(), SamGovConnector(), RedditConnector(), GitHubBountyConnector()]
+            UkFindATenderConnector(), UkContractsFinderConnector(), SamGovConnector(), RedditConnector(), GitHubBountyConnector()]
+
+
+def rescore_tenders(org_id: str) -> int:
+    """Re-score existing cached tender rows with the updated fit.py stop-word & feedback rules."""
+    profile = agency_profile_terms(org_id)
+    fb = feedback_profile(org_id)
+    updated = 0
+    with get_db() as db:
+        rows = db.execute(
+            "SELECT id, title, description, type, budget_max, company_name FROM opportunities WHERE org_id = ? AND type = 'tender'",
+            (org_id,),
+        ).fetchall()
+        for r in rows:
+            fit = score_opportunity(r["title"] or "", r["description"] or "", r["type"], r["budget_max"], profile)
+            fit = apply_feedback_adjustment(fit, r["title"] or "", r["company_name"], fb)
+            db.execute(
+                "UPDATE opportunities SET fit_score = ?, fit_reasons_json = ? WHERE id = ?",
+                (fit.score, __import__("json").dumps(fit.reasons), r["id"]),
+            )
+            updated += 1
+        db.commit()
+    return updated
 
 
 def purge_expired(org_id: str) -> int:

@@ -1,6 +1,6 @@
 """
 TED (Tenders Electronic Daily, EU) connector. Official search API v3, free, no key.
-IT services = CPV division 72. Notice titles are multilingual; English is preferred when published.
+IT services = CPV division 72. Extracts buyer email, country, notice stage (PIN/RFP/Framework/Award), and CPVs.
 """
 
 import json
@@ -11,17 +11,43 @@ from connectors.base import BaseConnector, OpportunityItem
 from net.fetcher import SafeFetcher
 
 URL = "https://api.ted.europa.eu/v3/notices/search"
-FIELDS = ["notice-title", "publication-date", "buyer-name", "deadline-receipt-tender-date-lot", "classification-cpv",
-          "description-lot", "estimated-value-lot"]
+FIELDS = [
+    "notice-title",
+    "publication-date",
+    "buyer-name",
+    "buyer-email",
+    "buyer-country",
+    "notice-type",
+    "deadline-receipt-tender-date-lot",
+    "classification-cpv",
+    "description-lot",
+    "estimated-value-lot",
+]
 
 
-def _pick(lang_map: Any) -> (str, str):
+def _pick(lang_map: Any) -> tuple[str, str]:
     """(text, language) from a {lang: text-or-list} map, preferring English."""
     if isinstance(lang_map, dict) and lang_map:
         lang = "eng" if "eng" in lang_map else next(iter(lang_map))
         val = lang_map[lang]
         return (val[0] if isinstance(val, list) and val else str(val)), lang
+    if isinstance(lang_map, list) and lang_map:
+        return str(lang_map[0]), ""
+    if isinstance(lang_map, str):
+        return lang_map, ""
     return "", ""
+
+
+def _map_notice_stage(notice_type: str, title: str) -> str:
+    nt = (notice_type or "").lower()
+    low_t = (title or "").lower()
+    if "pin" in nt or "prior information" in low_t or "periodic indicative" in low_t:
+        return "pin"
+    if "can" in nt or "award" in nt or "aggiudicazione" in low_t or "vergabe" in low_t:
+        return "award"
+    if "framework" in low_t or "dps" in low_t or "dynamic purchasing" in low_t:
+        return "framework"
+    return "rfp"
 
 
 def parse_notices(data: Dict[str, Any]) -> List[OpportunityItem]:
@@ -31,15 +57,39 @@ def parse_notices(data: Dict[str, Any]) -> List[OpportunityItem]:
         title, lang = _pick(n.get("notice-title"))
         desc, _ = _pick(n.get("description-lot"))
         buyer, _ = _pick(n.get("buyer-name"))
+        buyer_email, _ = _pick(n.get("buyer-email"))
+        country, _ = _pick(n.get("buyer-country"))
+        notice_type, _ = _pick(n.get("notice-type"))
         deadlines = n.get("deadline-receipt-tender-date-lot") or []
         values = [v for v in (n.get("estimated-value-lot") or []) if isinstance(v, (int, float))]
         flags = ["non_english_notice"] if lang and lang != "eng" else []
-        items.append(OpportunityItem(
-            type="tender", source="ted", external_id=str(pub), title=title or f"TED notice {pub}", description=desc,
-            company_name=buyer or None, url=f"https://ted.europa.eu/en/notice/{pub}/html", posted_at=n.get("publication-date"),
-            deadline=min(deadlines) if deadlines else None, budget_max=max(values) if values else None, currency="EUR",
-            skills_required=[f"CPV {c}" for c in (n.get("classification-cpv") or [])[:3]], risk_flags=flags,
-            metadata={"language": lang}))
+        stage = _map_notice_stage(notice_type, title)
+        cpvs = [str(c) for c in (n.get("classification-cpv") or [])[:5]]
+        items.append(
+            OpportunityItem(
+                type="tender",
+                source="ted",
+                external_id=str(pub),
+                title=title or f"TED notice {pub}",
+                description=desc,
+                company_name=buyer or None,
+                url=f"https://ted.europa.eu/en/notice/{pub}/html",
+                posted_at=n.get("publication-date"),
+                deadline=min(deadlines) if deadlines else None,
+                budget_max=max(values) if values else None,
+                currency="EUR",
+                skills_required=[f"CPV {c}" for c in cpvs[:3]],
+                risk_flags=flags,
+                metadata={
+                    "language": lang,
+                    "country": country or "EU",
+                    "buyer_email": buyer_email,
+                    "notice_stage": stage,
+                    "cpv_codes": cpvs,
+                    "lots_count": max(1, len(deadlines)),
+                },
+            )
+        )
     return items
 
 
@@ -52,7 +102,13 @@ class TedConnector(BaseConnector):
 
     def fetch(self, query: Optional[str] = None, limit: int = 50, org_id: Optional[str] = None) -> List[OpportunityItem]:
         since = (datetime.now(timezone.utc) - timedelta(days=14)).strftime("%Y%m%d")
-        body = {"query": f"classification-cpv=72* AND publication-date>={since}", "fields": FIELDS, "limit": min(limit, 50), "page": 1, "scope": "ACTIVE"}
+        body = {
+            "query": f"classification-cpv=72* AND publication-date>={since}",
+            "fields": FIELDS,
+            "limit": min(limit, 50),
+            "page": 1,
+            "scope": "ACTIVE",
+        }
         res = SafeFetcher.safe_fetch(URL, method="POST", json_body=body, timeout=30, max_bytes=20_000_000)
         if res.status_code != 200:
             raise RuntimeError(f"TED returned HTTP {res.status_code}: {res.text[:120]}")
