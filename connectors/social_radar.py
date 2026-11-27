@@ -586,7 +586,70 @@ class SocialIntentRadarConnector(BaseConnector):
         rate_limited = False
         auth_required = False
 
-        # Try Reddit RSS feeds first
+        # 1. Authenticated Reddit OAuth Data API when REDDIT_CLIENT_ID & REDDIT_CLIENT_SECRET are configured
+        r_cid = os.getenv("REDDIT_CLIENT_ID", "").strip()
+        r_sec = os.getenv("REDDIT_CLIENT_SECRET", "").strip()
+        if r_cid and r_sec:
+            try:
+                tok_res = httpx.post(
+                    "https://www.reddit.com/api/v1/access_token",
+                    auth=(r_cid, r_sec),
+                    data={"grant_type": "client_credentials"},
+                    headers=UA,
+                    timeout=8.0,
+                )
+                if tok_res.status_code == 200:
+                    token = (tok_res.json() or {}).get("access_token")
+                    if token:
+                        oauth_headers = {**UA, "Authorization": f"Bearer {token}"}
+                        for sub in subs[:6]:
+                            st, txt, _ = SafeFetcher.safe_get(f"https://oauth.reddit.com/r/{sub}/new.json?limit=35", timeout=8, headers=oauth_headers)
+                            if st != 200 or not txt:
+                                continue
+                            children = ((json.loads(txt) or {}).get("data") or {}).get("children") or []
+                            for ch in children:
+                                d = ch.get("data") or {}
+                                title = (d.get("title") or "").strip()
+                                body = (d.get("selftext") or "").strip()
+                                reply_count = int(d.get("num_comments") or 0)
+                                upvotes = int(d.get("score") or 1)
+                                created_utc = d.get("created_utc")
+                                posted_at = datetime.fromtimestamp(float(created_utc), tz=timezone.utc).isoformat() if created_utc else None
+                                intent = classify_intent(
+                                    f"{title}. {body[:700]}",
+                                    query=query,
+                                    competitors=competitors,
+                                    posted_at=posted_at,
+                                    reply_count=reply_count,
+                                    is_comment=False,
+                                )
+                                if not intent:
+                                    continue
+                                permalink = d.get("permalink") or ""
+                                items.append(
+                                    self._build_item(
+                                        source=f"reddit:r/{sub}",
+                                        external_id=str(d.get("id") or permalink),
+                                        title=title,
+                                        description=body or title,
+                                        url=f"https://www.reddit.com{permalink}" if permalink.startswith("/") else (d.get("url") or ""),
+                                        posted_at=posted_at,
+                                        platform="Reddit",
+                                        author=d.get("author") or "",
+                                        community=f"r/{sub}",
+                                        reply_count=reply_count,
+                                        upvotes=upvotes,
+                                        is_comment=False,
+                                        intent=intent,
+                                    )
+                                )
+                                if len(items) >= limit:
+                                    break
+                        return items, {"id": "reddit", "label": "Reddit", "status": "ok", "hits": len(items), "detail": "OAuth API"}
+            except Exception as exc:
+                logger.debug(f"Reddit OAuth skipped: {exc}")
+
+        # 2. Try Reddit RSS feeds if OAuth not configured
         for sub in subs[:6]:
             feed_url = f"https://www.reddit.com/r/{sub}/new.rss?limit=35"
             try:

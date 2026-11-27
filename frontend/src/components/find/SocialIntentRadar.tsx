@@ -129,6 +129,13 @@ export const SocialIntentRadar: FC<{
   const [intentFilter, setIntentFilter] = useState<'all' | IntentType>('all');
   const [includeComments, setIncludeComments] = useState(true);
   const [showTrackers, setShowTrackers] = useState(false);
+  const [showConnectAccounts, setShowConnectAccounts] = useState(false);
+  const [bskyHandle, setBskyHandle] = useState('');
+  const [bskyPass, setBskyPass] = useState('');
+  const [redditCid, setRedditCid] = useState('');
+  const [redditSec, setRedditSec] = useState('');
+  const [githubTok, setGithubTok] = useState('');
+  const [savingAccounts, setSavingAccounts] = useState(false);
 
   const [communities, setCommunities] = useState(() => localStorage.getItem('social_communities') || 'smallbusiness, entrepreneur, SaaS, shopify');
   const [competitors, setCompetitors] = useState(() => localStorage.getItem('social_competitors') || 'Wix, HubSpot, Webflow');
@@ -332,6 +339,44 @@ export const SocialIntentRadar: FC<{
     a.click();
   };
 
+  const saveSocialAccounts = async () => {
+    setSavingAccounts(true);
+    setError('');
+    setNotice('');
+    try {
+      const pairs: [string, string][] = [
+        ['BLUESKY_HANDLE', bskyHandle.trim()],
+        ['BLUESKY_APP_PASSWORD', bskyPass.trim()],
+        ['REDDIT_CLIENT_ID', redditCid.trim()],
+        ['REDDIT_CLIENT_SECRET', redditSec.trim()],
+        ['GITHUB_TOKEN', githubTok.trim()],
+      ];
+      let savedCount = 0;
+      for (const [k, v] of pairs) {
+        if (!v) continue;
+        const r = await apiFetch(`/api/integrations/${k}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: v }),
+        });
+        if (!r.ok) {
+          const b = await r.json().catch(() => ({}));
+          throw new Error(apiErrorMessage(r.status, b));
+        }
+        savedCount += 1;
+      }
+      if (savedCount > 0) {
+        setNotice(`Saved ${savedCount} credential(s) securely. Re-scanning feeds…`);
+        setShowConnectAccounts(false);
+        await scan();
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSavingAccounts(false);
+    }
+  };
+
   const watchThisIntent = async () => {
     const watchQ = query.trim() || offerQueries[0]?.label || 'agency OR redesign';
     const res = await apiFetch('/api/leadfinder/searches', {
@@ -417,6 +462,10 @@ export const SocialIntentRadar: FC<{
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Button small variant="secondary" onClick={() => setShowConnectAccounts((v) => !v)}>
+              <UserCheck className="h-3.5 w-3.5 text-emerald-400" />
+              Connect Social Accounts
+            </Button>
             <Button small variant="secondary" onClick={() => setShowTrackers((v) => !v)}>
               <SlidersHorizontal className="h-3.5 w-3.5 text-indigo-400" />
               Communities &amp; Competitors
@@ -503,6 +552,45 @@ export const SocialIntentRadar: FC<{
             </button>
           ))}
         </div>
+
+        {/* Connect Social Accounts Panel */}
+        {showConnectAccounts && (
+          <div className="mt-3 pt-3 border-t border-slate-800 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-slate-300">
+                <strong className="text-white">Free feeds already active:</strong> Hacker News (Posts + Comments), Dev.to, Lobsters &amp; GitHub.
+                Connect Bluesky, Reddit, or a GitHub Token below to unlock higher limits and bypass anonymous 403/429 blocks.
+              </p>
+            </div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Bluesky Handle</label>
+                <input className={field} value={bskyHandle} onChange={(e) => setBskyHandle(e.target.value)} placeholder="agency.bsky.social" />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Bluesky App Password</label>
+                <input type="password" className={field} value={bskyPass} onChange={(e) => setBskyPass(e.target.value)} placeholder="xxxx-xxxx-xxxx-xxxx" />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">GitHub Token (optional, 5k req/hr)</label>
+                <input type="password" className={field} value={githubTok} onChange={(e) => setGithubTok(e.target.value)} placeholder="ghp_..." />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Reddit Client ID</label>
+                <input className={field} value={redditCid} onChange={(e) => setRedditCid(e.target.value)} placeholder="14-char app id" />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Reddit Client Secret</label>
+                <input type="password" className={field} value={redditSec} onChange={(e) => setRedditSec(e.target.value)} placeholder="secret" />
+              </div>
+              <div className="flex items-end">
+                <Button small variant="primary" disabled={savingAccounts} onClick={saveSocialAccounts}>
+                  {savingAccounts ? 'Saving…' : 'Save & Re-Scan'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Custom Community & Competitor Tracker */}
         {showTrackers && (
