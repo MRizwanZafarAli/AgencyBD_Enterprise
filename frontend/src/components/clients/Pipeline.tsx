@@ -123,6 +123,7 @@ export const PipelineBoard: FC<{
   // Drag & Drop state
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [lostPrompt, setLostPrompt] = useState<{ id: number; name: string } | null>(null);
+  const [showInboxCol, setShowInboxCol] = useState(false);
 
   // Bulk Selection state
   const [selectedIds, setSelectedIds] = useState<Record<number, boolean>>({});
@@ -457,9 +458,46 @@ export const PipelineBoard: FC<{
         </Card>
       ) : view === 'board' ? (
         /* Kanban Board with Independent Column Scrolling + Sticky Headers + Drag-and-Drop */
-        <div className="relative">
-          <div className="grid gap-3 grid-cols-1 md:grid-cols-3 lg:grid-cols-5 h-[calc(100vh-330px)] min-h-[460px]">
-            {ACTIVE_STAGES.map((st) => {
+        <div className="relative space-y-3">
+          {(() => {
+            const activeBoardCount = ACTIVE_STAGES.reduce(
+              (sum, st) => sum + (d.stages[st.id]?.leads ?? []).filter(matchDeal).length,
+              0,
+            );
+            const boardStages = showInboxCol
+              ? [{ id: 'sourced', label: 'Leads Inbox', prob: 10, tone: 'neutral' as const }, ...ACTIVE_STAGES]
+              : ACTIVE_STAGES;
+            return (
+              <>
+                {activeBoardCount === 0 && inboxLeads.length > 0 && !showInboxCol && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-xs">
+                    <div className="flex items-center gap-2 text-slate-200">
+                      <Inbox className="h-4 w-4 text-indigo-400 shrink-0" />
+                      <span>
+                        <strong>{inboxLeads.length}</strong> sourced {inboxLeads.length === 1 ? 'lead is' : 'leads are'} in{' '}
+                        <strong>Leads Inbox</strong> awaiting qualification before entering the active Kanban stages.
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button small variant="primary" onClick={() => setView('inbox')}>
+                        Open Leads Inbox ({inboxLeads.length})
+                      </Button>
+                      <Button small variant="secondary" onClick={() => setShowInboxCol(true)}>
+                        Show Inbox Column on Board
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {showInboxCol && (
+                  <div className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-slate-900/70 border border-slate-800 text-xs text-slate-300">
+                    <span>Showing <strong>Leads Inbox</strong> column on the board. Drag cards into <strong>Audited</strong> to qualify.</span>
+                    <Button small variant="ghost" onClick={() => setShowInboxCol(false)}>
+                      Hide Inbox Column
+                    </Button>
+                  </div>
+                )}
+                <div className={`grid gap-3 grid-cols-1 md:grid-cols-3 ${showInboxCol ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} h-[calc(100vh-330px)] min-h-[460px]`}>
+                  {boardStages.map((st) => {
               const bucket = d.stages[st.id] ?? { count: 0, leads: [] };
               const leads = sortDeals(bucket.leads.filter(matchDeal));
               const colTotal = leads.reduce((sum, x) => sum + (x.deal_value || 0), 0);
@@ -578,7 +616,10 @@ export const PipelineBoard: FC<{
                 </div>
               );
             })}
-          </div>
+                </div>
+              </>
+            );
+          })()}
 
           {/* Bottom Won / Lost / Delete Drop Zones when dragging */}
           {draggingId && (
