@@ -44,7 +44,7 @@ def today_summary(principal: Principal = Depends(require_permission("leads:read"
 
     pipe = LeadRepository.get_pipeline(org)
     items = WorkItemRepository.list_open(org, 50)
-    channels = ch.overview(org)
+    channels = ch.overview(org).get("platforms", [])
     due = sum(c["followups_due"] for c in channels)
     waiting = [c for c in channels if c["unanswered"]]
     tasks = cn.followups(org)["due"]
@@ -168,7 +168,7 @@ def today_command_center(days: int = 14, principal: Principal = Depends(require_
     days = max(7, min(90, int(days or 14)))
     pipe = LeadRepository.get_pipeline(org)
     items = WorkItemRepository.list_open(org, 40)
-    channels = ch.overview(org)
+    channels = ch.overview(org).get("platforms", [])
     tasks_due = cn.followups(org)["due"]
     waiting_msgs = alert_engine.list_messages(org, "new", limit=30)
     chase_list = chase_mod.to_chase(org)
