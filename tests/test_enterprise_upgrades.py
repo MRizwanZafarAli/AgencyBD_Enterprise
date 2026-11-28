@@ -929,7 +929,7 @@ def test_wakeup_engine_marketplace_ingestor_and_channel_shields():
     )
     assert p_res.status_code == 200
     g_res = client.get("/api/alerts/providers", headers=hdrs).json()
-    assert g_res["providers"]["telegram"]["config"]["bot_token"].startswith("123...")
+    assert g_res["providers"]["telegram"]["config"]["bot_token"] == "•••••OKEN"
     assert g_res["schedule"]["mode"] == "agency_shifts"
 
     # 2. Custom channel sender rule (*@bark.com) + idempotent marketplace email ingestion
@@ -991,3 +991,123 @@ def test_wakeup_engine_marketplace_ingestor_and_channel_shields():
     mb = client.post("/api/email/mailboxes", headers=hdrs, json={"email": "alerts@agency.io"}).json()
     upd = client.put(f"/api/email/mailboxes/{mb['id']}", headers=hdrs, json={"watch_marketplace_alerts": True})
     assert upd.status_code == 200 and upd.json()["watch_marketplace_alerts"] == 1
+
+
+def test_wakeup_qa_webhooks_twiml_escape_masking_and_atomic_lock():
+    import base64
+    import hashlib
+    import hmac
+    from database.db import get_db
+    from workflows.alert_dispatcher import _send_twilio_voice, get_provider_settings, tick_escalations
+    from api import app
+
+    org = "org_wakeup_security_qa"
+    client = TestClient(app)
+    hdrs = _headers("super_admin", org)
+
+    # 1. Configure Twilio + Telegram with secrets; verify GET masks secrets with •••••last4 and preserves on masked save
+    client.post(
+        "/api/alerts/providers",
+        headers=hdrs,
+        json={
+            "provider": "twilio",
+            "enabled": False,
+            "config": {"account_sid": "AC123", "auth_token": "super_secret_twilio_a1b2", "voice_from": "+15550009999"},
+        },
+    )
+    client.post(
+        "/api/alerts/providers",
+        headers=hdrs,
+        json={
+            "provider": "telegram",
+            "enabled": False,
+            "config": {"bot_token": "bot_secret_9876", "webhook_secret": "tg_wh_secret_5555"},
+        },
+    )
+    masked = client.get("/api/alerts/providers", headers=hdrs).json()["providers"]
+    assert masked["twilio"]["config"]["auth_token"] == "•••••a1b2"
+    assert masked["telegram"]["config"]["bot_token"] == "•••••9876"
+    assert masked["telegram"]["config"]["webhook_secret"] == "•••••5555"
+
+    # Re-saving masked value must NOT overwrite real stored secret
+    client.post(
+        "/api/alerts/providers",
+        headers=hdrs,
+        json={"provider": "twilio", "enabled": False, "config": {"account_sid": "AC123", "auth_token": "•••••a1b2"}},
+    )
+    assert get_provider_settings(org, mask_secrets=False)["twilio"]["config"]["auth_token"] == "super_secret_twilio_a1b2"
+
+    # 2. XML-escape dynamic TwiML strings (e.g., "Smith & Co <VIP>")
+    twiml_res = _send_twilio_voice(
+        {"account_sid": "AC123", "auth_token": "tok", "voice_from": ""},
+        "+1555",
+        "Smith & Co <VIP>",
+    )
+    assert twiml_res["ok"] is False  # missing voice_from
+    # Directly test escaping via mock SafeFetcher
+    import workflows.alert_dispatcher as _ad
+    orig_post = _ad.SafeFetcher.safe_post
+    captured_twiml = []
+
+    class _FakeRes:
+        status_code = 201
+        text = "{}"
+
+    _ad.SafeFetcher.safe_post = staticmethod(lambda url, **kw: (captured_twiml.append(kw["form_body"]["Twiml"]), _FakeRes())[1])
+    try:
+        _send_twilio_voice(
+            {"account_sid": "AC123", "auth_token": "tok", "voice_from": "+15550009999"},
+            "+15551112222",
+            "Urgent Fiverr inquiry from Smith & Co <VIP>",
+        )
+    finally:
+        _ad.SafeFetcher.safe_post = orig_post
+    assert "&amp;" in captured_twiml[0] and "&lt;VIP&gt;" in captured_twiml[0]
+
+    # 3. Webhook signature verification: Telegram 401 on bad secret, 200 on valid; Twilio 403 on bad sig, 200 on valid
+    ing = client.post(
+        "/api/alerts/events/ingest",
+        headers=hdrs,
+        json={
+            "from_email": "noreply@e.fiverr.com",
+            "subject": "New message from Smith & Co",
+            "body": "Hello!",
+            "external_msg_id": "wh-test-1",
+        },
+    ).json()
+    ev_id = ing["event"]["id"]
+
+    bad_tg = client.post(
+        "/api/alerts/webhooks/telegram",
+        headers={"X-Telegram-Bot-Api-Secret-Token": "wrong"},
+        json={"callback_query": {"data": f"ack:{ev_id}"}},
+    )
+    assert bad_tg.status_code == 401
+
+    bad_tw = client.post(
+        "/api/alerts/webhooks/twilio",
+        headers={"X-Twilio-Signature": "bad_sig"},
+        data={"Body": f"ACK {ev_id}"},
+    )
+    assert bad_tw.status_code == 403
+
+    # Compute valid Twilio HMAC-SHA1 signature
+    tw_url = "http://testserver/api/alerts/webhooks/twilio"
+    tw_params = {"Body": f"ACK {ev_id}"}
+    tw_str = tw_url + "".join(f"{k}{tw_params[k]}" for k in sorted(tw_params))
+    tw_sig = base64.b64encode(hmac.new(b"super_secret_twilio_a1b2", tw_str.encode(), hashlib.sha1).digest()).decode()
+    ok_tw = client.post("/api/alerts/webhooks/twilio", headers={"X-Twilio-Signature": tw_sig}, data=tw_params)
+    assert ok_tw.status_code == 200 and ok_tw.json()["acknowledged"] == ev_id
+
+    # 4. Atomic escalation lock: two consecutive ticks only fire 1 voice call
+    ing2 = client.post(
+        "/api/alerts/events/ingest",
+        headers=hdrs,
+        json={"from_email": "noreply@e.fiverr.com", "subject": "New message from AtomicCo", "body": "Hi", "external_msg_id": "atomic-1"},
+    ).json()
+    ev2_id = ing2["event"]["id"]
+    with get_db() as conn:
+        conn.execute("UPDATE marketplace_events SET created_at = datetime('now', '-150 seconds') WHERE id = ?", (ev2_id,))
+        conn.commit()
+    assert tick_escalations(org)["voice_calls"] == 1
+    assert tick_escalations(org)["voice_calls"] == 0

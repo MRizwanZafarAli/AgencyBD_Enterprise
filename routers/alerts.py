@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from alertdesk import channels, engine, mailwatch
@@ -227,31 +227,75 @@ def tick_marketplace_escalations(principal: Principal = Depends(WRITE)):
 
 
 @router.post("/webhooks/telegram")
-def telegram_ack_webhook(payload: Dict[str, Any]):
-    """Receives Telegram inline keyboard callback ('ack:{id}') to stop Minute 2 wake-up calls."""
+async def telegram_ack_webhook(request: Request):
+    """Receives Telegram inline keyboard callback ('ack:{id}') with X-Telegram-Bot-Api-Secret-Token verification."""
+    import hmac
+    import os
     from database.db import get_db
-    from workflows.alert_dispatcher import ack_event
+    from workflows.alert_dispatcher import ack_event, get_provider_settings
+
+    payload = await request.json()
     cb = payload.get("callback_query") or {}
     data = str(cb.get("data") or "")
-    if data.startswith("ack:"):
-        try:
-            ev_id = int(data.split(":", 1)[1])
-            with get_db() as db:
-                row = db.execute("SELECT org_id FROM marketplace_events WHERE id = ?", (ev_id,)).fetchone()
-            if row:
-                ack_event(row["org_id"], ev_id, "telegram")
-                return {"ok": True, "acknowledged": ev_id}
-        except Exception:
-            pass
+    header_secret = (request.headers.get("x-telegram-bot-api-secret-token") or "").strip()
+
+    org_id = None
+    ev_id = None
+    if data.startswith("ack:") and data.split(":", 1)[1].isdigit():
+        ev_id = int(data.split(":", 1)[1])
+        with get_db() as db:
+            row = db.execute("SELECT org_id FROM marketplace_events WHERE id = ?", (ev_id,)).fetchone()
+        if row:
+            org_id = row["org_id"]
+
+    expected_secret = ""
+    if org_id:
+        expected_secret = str(get_provider_settings(org_id, mask_secrets=False)["telegram"]["config"].get("webhook_secret") or "").strip()
+    if not expected_secret:
+        expected_secret = os.getenv("TELEGRAM_WEBHOOK_SECRET", "").strip()
+
+    if not expected_secret or not header_secret or not hmac.compare_digest(header_secret, expected_secret):
+        raise HTTPException(status_code=401, detail="Invalid or missing Telegram webhook secret token")
+
+    if org_id and ev_id is not None:
+        ack_event(org_id, ev_id, "telegram")
+        return {"ok": True, "acknowledged": ev_id}
     return {"ok": True}
 
 
+def _verify_twilio_signature(auth_token: str, url: str, params: Dict[str, Any], signature: str) -> bool:
+    if not auth_token or not signature:
+        return False
+    try:
+        from twilio.request_validator import RequestValidator  # type: ignore
+        return bool(RequestValidator(auth_token).validate(url, params, signature))
+    except ImportError:
+        import base64
+        import hashlib
+        import hmac
+        s = url + "".join(f"{k}{params[k]}" for k in sorted(params.keys()))
+        mac = hmac.new(auth_token.encode("utf-8"), s.encode("utf-8"), hashlib.sha1).digest()
+        expected = base64.b64encode(mac).decode("utf-8")
+        return hmac.compare_digest(expected, signature)
+
+
 @router.post("/webhooks/twilio")
-def twilio_ack_webhook(payload: Dict[str, Any]):
-    """Receives Twilio WhatsApp reply ('ACK {id}') to stop wake-up calls."""
+async def twilio_ack_webhook(request: Request):
+    """Receives Twilio WhatsApp reply ('ACK {id}') with X-Twilio-Signature verification."""
+    import os
     from database.db import get_db
-    from workflows.alert_dispatcher import ack_event
-    body = str(payload.get("Body") or "").strip().upper()
+    from workflows.alert_dispatcher import ack_event, get_provider_settings
+
+    ctype = (request.headers.get("content-type") or "").lower()
+    if "application/x-www-form-urlencoded" in ctype:
+        form = await request.form()
+        params = {k: str(v) for k, v in form.items()}
+    else:
+        params = await request.json()
+
+    body = str(params.get("Body") or "").strip().upper()
+    org_id = None
+    ev_id = None
     if body.startswith("ACK"):
         parts = body.split()
         if len(parts) >= 2 and parts[1].isdigit():
@@ -259,6 +303,19 @@ def twilio_ack_webhook(payload: Dict[str, Any]):
             with get_db() as db:
                 row = db.execute("SELECT org_id FROM marketplace_events WHERE id = ?", (ev_id,)).fetchone()
             if row:
-                ack_event(row["org_id"], ev_id, "twilio_whatsapp")
-                return {"ok": True, "acknowledged": ev_id}
+                org_id = row["org_id"]
+
+    auth_token = ""
+    if org_id:
+        auth_token = str(get_provider_settings(org_id, mask_secrets=False)["twilio"]["config"].get("auth_token") or "").strip()
+    if not auth_token:
+        auth_token = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
+
+    sig = (request.headers.get("x-twilio-signature") or "").strip()
+    if not _verify_twilio_signature(auth_token, str(request.url), params, sig):
+        raise HTTPException(status_code=403, detail="Invalid or missing X-Twilio-Signature")
+
+    if org_id and ev_id is not None:
+        ack_event(org_id, ev_id, "twilio_whatsapp")
+        return {"ok": True, "acknowledged": ev_id}
     return {"ok": True}

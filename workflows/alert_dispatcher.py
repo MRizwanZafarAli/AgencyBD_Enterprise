@@ -3,6 +3,7 @@
 import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from xml.sax.saxutils import escape as xml_escape
 
 from database.db import get_db
 from net.fetcher import SafeFetcher
@@ -13,8 +14,8 @@ PROVIDERS = ("twilio", "meta_whatsapp", "telegram")
 def _mask_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
     out = {}
     for k, v in (cfg or {}).items():
-        if any(s in k.lower() for s in ("token", "secret", "auth")) and isinstance(v, str) and len(v) > 6:
-            out[k] = f"{v[:3]}...{v[-3:]}"
+        if any(s in k.lower() for s in ("token", "secret", "auth")) and isinstance(v, str) and v:
+            out[k] = f"•••••{v[-4:]}" if len(v) > 4 else "•••••"
         else:
             out[k] = v
     return out
@@ -51,7 +52,7 @@ def save_provider_settings(org_id: str, provider: str, enabled: bool, config: Di
         merged = {**prev_cfg}
         for k, v in (config or {}).items():
             # Preserve existing secret if UI sent masked value back
-            if isinstance(v, str) and "..." in v and k in prev_cfg:
+            if isinstance(v, str) and (v.startswith("•") or "..." in v) and k in prev_cfg:
                 continue
             merged[k] = v
         db.execute(
@@ -184,14 +185,14 @@ def _send_twilio_voice(cfg: Dict[str, Any], to_phone: str, speech: str) -> Dict[
     frm = (cfg.get("voice_from") or "").strip()
     if not sid or not tok or not frm or not to_phone:
         return {"ok": False, "detail": "Twilio account_sid, auth_token, voice_from, and target phone required"}
-    twiml = f"<Response><Say voice='alice'>{speech}</Say></Response>"
+    twiml = f"<Response><Say voice='alice'>{xml_escape(speech)}</Say></Response>"
     res = SafeFetcher.safe_post(
         f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Calls.json",
         auth=(sid, tok),
         form_body={"From": frm, "To": to_phone, "Twiml": twiml},
         timeout=8,
     )
-    return {"ok": 200 <= res.status_code < 300, "status_code": res.status_code}
+    return {"ok": 200 <= res.status_code < 300, "status_code": res.status_code, "twiml": twiml}
 
 
 def trigger_initial_alert(event_id: int, org_id: str) -> Dict[str, Any]:
@@ -247,27 +248,37 @@ def tick_escalations(org_id: Optional[str] = None) -> Dict[str, Any]:
             age_sec = 0
 
         if ev["escalation_stage"] == 0 and age_sec >= sched["voice_call_delay_sec"]:
-            if providers["twilio"]["enabled"] and sched.get("primary_phone"):
-                speech = f"Urgent {ev['platform']} inquiry from {ev['buyer_name']}. Check WhatsApp or Telegram now for your pre-written reply."
-                _send_twilio_voice(providers["twilio"]["config"], sched["primary_phone"], speech)
+            # Atomic lock BEFORE firing voice call so overlapping tickers cannot double-call
             with get_db() as db:
-                db.execute("UPDATE marketplace_events SET escalation_stage = 1 WHERE id = ?", (ev["id"],))
+                cur = db.execute(
+                    "UPDATE marketplace_events SET escalation_stage = 1 WHERE id = ? AND status = 'pending' AND escalation_stage = 0",
+                    (ev["id"],),
+                )
                 db.commit()
-            voice_calls += 1
+            if cur.rowcount == 1:
+                if providers["twilio"]["enabled"] and sched.get("primary_phone"):
+                    speech = f"Urgent {ev['platform']} inquiry from {ev['buyer_name']}. Check WhatsApp or Telegram now for your pre-written reply."
+                    _send_twilio_voice(providers["twilio"]["config"], sched["primary_phone"], speech)
+                voice_calls += 1
 
         elif ev["escalation_stage"] == 1 and sched["mode"] == "agency_shifts" and age_sec >= sched["backup_escalate_sec"]:
-            backup_msg = f"🚨 ESCALATED ({ev['platform'].upper()}): {ev['buyer_name']} waiting >{sched['backup_escalate_sec']}s!\n{ev['snippet'][:140]}\n{ev['deep_link']}"
-            if providers["twilio"]["enabled"]:
-                if sched.get("backup_whatsapp"):
-                    _send_twilio_whatsapp(providers["twilio"]["config"], sched["backup_whatsapp"], backup_msg)
-                if sched.get("backup_phone"):
-                    _send_twilio_voice(providers["twilio"]["config"], sched["backup_phone"], f"Escalated {ev['platform']} inquiry from {ev['buyer_name']}. Primary rep did not respond.")
-            if providers["meta_whatsapp"]["enabled"] and sched.get("backup_whatsapp"):
-                _send_meta_whatsapp(providers["meta_whatsapp"]["config"], sched["backup_whatsapp"], backup_msg)
+            # Atomic lock BEFORE firing backup escalation
             with get_db() as db:
-                db.execute("UPDATE marketplace_events SET escalation_stage = 2, status = 'escalated' WHERE id = ?", (ev["id"],))
+                cur = db.execute(
+                    "UPDATE marketplace_events SET escalation_stage = 2, status = 'escalated' WHERE id = ? AND status = 'pending' AND escalation_stage = 1",
+                    (ev["id"],),
+                )
                 db.commit()
-            backup_escalations += 1
+            if cur.rowcount == 1:
+                backup_msg = f"🚨 ESCALATED ({ev['platform'].upper()}): {ev['buyer_name']} waiting >{sched['backup_escalate_sec']}s!\n{ev['snippet'][:140]}\n{ev['deep_link']}"
+                if providers["twilio"]["enabled"]:
+                    if sched.get("backup_whatsapp"):
+                        _send_twilio_whatsapp(providers["twilio"]["config"], sched["backup_whatsapp"], backup_msg)
+                    if sched.get("backup_phone"):
+                        _send_twilio_voice(providers["twilio"]["config"], sched["backup_phone"], f"Escalated {ev['platform']} inquiry from {ev['buyer_name']}. Primary rep did not respond.")
+                if providers["meta_whatsapp"]["enabled"] and sched.get("backup_whatsapp"):
+                    _send_meta_whatsapp(providers["meta_whatsapp"]["config"], sched["backup_whatsapp"], backup_msg)
+                backup_escalations += 1
 
     return {"checked": len(rows), "voice_calls": voice_calls, "backup_escalations": backup_escalations}
 

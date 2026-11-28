@@ -249,6 +249,7 @@ export const WakeUpEnginePanel: FC = () => {
             </div>
             <input className={field} type="password" placeholder="Bot Token (12345:ABC...)" value={providers.telegram?.config?.bot_token ?? ''} onChange={(e) => updateCfg('telegram', 'bot_token', e.target.value)} />
             <input className={field} placeholder="Default Chat ID" value={providers.telegram?.config?.chat_id ?? ''} onChange={(e) => updateCfg('telegram', 'chat_id', e.target.value)} />
+            <input className={field} type="password" placeholder="Webhook Secret Token" value={providers.telegram?.config?.webhook_secret ?? ''} onChange={(e) => updateCfg('telegram', 'webhook_secret', e.target.value)} />
             <Badge tone="info"><ShieldCheck className="h-3 w-3 mr-1 inline" /> Inline I&apos;m On It Button</Badge>
             <div className="flex flex-wrap gap-1.5 pt-1">
               <Button small variant="primary" onClick={() => saveProvider('telegram')} disabled={saving}>Save</Button>
