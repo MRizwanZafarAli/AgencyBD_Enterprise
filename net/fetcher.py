@@ -194,3 +194,86 @@ class SafeFetcher:
         """Backwards-compatible tuple form: (status_code, text, headers)."""
         result = cls.safe_fetch(url, timeout=timeout, max_bytes=max_bytes, headers=headers)
         return result.status_code, result.text, result.headers
+
+    @classmethod
+    def safe_post(
+        cls,
+        url: str,
+        timeout: int = DEFAULT_TIMEOUT_SECONDS,
+        max_bytes: int = MAX_RESPONSE_BYTES,
+        headers: Optional[Dict[str, str]] = None,
+        json_body: Optional[Any] = None,
+        form_body: Optional[Dict[str, str]] = None,
+        auth: Optional[Tuple[str, str]] = None,
+        allow_local: bool = False,
+    ) -> FetchResult:
+        """SSRF-safe POST client (supports JSON, form data, Basic auth, and opt-in local Ollama)."""
+        if "://" not in url:
+            url = f"https://{url}"
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            raise SSRFSecurityError(f"Unsupported or invalid URL: {url!r}")
+        if parsed.username or parsed.password:
+            raise SSRFSecurityError("Credentials in URLs are not allowed.")
+
+        is_local = parsed.hostname.lower() in ("localhost", "127.0.0.1", "::1")
+        if not (allow_local and is_local):
+            cls.resolve_and_validate_hostname(parsed.hostname)
+
+        req_headers = {
+            "User-Agent": "AgencyBD-Enterprise/2.0",
+            "Accept": "application/json, text/plain, */*",
+        }
+        if headers:
+            req_headers.update(headers)
+
+        session = requests.Session()
+        session.max_redirects = MAX_REDIRECTS
+        _guard.active = not (allow_local and is_local)
+        try:
+            response = session.request(
+                "POST",
+                url,
+                headers=req_headers,
+                timeout=timeout,
+                stream=True,
+                allow_redirects=True,
+                json=json_body,
+                data=form_body,
+                auth=auth,
+            )
+            try:
+                chunks, total = [], 0
+                for chunk in response.iter_content(chunk_size=16384):
+                    total += len(chunk)
+                    if total > max_bytes:
+                        break
+                    chunks.append(chunk)
+                body = b"".join(chunks)
+                text = body.decode(response.encoding or "utf-8", errors="replace")
+                return FetchResult(
+                    status_code=response.status_code,
+                    text=text,
+                    headers=dict(response.headers),
+                    final_url=response.url,
+                    elapsed_ms=int(response.elapsed.total_seconds() * 1000),
+                )
+            finally:
+                response.close()
+        finally:
+            _guard.active = False
+            session.close()
+
+    @classmethod
+    def whois_query(cls, server: str, domain: str, timeout: int = 3) -> str:
+        """SSRF-safe WHOIS TCP port 43 query: resolves & validates server IP before connecting."""
+        ip = cls.resolve_and_validate_hostname(server)
+        with socket.create_connection((ip, 43), timeout=timeout) as sock:
+            sock.sendall(f"{domain}\r\n".encode())
+            out = b""
+            while True:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                out += chunk
+        return out.decode("utf-8", errors="ignore")

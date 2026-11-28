@@ -506,17 +506,17 @@ class SocialIntentRadarConnector(BaseConnector):
                 "detail": "Set BLUESKY_HANDLE & BLUESKY_APP_PASSWORD",
             }
         try:
-            sess_res = httpx.post(
+            sess_res = SafeFetcher.safe_post(
                 "https://bsky.social/xrpc/com.atproto.server.createSession",
-                json={"identifier": bsky_handle, "password": bsky_pw},
+                json_body={"identifier": bsky_handle, "password": bsky_pw},
                 headers=UA,
-                timeout=8.0,
+                timeout=8,
             )
             if sess_res.status_code in (401, 403):
                 return items, {"id": "bluesky", "label": "Bluesky", "status": "auth_required", "hits": 0, "detail": f"Session HTTP {sess_res.status_code}"}
             if sess_res.status_code != 200:
                 return items, {"id": "bluesky", "label": "Bluesky", "status": "error", "hits": 0, "detail": f"Session HTTP {sess_res.status_code}"}
-            access_jwt = (sess_res.json() or {}).get("accessJwt")
+            access_jwt = (json.loads(sess_res.text or "{}") or {}).get("accessJwt")
             if not access_jwt:
                 return items, {"id": "bluesky", "label": "Bluesky", "status": "auth_required", "hits": 0, "detail": "Missing accessJwt"}
 
@@ -591,15 +591,15 @@ class SocialIntentRadarConnector(BaseConnector):
         r_sec = os.getenv("REDDIT_CLIENT_SECRET", "").strip()
         if r_cid and r_sec:
             try:
-                tok_res = httpx.post(
+                tok_res = SafeFetcher.safe_post(
                     "https://www.reddit.com/api/v1/access_token",
                     auth=(r_cid, r_sec),
-                    data={"grant_type": "client_credentials"},
+                    form_body={"grant_type": "client_credentials"},
                     headers=UA,
-                    timeout=8.0,
+                    timeout=8,
                 )
                 if tok_res.status_code == 200:
-                    token = (tok_res.json() or {}).get("access_token")
+                    token = (json.loads(tok_res.text or "{}") or {}).get("access_token")
                     if token:
                         oauth_headers = {**UA, "Authorization": f"Bearer {token}"}
                         for sub in subs[:6]:

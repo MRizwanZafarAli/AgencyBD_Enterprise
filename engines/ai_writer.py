@@ -92,11 +92,12 @@ def generate_email_draft(
             chosen = "template_fallback"
 
     if chosen == "ollama":
+        from net.fetcher import SafeFetcher
         host = _validate_base_url(base_url or os.getenv("OLLAMA_HOST") or "http://localhost:11434", allow_local=True)
         mdl = (model or "llama3.1").strip()
-        resp = requests.post(
+        resp = SafeFetcher.safe_post(
             f"{host}/api/chat",
-            json={
+            json_body={
                 "model": mdl,
                 "stream": False,
                 "messages": [
@@ -105,13 +106,16 @@ def generate_email_draft(
                 ],
             },
             timeout=45,
+            allow_local=True,
         )
-        resp.raise_for_status()
-        text = resp.json().get("message", {}).get("content", "")
+        if resp.status_code >= 400:
+            raise RuntimeError(f"Ollama HTTP {resp.status_code}: {resp.text[:200]}")
+        text = json.loads(resp.text or "{}").get("message", {}).get("content", "")
         subj, bdy = _parse_subject_body(text, default_subject)
         return {"subject": subj, "body": bdy, "provider_used": "ollama", "model_used": mdl}
 
     if chosen in ("openai", "openai_compatible"):
+        from net.fetcher import SafeFetcher
         key = (api_key or os.getenv("OPENAI_API_KEY") or "").strip()
         url = _validate_base_url(base_url or "https://api.openai.com/v1", allow_local=True)
         mdl = (model or ("gpt-4o-mini" if chosen == "openai" else "local-model")).strip()
@@ -120,10 +124,10 @@ def generate_email_draft(
             headers["Authorization"] = f"Bearer {key}"
         elif chosen == "openai":
             raise ValueError("OpenAI API key is required (enter it in the AI Assistant or Settings).")
-        resp = requests.post(
+        resp = SafeFetcher.safe_post(
             f"{url}/chat/completions",
             headers=headers,
-            json={
+            json_body={
                 "model": mdl,
                 "temperature": 0.6,
                 "messages": [
@@ -132,25 +136,28 @@ def generate_email_draft(
                 ],
             },
             timeout=45,
+            allow_local=(chosen == "openai_compatible"),
         )
-        resp.raise_for_status()
-        text = resp.json()["choices"][0]["message"]["content"]
+        if resp.status_code >= 400:
+            raise RuntimeError(f"OpenAI HTTP {resp.status_code}: {resp.text[:200]}")
+        text = json.loads(resp.text or "{}")["choices"][0]["message"]["content"]
         subj, bdy = _parse_subject_body(text, default_subject)
         return {"subject": subj, "body": bdy, "provider_used": chosen, "model_used": mdl}
 
     if chosen == "anthropic":
+        from net.fetcher import SafeFetcher
         key = (api_key or os.getenv("ANTHROPIC_API_KEY") or "").strip()
         if not key:
             raise ValueError("Anthropic API key is required (enter it in the AI Assistant or Settings).")
         mdl = (model or "claude-3-5-sonnet-latest").strip()
-        resp = requests.post(
+        resp = SafeFetcher.safe_post(
             "https://api.anthropic.com/v1/messages",
             headers={
                 "x-api-key": key,
                 "anthropic-version": "2023-06-01",
                 "content-type": "application/json",
             },
-            json={
+            json_body={
                 "model": mdl,
                 "max_tokens": 500,
                 "system": system_prompt,
@@ -158,26 +165,29 @@ def generate_email_draft(
             },
             timeout=45,
         )
-        resp.raise_for_status()
-        blocks = resp.json().get("content", [])
+        if resp.status_code >= 400:
+            raise RuntimeError(f"Anthropic HTTP {resp.status_code}: {resp.text[:200]}")
+        blocks = json.loads(resp.text or "{}").get("content", [])
         text = "\n".join(b.get("text", "") for b in blocks if b.get("type") == "text")
         subj, bdy = _parse_subject_body(text, default_subject)
         return {"subject": subj, "body": bdy, "provider_used": "anthropic", "model_used": mdl}
 
     if chosen == "gemini":
+        from net.fetcher import SafeFetcher
         key = (api_key or os.getenv("GEMINI_API_KEY") or "").strip()
         if not key:
             raise ValueError("Gemini API key is required (enter it in the AI Assistant or Settings).")
         mdl = (model or "gemini-2.0-flash").strip()
-        resp = requests.post(
+        resp = SafeFetcher.safe_post(
             f"https://generativelanguage.googleapis.com/v1beta/models/{mdl}:generateContent?key={key}",
-            json={
+            json_body={
                 "contents": [{"parts": [{"text": f"{system_prompt}\n\n{user_prompt}"}]}],
             },
             timeout=45,
         )
-        resp.raise_for_status()
-        cands = resp.json().get("candidates", [])
+        if resp.status_code >= 400:
+            raise RuntimeError(f"Gemini HTTP {resp.status_code}: {resp.text[:200]}")
+        cands = json.loads(resp.text or "{}").get("candidates", [])
         text = cands[0]["content"]["parts"][0]["text"] if cands else ""
         subj, bdy = _parse_subject_body(text, default_subject)
         return {"subject": subj, "body": bdy, "provider_used": "gemini", "model_used": mdl}

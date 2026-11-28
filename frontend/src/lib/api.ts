@@ -43,7 +43,7 @@ export async function apiFetch(input: string, init: RequestInit = {}, tokenOverr
   const token = tokenOverride ?? getToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
   const res = await fetch(input, { ...init, headers });
-  if (res.status === 401 && !tokenOverride && token) {
+  if (res.status === 401 && !tokenOverride) {
     clearToken();
     window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
   }
