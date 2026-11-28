@@ -326,15 +326,8 @@ def probe_presence_live(name: str, city: str, website: Optional[str] = None, org
             pass
         if cand.endswith(".io"):
             try:
-                with socket.create_connection(("whois.nic.io", 43), timeout=3) as sock:
-                    sock.sendall(f"{cand}\r\n".encode())
-                    out = b""
-                    while True:
-                        chunk = sock.recv(4096)
-                        if not chunk:
-                            break
-                        out += chunk
-                txt = out.decode("utf-8", errors="ignore").lower()
+                from net.fetcher import SafeFetcher as _SF
+                txt = _SF.whois_query("whois.nic.io", cand, timeout=3).lower()
                 if "not found" in txt or "no match" in txt:
                     return "available"
                 if "domain name:" in txt or "registrar:" in txt:
