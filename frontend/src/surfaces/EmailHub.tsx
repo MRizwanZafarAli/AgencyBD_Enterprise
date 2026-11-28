@@ -57,6 +57,8 @@ interface Mailbox {
   dkim_ok?: boolean;
   dmarc_ok?: boolean;
   warmup_score?: number;
+  watch_marketplace_alerts?: number | boolean;
+  watched_platforms?: string;
 }
 
 interface OutboundEvent {
@@ -1587,6 +1589,25 @@ export const EmailHub: FC<{
                           {mb.auto_paused_reason}
                         </div>
                       )}
+                      <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                        <span className="text-[11px] text-slate-300">Watch Marketplace Alerts</span>
+                        <label className="flex items-center gap-1.5 text-[11px] text-emerald-300 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={!!mb.watch_marketplace_alerts}
+                            onChange={async (e) => {
+                              const next = e.target.checked;
+                              await apiFetch(`/api/email/mailboxes/${mb.id}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ watch_marketplace_alerts: next }),
+                              });
+                              loadData();
+                            }}
+                          />
+                          {mb.watch_marketplace_alerts ? 'Active' : 'Off'}
+                        </label>
+                      </div>
                     </div>
 
                     {/* Live Test Results Alert (If tested) */}

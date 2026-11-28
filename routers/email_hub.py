@@ -87,6 +87,8 @@ class UpdateMailboxRequest(BaseModel):
     smtp_username: Optional[str] = None
     smtp_password: Optional[str] = None
     use_tls: Optional[bool] = None
+    watch_marketplace_alerts: Optional[bool] = None
+    watched_platforms: Optional[List[str]] = None
 
 
 class UpdateDraftRequest(BaseModel):
@@ -475,6 +477,12 @@ def update_mailbox(
         if req.is_active is not None:
             updates.append("is_active = ?")
             params.append(req.is_active)
+        if req.watch_marketplace_alerts is not None:
+            updates.append("watch_marketplace_alerts = ?")
+            params.append(1 if req.watch_marketplace_alerts else 0)
+        if req.watched_platforms is not None:
+            updates.append("watched_platforms = ?")
+            params.append(json.dumps(req.watched_platforms))
 
         if updates:
             params.extend([mailbox_id, org_id])

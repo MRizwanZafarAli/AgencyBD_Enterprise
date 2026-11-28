@@ -1,6 +1,6 @@
 import type { FC } from 'react';
 import { useState } from 'react';
-import { AlertTriangle, BarChart3, Check, Plus, Settings2, Sparkles, X } from 'lucide-react';
+import { AlertTriangle, BarChart3, Check, CheckCircle2, Copy, ExternalLink, Plus, Settings2, Sparkles, X } from 'lucide-react';
 import { Badge, Button, Card, PageHeader, Skeletons, Stat } from '../components/ui';
 import { ErrorBanner } from '../components/shared/ErrorBanner';
 import { ChannelPanel } from '../components/channels/ChannelPanel';
@@ -10,6 +10,20 @@ import type { Catalog } from '../components/channels/types';
 import { fmtMinutes } from '../components/channels/types';
 import type { ScraperMode } from '../components/browser/InteractiveBrowserSidepanel';
 import { send, useApi } from '../lib/hooks';
+import { apiFetch } from '../lib/api';
+
+interface MarketplaceEvent {
+  id: number;
+  platform: string;
+  event_type: string;
+  buyer_name: string;
+  title: string;
+  snippet: string;
+  deep_link: string;
+  ai_draft_reply: string;
+  status: string;
+  escalation_stage: number;
+}
 
 interface OverviewRow {
   platform: string;
@@ -65,11 +79,13 @@ export const Channels: FC<{
 }> = ({ active, onActive: setActive, quick, onOpenAlerts, onOpenScraper }) => {
   const [version, setVersion] = useState(0);
   const [manageOpen, setManageOpen] = useState(false);
-  const [customForm, setCustomForm] = useState({ label: '', archetype: 'custom', home_url: '' });
+  const [customForm, setCustomForm] = useState({ label: '', archetype: 'custom', home_url: '', sender_pattern: '' });
   const [savingPref, setSavingPref] = useState(false);
+  const [copiedEvId, setCopiedEvId] = useState<number | null>(null);
 
   const catalog = useApi<Catalog>('/api/channels/platforms');
   const overview = useApi<Overview>('/api/channels/overview');
+  const urgentEvents = useApi<{ events: MarketplaceEvent[] }>('/api/alerts/events?status=pending');
   const allPlatforms = catalog.data?.platforms ?? [];
   const hiddenSet = new Set(catalog.data?.hidden_platforms ?? []);
   const visiblePlatforms = allPlatforms.filter((p) => !hiddenSet.has(p.id));
@@ -114,7 +130,7 @@ export const Channels: FC<{
     setSavingPref(true);
     try {
       const res = await send<{ slug: string }>('/api/channels/custom', 'POST', customForm);
-      setCustomForm({ label: '', archetype: 'custom', home_url: '' });
+      setCustomForm({ label: '', archetype: 'custom', home_url: '', sender_pattern: '' });
       catalog.reload();
       overview.reload();
       if (res?.slug) setActive(res.slug);
@@ -137,6 +153,61 @@ export const Channels: FC<{
       />
       <ClientMessages onOpenAlerts={onOpenAlerts} />
       <ErrorBanner message={catalog.error || overview.error} />
+
+      {/* Live Urgent Inquiries Bar (Zero-Ban-Risk Email Ingestion + Wake-Up Engine) */}
+      {(urgentEvents.data?.events?.length ?? 0) > 0 && (
+        <Card className="!border-rose-500/40 bg-rose-950/20 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-rose-300 flex items-center gap-1.5">
+              <AlertTriangle className="h-4 w-4" /> Urgent Marketplace Inquiries ({urgentEvents.data!.events.length} awaiting ACK)
+            </span>
+            <Badge tone="bad">Wake-Up Escalation Active</Badge>
+          </div>
+          <div className="space-y-2">
+            {urgentEvents.data!.events.slice(0, 3).map((ev) => (
+              <div key={ev.id} className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Badge tone="warn">{ev.platform.toUpperCase()}</Badge>
+                    <span className="font-semibold text-white">{ev.buyer_name}</span>
+                    <span className="text-slate-400 truncate">{ev.title}</span>
+                  </div>
+                  <p className="text-slate-300 line-clamp-1">&quot;{ev.snippet}&quot;</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                  <Button
+                    small
+                    variant="secondary"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(ev.ai_draft_reply);
+                      setCopiedEvId(ev.id);
+                      setTimeout(() => setCopiedEvId(null), 1500);
+                    }}
+                  >
+                    {copiedEvId === ev.id ? <CheckCircle2 className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                    {copiedEvId === ev.id ? 'Copied AI Reply' : 'Copy AI Reply'}
+                  </Button>
+                  {ev.deep_link && (
+                    <a href={ev.deep_link} target="_blank" rel="noopener noreferrer" className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-indigo-300 hover:text-white inline-flex items-center gap-1">
+                      Open <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                  <Button
+                    small
+                    variant="primary"
+                    onClick={async () => {
+                      await apiFetch(`/api/alerts/events/${ev.id}/ack`, { method: 'POST' });
+                      urgentEvents.reload();
+                    }}
+                  >
+                    <Check className="h-3 w-3" /> I&apos;m on it
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Manage Active Channels & Custom Channel Builder Drawer */}
       {manageOpen && (
@@ -200,6 +271,15 @@ export const Channels: FC<{
                 value={customForm.home_url}
                 onChange={(e) => setCustomForm((f) => ({ ...f, home_url: e.target.value }))}
                 placeholder="https://www.designrush.com"
+                className="w-full rounded-lg bg-slate-900 border border-slate-800 px-3 py-1.5 text-xs text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-400 mb-1">Notification Sender (e.g. *@bark.com)</label>
+              <input
+                value={customForm.sender_pattern}
+                onChange={(e) => setCustomForm((f) => ({ ...f, sender_pattern: e.target.value }))}
+                placeholder="*@bark.com"
                 className="w-full rounded-lg bg-slate-900 border border-slate-800 px-3 py-1.5 text-xs text-white"
               />
             </div>

@@ -6,6 +6,7 @@ import { ErrorBanner } from '../shared/ErrorBanner';
 import { send, useApi } from '../../lib/hooks';
 import { CHANNEL_LABEL, DAY_LABEL, PRESETS, describeSteps } from './types';
 import type { AlertSettings as Settings, ChannelId, SettingsResponse } from './types';
+import { WakeUpEnginePanel } from './WakeUpEnginePanel';
 
 const ZONES = ['Asia/Karachi', 'Asia/Dubai', 'Asia/Riyadh', 'Asia/Kolkata', 'Asia/Singapore', 'Europe/London', 'Europe/Dublin', 'Europe/Berlin', 'America/New_York', 'America/Chicago', 'America/Los_Angeles', 'Australia/Sydney', 'UTC'];
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -70,6 +71,7 @@ export const AlertSettings: FC<{ onGo: (section: string) => void }> = ({ onGo })
 
   return (
     <div className="space-y-5">
+      <WakeUpEnginePanel />
       <ErrorBanner message={error || data.error} />
       {!can && <Card><p className="text-sm text-slate-300">Where alerts go is shared by this whole installation, so only an administrator can change it. You can see how it is set.</p></Card>}
 

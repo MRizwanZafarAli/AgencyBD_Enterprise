@@ -1090,6 +1090,55 @@ def init_db():
         hidden_platforms_json TEXT DEFAULT '[]',
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS alert_provider_settings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL,
+        provider TEXT NOT NULL,          -- 'twilio' | 'meta_whatsapp' | 'telegram'
+        enabled INTEGER DEFAULT 0,
+        config_json TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(org_id, provider)
+    );
+
+    CREATE TABLE IF NOT EXISTS escalation_schedules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL,
+        mode TEXT DEFAULT 'solo',        -- 'solo' | 'agency_shifts'
+        primary_rep_name TEXT DEFAULT '',
+        primary_whatsapp TEXT DEFAULT '',
+        primary_phone TEXT DEFAULT '',
+        primary_telegram_chat_id TEXT DEFAULT '',
+        backup_rep_name TEXT DEFAULT '',
+        backup_whatsapp TEXT DEFAULT '',
+        backup_phone TEXT DEFAULT '',
+        voice_call_delay_sec INTEGER DEFAULT 120,
+        backup_escalate_sec INTEGER DEFAULT 300,
+        quiet_hours_override INTEGER DEFAULT 1,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(org_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS marketplace_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id TEXT NOT NULL,
+        platform TEXT NOT NULL,
+        event_type TEXT NOT NULL,        -- 'buyer_message' | 'new_job' | 'order_deadline' | 'match_invite' | 'inquiry'
+        external_msg_id TEXT NOT NULL,
+        buyer_name TEXT DEFAULT '',
+        title TEXT DEFAULT '',
+        snippet TEXT DEFAULT '',
+        deep_link TEXT DEFAULT '',
+        ai_draft_reply TEXT DEFAULT '',
+        compliance_warnings TEXT DEFAULT '[]',
+        status TEXT DEFAULT 'pending',   -- 'pending' | 'acknowledged' | 'replied' | 'escalated'
+        acknowledged_by TEXT,
+        acknowledged_at TIMESTAMP,
+        escalation_stage INTEGER DEFAULT 0, -- 0=initial, 1=voice call fired, 2=backup rep alerted
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(org_id, external_msg_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_marketplace_events_org ON marketplace_events(org_id, status, created_at DESC);
     """)
     cursor.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS idx_opp_org_source_ext
@@ -1102,6 +1151,9 @@ def init_db():
 
     for sql in (
         "ALTER TABLE lead_hits ADD COLUMN lead_id INTEGER",
+        "ALTER TABLE mailboxes ADD COLUMN watch_marketplace_alerts INTEGER DEFAULT 0",
+        "ALTER TABLE mailboxes ADD COLUMN watched_platforms TEXT DEFAULT '[\"fiverr\",\"upwork\",\"freelancer\",\"contra\",\"clutch\",\"toptal\",\"pph\",\"guru\"]'",
+        "ALTER TABLE custom_channels ADD COLUMN sender_pattern TEXT DEFAULT ''",
     ):
         try:
             cursor.execute(sql)

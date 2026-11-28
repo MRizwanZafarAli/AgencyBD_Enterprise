@@ -196,6 +196,27 @@ export const BiddingMarketplaceView: FC<ArchetypeViewProps> = ({ platform, s, ru
 
   return (
     <div className="space-y-5">
+      {platform.id === 'upwork' && (
+        <Card className="!border-emerald-500/30 flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-1 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-white">Official Upwork MCP Connector</span>
+              <Badge tone="good">OAuth 2.1 · Zero Ban Risk</Badge>
+            </div>
+            <p className="text-slate-400">
+              Connects to <code className="font-mono text-emerald-300">https://mcp.upwork.com/mcp</code> for live Connects balance, job search, and human-confirmed proposal drafts.
+            </p>
+          </div>
+          <a
+            href="https://mcp.upwork.com/mcp"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold inline-flex items-center gap-1.5"
+          >
+            Connect Upwork MCP <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        </Card>
+      )}
       <Card className="space-y-3">
         <div className="flex items-center justify-between">
           <div>
@@ -316,6 +337,22 @@ export const BiddingMarketplaceView: FC<ArchetypeViewProps> = ({ platform, s, ru
 export const InboundStorefrontView: FC<ArchetypeViewProps> = ({ platform, s, run }) => {
   const gigs: ChannelGig[] = s?.native?.gigs ?? [];
   const [form, setForm] = useState({ title: '', impressions: '0', clicks: '0', orders: '0', revenue: '0', keywords: '' });
+  const [replyDraft, setReplyDraft] = useState('');
+  const [shieldRes, setShieldRes] = useState<{ safe: boolean; warnings: Array<{ term: string; reason: string }>; suggestions: string[] } | null>(null);
+
+  const runShieldCheck = async (txt: string) => {
+    setReplyDraft(txt);
+    if (!txt.trim()) {
+      setShieldRes(null);
+      return;
+    }
+    const res = await apiFetch('/api/channels/fiverr/compliance-check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: txt }),
+    });
+    if (res.ok) setShieldRes(await res.json());
+  };
 
   const createGig = () => {
     if (!form.title.trim()) return;
@@ -349,6 +386,37 @@ export const InboundStorefrontView: FC<ArchetypeViewProps> = ({ platform, s, run
         </div>
         <Badge tone={unanswered > 0 ? 'bad' : 'good'}>{unanswered > 0 ? 'SLA At Risk' : 'SLA Healthy'}</Badge>
       </Card>
+
+      {platform.id === 'fiverr' && (
+        <Card className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-white">Fiverr Off-Platform Keyword Shield</h3>
+              <p className="text-xs text-slate-400">Flags email, WhatsApp, Zoom, PayPal, or phone numbers in red before you copy into Fiverr chat.</p>
+            </div>
+            {shieldRes && (
+              <Badge tone={shieldRes.safe ? 'good' : 'bad'}>
+                {shieldRes.safe ? 'Safe to Copy' : `${shieldRes.warnings.length} Violation(s)`}
+              </Badge>
+            )}
+          </div>
+          <textarea
+            rows={3}
+            value={replyDraft}
+            onChange={(e) => runShieldCheck(e.target.value)}
+            placeholder="Paste or draft your Fiverr buyer reply here before copying..."
+            className="w-full rounded-xl bg-slate-900 border border-slate-800 p-3 text-xs text-white"
+          />
+          {shieldRes && !shieldRes.safe && (
+            <div className="p-2.5 rounded-xl bg-rose-950/40 border border-rose-500/30 text-xs text-rose-200 space-y-1">
+              <div className="font-semibold">Flagged terms: {shieldRes.warnings.map((w) => w.term).join(', ')}</div>
+              {shieldRes.suggestions.map((sg) => (
+                <div key={sg} className="text-[11px] text-rose-300">• {sg}</div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
 
       <Card className="space-y-3">
         <h3 className="text-sm font-semibold text-white">Gig / Service SKU Performance Matrix</h3>
@@ -460,6 +528,23 @@ export const ReviewDirectoryView: FC<ArchetypeViewProps> = ({ platform, s, run }
   const wonClients = s?.native?.won_clients ?? [];
   const [utmBase, setUtmBase] = useState('https://youragency.com');
   const [copied, setCopied] = useState(false);
+  const [qualForm, setQualForm] = useState({ budget: '15000', min_project_size: '10000', timeline_weeks: '6' });
+  const [qualRes, setQualRes] = useState<{ score: number; band: string; sla_minutes: number; flags: string[] } | null>(null);
+
+  const runQualify = async () => {
+    const res = await apiFetch('/api/channels/clutch/qualify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        service_fit: 22,
+        budget: Number(qualForm.budget) || 0,
+        min_project_size: Number(qualForm.min_project_size) || 10000,
+        specificity: 20,
+        timeline_weeks: Number(qualForm.timeline_weeks) || 6,
+      }),
+    });
+    if (res.ok) setQualRes(await res.json());
+  };
 
   const utmUrl = `${utmBase.replace(/\/$/, '')}/?utm_source=clutch&utm_medium=directory&utm_campaign=leader_matrix`;
 
@@ -563,6 +648,41 @@ export const ReviewDirectoryView: FC<ArchetypeViewProps> = ({ platform, s, run }
           </div>
         </Card>
       )}
+
+      <Card className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-white">4-Point Clutch Inquiry Qualifier</h3>
+            <p className="text-xs text-slate-400">Clutch buyers contact 3–5 agencies simultaneously — qualify fit and reply within 30 minutes.</p>
+          </div>
+          <Badge tone="warn">&lt; 30m Response SLA</Badge>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-4 items-end">
+          <div>
+            <label className="block text-[11px] text-slate-400 mb-1">Inquiry Budget ($)</label>
+            <input type="number" className="w-full rounded-lg bg-slate-900 border border-slate-800 px-3 py-1.5 text-xs text-white" value={qualForm.budget} onChange={(e) => setQualForm((f) => ({ ...f, budget: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-[11px] text-slate-400 mb-1">Min Project Size ($)</label>
+            <input type="number" className="w-full rounded-lg bg-slate-900 border border-slate-800 px-3 py-1.5 text-xs text-white" value={qualForm.min_project_size} onChange={(e) => setQualForm((f) => ({ ...f, min_project_size: e.target.value }))} />
+          </div>
+          <div>
+            <label className="block text-[11px] text-slate-400 mb-1">Timeline (Weeks)</label>
+            <input type="number" className="w-full rounded-lg bg-slate-900 border border-slate-800 px-3 py-1.5 text-xs text-white" value={qualForm.timeline_weeks} onChange={(e) => setQualForm((f) => ({ ...f, timeline_weeks: e.target.value }))} />
+          </div>
+          <Button small variant="primary" onClick={runQualify}>Score Inquiry</Button>
+        </div>
+        {qualRes && (
+          <div className="flex flex-wrap items-center gap-2 text-xs pt-1">
+            <Badge tone={qualRes.score >= 75 ? 'good' : qualRes.score >= 50 ? 'warn' : 'bad'}>
+              {qualRes.score}/100 · {qualRes.band}
+            </Badge>
+            {qualRes.flags.map((fl) => (
+              <span key={fl} className="text-amber-300">{fl}</span>
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
 };

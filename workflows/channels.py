@@ -959,7 +959,7 @@ def upsert_pacing(org_id: str, platform: str, payload: Dict[str, Any]) -> Dict[s
         return dict(db.execute("SELECT * FROM channel_pacing WHERE org_id = ? AND platform = ? AND day = ?", (org_id, platform, day)).fetchone())
 
 
-def create_custom_channel(org_id: str, label: str, archetype: str, home_url: str = "", quick_links: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+def create_custom_channel(org_id: str, label: str, archetype: str, home_url: str = "", quick_links: Optional[List[Dict[str, str]]] = None, sender_pattern: str = "") -> Dict[str, Any]:
     clean_label = _text(label, "label", 60)
     if archetype not in ARCHETYPES:
         raise ValueError(f"archetype must be one of {list(ARCHETYPES.keys())}")
@@ -968,12 +968,13 @@ def create_custom_channel(org_id: str, label: str, archetype: str, home_url: str
     if not slug or slug in PLATFORMS or slug in reserved:
         slug = f"custom_{slug or 'channel'}"
     url = _url(home_url, False) or ""
+    clean_sender = (sender_pattern or "").strip()[:180]
     with get_db() as db:
         db.execute(
-            """INSERT INTO custom_channels (org_id, slug, label, archetype, home_url, quick_links_json)
-               VALUES (?, ?, ?, ?, ?, ?)
-               ON CONFLICT(org_id, slug) DO UPDATE SET label = excluded.label, archetype = excluded.archetype, home_url = excluded.home_url, quick_links_json = excluded.quick_links_json, active = 1""",
-            (org_id, slug, clean_label, archetype, url, json.dumps(quick_links or [])),
+            """INSERT INTO custom_channels (org_id, slug, label, archetype, home_url, quick_links_json, sender_pattern)
+               VALUES (?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(org_id, slug) DO UPDATE SET label = excluded.label, archetype = excluded.archetype, home_url = excluded.home_url, quick_links_json = excluded.quick_links_json, sender_pattern = excluded.sender_pattern, active = 1""",
+            (org_id, slug, clean_label, archetype, url, json.dumps(quick_links or []), clean_sender),
         )
         db.commit()
         return dict(db.execute("SELECT * FROM custom_channels WHERE org_id = ? AND slug = ?", (org_id, slug)).fetchone())

@@ -896,3 +896,98 @@ def test_email_hub_and_tools_qa_suppression_merge_guard_and_noindex():
     finally:
         if fpath.exists():
             fpath.unlink()
+
+
+def test_wakeup_engine_marketplace_ingestor_and_channel_shields():
+    from database.db import get_db
+    from api import app
+
+    org = "org_wakeup_qa"
+    client = TestClient(app)
+    hdrs = _headers("super_admin", org)
+
+    # 1. Save Telegram + Agency Shifts escalation schedule & verify secrets are masked on GET
+    p_res = client.post(
+        "/api/alerts/providers",
+        headers=hdrs,
+        json={
+            "provider": "telegram",
+            "enabled": False,
+            "config": {"bot_token": "123456:ABCDEF_SECRET_TOKEN", "chat_id": "999888"},
+            "schedule": {
+                "mode": "agency_shifts",
+                "primary_rep_name": "Alice",
+                "primary_whatsapp": "+15550001111",
+                "primary_phone": "+15550001111",
+                "backup_rep_name": "Bob",
+                "backup_whatsapp": "+15550002222",
+                "backup_phone": "+15550002222",
+                "voice_call_delay_sec": 120,
+                "backup_escalate_sec": 300,
+            },
+        },
+    )
+    assert p_res.status_code == 200
+    g_res = client.get("/api/alerts/providers", headers=hdrs).json()
+    assert g_res["providers"]["telegram"]["config"]["bot_token"].startswith("123...")
+    assert g_res["schedule"]["mode"] == "agency_shifts"
+
+    # 2. Custom channel sender rule (*@bark.com) + idempotent marketplace email ingestion
+    cc = client.post(
+        "/api/channels/custom",
+        headers=hdrs,
+        json={"label": "Bark", "archetype": "bidding_marketplace", "sender_pattern": "*@bark.com"},
+    )
+    assert cc.status_code == 200
+    ing1 = client.post(
+        "/api/alerts/events/ingest",
+        headers=hdrs,
+        json={
+            "from_email": "leads@bark.com",
+            "subject": "New lead from Sarah about Web Design",
+            "body": "Looking for an agency this week. https://www.bark.com/en/us/leads/123",
+            "external_msg_id": "bark-msg-1",
+        },
+    )
+    assert ing1.status_code == 200 and ing1.json()["event"]["platform"] == "bark"
+    ing_dup = client.post(
+        "/api/alerts/events/ingest",
+        headers=hdrs,
+        json={
+            "from_email": "leads@bark.com",
+            "subject": "New lead from Sarah about Web Design",
+            "body": "Duplicate",
+            "external_msg_id": "bark-msg-1",
+        },
+    )
+    assert ing_dup.status_code == 200 and ing_dup.json()["deduplicated"] is True
+
+    # 3. Escalation ladder: Minute 2 -> Stage 1, Minute 5 -> Stage 2 (escalated), then ACK stops it
+    ev_id = ing1.json()["event"]["id"]
+    with get_db() as conn:
+        conn.execute("UPDATE marketplace_events SET created_at = datetime('now', '-150 seconds') WHERE id = ?", (ev_id,))
+        conn.commit()
+    t1 = client.post("/api/alerts/events/tick", headers=hdrs).json()
+    assert t1["voice_calls"] == 1
+
+    with get_db() as conn:
+        conn.execute("UPDATE marketplace_events SET created_at = datetime('now', '-350 seconds') WHERE id = ?", (ev_id,))
+        conn.commit()
+    t2 = client.post("/api/alerts/events/tick", headers=hdrs).json()
+    assert t2["backup_escalations"] == 1
+
+    ack = client.post(f"/api/alerts/events/{ev_id}/ack", headers=hdrs)
+    assert ack.status_code == 200 and ack.json()["event"]["status"] == "acknowledged"
+
+    # 4. Fiverr Off-Platform Keyword Shield, Clutch 4-Point Qualifier & Upwork MCP spec
+    fc = client.post("/api/channels/fiverr/compliance-check", headers=hdrs, json={"text": "Message me on WhatsApp or PayPal at test@acme.com"}).json()
+    assert fc["safe"] is False and len(fc["warnings"]) >= 3
+    cq = client.post("/api/channels/clutch/qualify", headers=hdrs, json={"budget": 15000, "min_project_size": 10000}).json()
+    assert cq["score"] >= 75 and cq["sla_minutes"] == 30
+    mcp = client.get("/api/channels/upwork/mcp", headers=hdrs).json()
+    assert mcp["server_url"] == "https://mcp.upwork.com/mcp"
+
+    # 5. Email Hub mailbox watch_marketplace_alerts toggle
+    mb = client.post("/api/email/mailboxes", headers=hdrs, json={"email": "alerts@agency.io"}).json()
+    upd = client.put(f"/api/email/mailboxes/{mb['id']}", headers=hdrs, json={"watch_marketplace_alerts": True})
+    assert upd.status_code == 200 and upd.json()["watch_marketplace_alerts"] == 1

@@ -77,11 +77,12 @@ class CustomChannelBody(BaseModel):
     archetype: str = "custom"
     home_url: str = ""
     quick_links: List[Dict[str, str]] = Field(default_factory=list)
+    sender_pattern: str = ""
 
 
 @router.post("/custom")
 def add_custom_channel(body: CustomChannelBody, principal: Principal = Depends(WRITE)):
-    return _guard(ch.create_custom_channel, principal.org_id, body.label, body.archetype, body.home_url, body.quick_links)
+    return _guard(ch.create_custom_channel, principal.org_id, body.label, body.archetype, body.home_url, body.quick_links, body.sender_pattern)
 
 
 @router.delete("/custom/{slug}")
@@ -224,3 +225,33 @@ def patch_review(platform: str, review_id: int, body: Dict[str, Any], principal:
 @router.post("/{platform}/pacing")
 def save_pacing(platform: str, body: Dict[str, Any], principal: Principal = Depends(WRITE)):
     return _guard(ch.upsert_pacing, principal.org_id, platform, body)
+
+
+class FiverrCheckBody(BaseModel):
+    text: str = Field(..., max_length=5000)
+
+
+@router.post("/fiverr/compliance-check")
+def fiverr_compliance_check(body: FiverrCheckBody, principal: Principal = Depends(READ)):
+    from workflows.channel_shields import check_fiverr_compliance
+    return check_fiverr_compliance(body.text)
+
+
+class ClutchQualifyBody(BaseModel):
+    service_fit: int = 20
+    budget: float = 0
+    min_project_size: float = 10000
+    specificity: int = 20
+    timeline_weeks: int = 4
+
+
+@router.post("/clutch/qualify")
+def clutch_qualify(body: ClutchQualifyBody, principal: Principal = Depends(READ)):
+    from workflows.channel_shields import qualify_clutch_inquiry
+    return qualify_clutch_inquiry(body.service_fit, body.budget, body.min_project_size, body.specificity, body.timeline_weeks)
+
+
+@router.get("/upwork/mcp")
+def upwork_mcp_info(principal: Principal = Depends(READ)):
+    from workflows.channel_shields import get_upwork_mcp_spec
+    return get_upwork_mcp_spec()
